@@ -1,0 +1,3 @@
+# Use NestJS alongside Angular in the Nx workspace
+
+Use NestJS/TypeScript for PawTrace's local API alongside Angular in Nx, replacing the earlier Python/FastAPI proposal. The user chose this direction to align backend maintenance with their Angular experience and future PostgreSQL/PostGIS plans. The trade-off is a more involved native-codec path for HEIC processing; preserve the original independently of derivative generation and keep image processing behind a server-side boundary. PostgreSQL/PostGIS remain outside the file-based MVP; the [feasibility research](../mvp/research/nestjs-image-feasibility.md) records technical options and tests still required.

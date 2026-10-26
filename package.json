@@ -1,0 +1,16 @@
+{
+  "name": "pawtrace",
+  "version": "1.0.0",
+  "description": "<img src=\"assets/icon.svg\" width=\"64\" height=\"64\" alt=\"\">",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
