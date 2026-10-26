@@ -1,0 +1,32 @@
+:host {
+  display: block;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+h1 {
+  margin: 0;
+  color: var(--pt-brand);
+  font-size: 21px;
+  font-weight: 780;
+  letter-spacing: -0.7px;
+}
+p {
+  margin: 2px 0 0;
+  color: var(--pt-muted);
+  font-size: 11px;
+}
+@media (max-width: 480px) {
+  h1 {
+    font-size: 18px;
+  }
+  p {
+    font-size: 10px;
+  }
+  img {
+    width: 28px;
+    height: 28px;
+  }
+}

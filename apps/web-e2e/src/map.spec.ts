@@ -5,6 +5,45 @@ const pageErrors = new WeakMap<Page, string[]>();
 const tile = (size: number) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="100%" height="100%" fill="#dce8d1"/><path d="M0 80 L${size} 200" stroke="#fffef8" stroke-width="8"/></svg>`;
 
+for (const width of [390, 1280]) {
+  test(`floating layout remains usable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const guide = page.getByRole("complementary", {
+      name: "Jak korzystać z mapy",
+    });
+    const search = page.getByRole("search");
+    const basemaps = page.getByRole("toolbar", { name: "Podkład mapy" });
+    await expect(search).toBeVisible();
+    const searchBox = await search.boundingBox();
+    const basemapBox = await basemaps.boundingBox();
+    expect(searchBox!.x + searchBox!.width).toBeLessThan(basemapBox!.x);
+    expect(basemapBox!.x).toBeGreaterThan(width / 2);
+    const toggle = page.getByRole("button", { name: "Przestrzeń poszukiwań" });
+    await expect(guide).toBeVisible();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(guide).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Space");
+    await expect(guide).toBeVisible();
+    await page.getByRole("button", { name: "Przybliż", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Moja lokalizacja" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const header = await page.getByRole("banner").boundingBox();
+    const map = await page
+      .getByRole("region", { name: "Mapa poszukiwań" })
+      .boundingBox();
+    expect(map?.y).toBe(header?.height);
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   pageErrors.set(page, errors);
@@ -18,6 +57,21 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://api.mapbox.com/**", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: tile(512) }),
   );
+});
+
+test("basemap toolbar supports arrow-key navigation", async ({ page }) => {
+  await page.goto("/");
+  const street = page.getByRole("button", { name: "Mapa OSM", exact: true });
+  const satellite = page.getByRole("button", { name: "Satelita", exact: true });
+  await street.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(satellite).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Satelita wymaga skonfigurowania tokenu Mapbox.", {
+      exact: false,
+    }),
+  ).toBeVisible();
 });
 
 test.afterEach(async ({ page }) => {

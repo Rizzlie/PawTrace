@@ -1,28 +1,45 @@
+@use "../../../libs/web/shared/ui/src/theme";
 @import "leaflet/dist/leaflet.css";
 
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: #f6f7ef;
-  font-family: "Segoe UI", system-ui, sans-serif;
-}
-* {
-  box-sizing: content-box;
-}
 .leaflet-container {
-  font-family: "Segoe UI", system-ui, sans-serif;
-}
-.leaflet-control-attribution {
-  max-width: calc(100vw - 50px);
+  font-family: system-ui, sans-serif;
 }
 .leaflet-container a {
-  color: #365d31;
+  color: var(--pt-primary);
+}
+.leaflet-control-attribution {
+  max-width: calc(100vw - 75px);
 }
 .leaflet-touch .leaflet-bar {
-  border-color: #d4dfc8;
+  border: 1px solid var(--pt-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--pt-shadow);
 }
 .leaflet-bar a {
-  color: #365344;
-  background: #fffef8;
+  color: var(--pt-primary);
+  background: var(--pt-surface);
+}
+.leaflet-bar a:hover {
+  background: var(--pt-soft);
+}
+.leaflet-control-scale-line {
+  box-sizing: content-box;
+  border-color: var(--pt-muted);
+  color: var(--pt-foreground);
+  background: #fcfdf9d9;
+}
+.leaflet-right .leaflet-control {
+  margin-right: 16px;
+}
+.leaflet-bottom .leaflet-control {
+  margin-bottom: 16px;
+}
+.leaflet-bottom .leaflet-control-attribution {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
 }

@@ -15,10 +15,12 @@ import {
   type MapViewport,
 } from "@pawtrace/map-engine";
 import { AddressSearch, type AddressSearchResult } from "@pawtrace/workspace";
+import { AppHeader } from "./layout/app-header/app-header";
+import { FloatingPanel } from "@pawtrace/shared-ui";
 
 @Component({
   selector: "app-root",
-  imports: [MapEngine, AddressSearch],
+  imports: [MapEngine, AddressSearch, AppHeader, FloatingPanel],
   templateUrl: "./app.html",
   styleUrl: "./app.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +35,7 @@ export class App {
       zoom: 15,
     });
   }
+  protected readonly guideOpen = signal(true);
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly mapConfig = signal<MapConfig>({ mapboxToken: "" });

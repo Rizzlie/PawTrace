@@ -6,41 +6,45 @@
 .canvas {
   position: absolute;
   inset: 0;
-  background: #eaf0df;
+  background: var(--pt-map, #e9eedd);
 }
 .map-tools {
   position: absolute;
   z-index: 500;
-  top: 22px;
-  right: 22px;
+  top: 16px;
+  right: 16px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+.map-tools > * {
+  pointer-events: auto;
 }
 button {
   font: inherit;
-  font-size: 13px;
-  color: #365344;
-  background: #fffef8;
-  border: 1px solid #d4dfc8;
+  font-size: 12px;
+  color: var(--pt-foreground, #294535);
+  background: var(--pt-surface, #fcfdf9);
+  border: 1px solid var(--pt-border, #dde5dc);
   border-radius: 10px;
   padding: 11px 14px;
   cursor: pointer;
-  box-shadow: 0 3px 12px #263d3012;
+  box-shadow: 0 4px 18px #26422a0e;
 }
 button:hover {
-  background: #f0f4e8;
+  background: var(--pt-soft, #edf3e9);
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #416b37;
+  outline: 3px solid #75ac8d;
   outline-offset: 3px;
 }
 button[aria-pressed="true"] {
-  color: #fffef8;
-  background: #416b37;
-  border-color: #416b37;
+  color: #fff;
+  background: var(--pt-primary, #2c654c);
+  border-color: var(--pt-primary, #2c654c);
 }
 button:disabled {
   opacity: 0.65;
@@ -50,55 +54,64 @@ button:disabled {
   display: flex;
 }
 .basemaps button:first-child {
-  border-radius: 10px 0 0 10px;
+  border-radius: 12px 0 0 12px;
 }
 .basemaps button:last-child {
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 12px 12px 0;
 }
 .messages {
   position: absolute;
-  z-index: 500;
-  top: 82px;
-  right: 22px;
-  max-width: 300px;
-  padding: 14px 18px;
-  border: 1px solid #d4dfc8;
-  border-radius: 14px;
-  background: #fffef8;
-  box-shadow: 0 8px 24px #263d3018;
+  z-index: 501;
+  top: 79px;
+  right: 16px;
+  max-width: min(300px, calc(100% - 32px));
+  max-height: calc(100% - 160px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid #fff;
+  border-radius: 16px;
+  background: var(--pt-panel, #fffffff2);
+  box-shadow: var(--pt-shadow, 0 8px 32px #2f4c2a17);
+  backdrop-filter: blur(8px);
 }
 .messages p {
-  font-size: 13px;
-  line-height: 1.5;
+  color: var(--pt-foreground, #294535);
+  font-size: 12px;
+  line-height: 1.6;
   margin: 0 0 8px;
 }
 .messages p:last-child {
   margin-bottom: 0;
 }
 .messages button {
-  font-size: 12px;
+  font-size: 11px;
   padding: 7px 10px;
   margin-bottom: 8px;
 }
 .mapbox-logo {
   position: absolute;
   z-index: 500;
-  left: 10px;
+  left: 16px;
   bottom: 50px;
 }
 .mapbox-logo img {
   display: block;
 }
-@media (max-width: 760px) {
+@media (max-width: 600px) {
   .map-tools {
     top: 12px;
     right: 12px;
-    left: 12px;
+    gap: 8px;
+  }
+  button {
+    font-size: 11px;
+    padding: 10px;
   }
   .messages {
-    top: 112px;
+    top: 65px;
     right: 12px;
     left: 12px;
     max-width: none;
+    max-height: calc(100% - 345px);
   }
 }

@@ -9,10 +9,12 @@ import {
   viewChild,
 } from "@angular/core";
 import { LeafletMap } from "./leaflet-map";
+import { Toolbar, ToolbarWidget } from "@angular/aria/toolbar";
 import type { MapConfig, MapViewport } from "./map-types";
 
 @Component({
   selector: "pt-map",
+  imports: [Toolbar, ToolbarWidget],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [LeafletMap],
   templateUrl: "./map-engine.html",

@@ -1,0 +1,17 @@
+{
+  "name": "shared-ui",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/web/shared/ui/src",
+  "prefix": "pt",
+  "projectType": "library",
+  "tags": ["platform:web", "scope:shared", "type:ui"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "ngc -p libs/web/shared/ui/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}
