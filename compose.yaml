@@ -8,6 +8,7 @@ services:
       - "${ASSET_DIRECTORY:-./data/assets}:/app/data/assets"
     environment:
       ASSET_DIRECTORY: /app/data/assets
+      MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-}
     healthcheck:
       test:
         [

@@ -1,0 +1,18 @@
+{
+  "name": "map-engine",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/web/map-engine/src",
+  "prefix": "pt",
+  "projectType": "library",
+  "tags": ["platform:web", "type:map-engine"],
+  "// targets": "to see all targets run: nx show project map-engine --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "ngc -p libs/web/map-engine/tsconfig.lib.json --noEmit && tsc -p libs/web/map-engine/tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

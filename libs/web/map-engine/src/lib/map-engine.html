@@ -1,0 +1,36 @@
+<div #canvas class="canvas" role="region" aria-label="Mapa poszukiwań"></div>
+<div class="map-tools" role="group" aria-label="Narzędzia mapy">
+  <div class="basemaps" role="group" aria-label="Podkład mapy">
+    <button
+      type="button"
+      [attr.aria-pressed]="basemap() === 'osm'"
+      (click)="selectBasemap('osm')"
+    >
+      Mapa OSM
+    </button>
+    <button
+      type="button"
+      [attr.aria-pressed]="basemap() === 'satellite'"
+      (click)="selectBasemap('satellite')"
+    >
+      Satelita
+    </button>
+  </div>
+  <button type="button" [disabled]="locating()" (click)="locate()">
+    <span aria-hidden="true">⌖</span> Moja lokalizacja
+  </button>
+</div>
+@if (tileMessage() || locationMessage()) {
+<aside class="messages" aria-label="Komunikaty mapy">
+  @if (tileMessage()) {
+  <p role="status">{{ tileMessage() }}</p>
+  <button type="button" (click)="retryTiles()">Ponów pobieranie mapy</button>
+  } @if (locationMessage()) {
+  <p role="status">{{ locationMessage() }}</p>
+  }
+</aside>
+} @if (basemap() === 'satellite') {
+<a class="mapbox-logo" href="https://www.mapbox.com/" aria-label="Mapbox"
+  ><img src="assets/mapbox-logo.svg" alt="Mapbox" width="88" height="20"
+/></a>
+}

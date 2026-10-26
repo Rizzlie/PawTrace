@@ -8,16 +8,28 @@ import { App } from "./app";
 
 describe("Application shell", () => {
   beforeEach(async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
   });
-  afterEach(() => TestBed.inject(HttpTestingController).verify());
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+    vi.unstubAllGlobals();
+  });
 
   it("shows a successful API connection in the shell", async () => {
     const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    TestBed.inject(HttpTestingController)
+      .expectOne("/api/map-config")
+      .flush({ mapboxToken: "" });
     TestBed.inject(HttpTestingController)
       .expectOne("/api/health")
       .flush({ status: "ok" });
@@ -31,7 +43,9 @@ describe("Application shell", () => {
 
   it("lets the user reconnect after a failed health request", async () => {
     const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    TestBed.inject(HttpTestingController)
+      .expectOne("/api/map-config")
+      .flush({ mapboxToken: "" });
     const http = TestBed.inject(HttpTestingController);
     http
       .expectOne("/api/health")
@@ -41,7 +55,7 @@ describe("Application shell", () => {
     expect(shell.querySelector('[role="status"]')?.textContent).toContain(
       "Serwer jest niedostępny",
     );
-    shell.querySelector("button")?.click();
+    shell.querySelector<HTMLButtonElement>(".connection button")?.click();
     http.expectOne("/api/health").flush({ status: "ok" });
     await fixture.whenStable();
     expect(shell.querySelector('[role="status"]')?.textContent).toContain(
