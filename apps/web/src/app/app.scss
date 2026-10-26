@@ -40,10 +40,10 @@ main {
 .guide-toggle span:last-child {
   margin-left: auto;
 }
-app-floating-panel {
+pt-floating-panel {
   margin-top: 8px;
 }
-app-floating-panel[hidden] {
+pt-floating-panel[hidden] {
   display: none;
 }
 .eyebrow {

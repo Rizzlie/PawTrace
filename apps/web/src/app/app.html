@@ -14,7 +14,7 @@
         <span aria-hidden="true">⌖</span> Przestrzeń poszukiwań
         <span aria-hidden="true">{{ guideOpen() ? '−' : '+' }}</span>
       </button>
-      <app-floating-panel
+      <pt-floating-panel
         id="map-guide"
         label="Jak korzystać z mapy"
         [hidden]="!guideOpen()"
@@ -37,9 +37,9 @@
             wrócić w pobliże.
           </li>
         </ul>
-      </app-floating-panel>
+      </pt-floating-panel>
     </div>
-    @if(configFailed()) {<app-floating-panel
+    @if(configFailed()) {<pt-floating-panel
       class="config-error"
       label="Konfiguracja mapy"
       ><div panel-heading class="eyebrow">Konfiguracja mapy</div>
@@ -48,7 +48,7 @@
       </p>
       <button type="button" (click)="loadMapConfig()">
         Ponów konfigurację
-      </button></app-floating-panel
+      </button></pt-floating-panel
     >}
   </section>
 </main>

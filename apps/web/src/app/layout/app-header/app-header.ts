@@ -4,7 +4,7 @@ import {
   input,
   output,
 } from "@angular/core";
-import { Brand } from "../../shared/brand/brand";
+import { Brand } from "@pawtrace/shared-ui";
 @Component({
   selector: "app-header",
   imports: [Brand],

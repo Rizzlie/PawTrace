@@ -16,7 +16,7 @@ import {
 } from "@pawtrace/map-engine";
 import { AddressSearch, type AddressSearchResult } from "@pawtrace/workspace";
 import { AppHeader } from "./layout/app-header/app-header";
-import { FloatingPanel } from "./shared/floating-panel/floating-panel";
+import { FloatingPanel } from "@pawtrace/shared-ui";
 
 @Component({
   selector: "app-root",

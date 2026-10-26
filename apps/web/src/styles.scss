@@ -1,67 +1,6 @@
+@use "../../../libs/web/shared/ui/src/theme";
 @import "leaflet/dist/leaflet.css";
-:root {
-  --pt-foreground: #294535;
-  --pt-brand: #285a41;
-  --pt-primary: #2c654c;
-  --pt-primary-hover: #204c39;
-  --pt-muted: #62755f;
-  --pt-surface: #fcfdf9;
-  --pt-panel: #fffffff2;
-  --pt-panel-border: #fff;
-  --pt-soft: #edf3e9;
-  --pt-border: #dde5dc;
-  --pt-map: #e9eedd;
-  --pt-warning: #9b7441;
-  --pt-danger: #a74e38;
-  --pt-shadow: 0 8px 32px #2f4c2a17, 0 1px 4px #2f4c2a0a;
-}
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: #eef2e7;
-  font:
-    13px system-ui,
-    sans-serif;
-  color: var(--pt-foreground);
-}
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-button {
-  cursor: pointer;
-  border: 1px solid var(--pt-border);
-  background: var(--pt-surface);
-  color: var(--pt-foreground);
-  border-radius: 10px;
-  padding: 9px 12px;
-  transition:
-    background 0.15s,
-    box-shadow 0.15s;
-}
-button:hover {
-  background: var(--pt-soft);
-}
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #75ac8d;
-  outline-offset: 3px;
-}
-button:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
+
 .leaflet-container {
   font-family: system-ui, sans-serif;
 }

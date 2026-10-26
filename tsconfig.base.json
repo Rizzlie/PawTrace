@@ -16,7 +16,8 @@
     "strict": true,
     "paths": {
       "@pawtrace/map-engine": ["./libs/web/map-engine/src/index.ts"],
-      "@pawtrace/workspace": ["./libs/web/workspace/src/index.ts"]
+      "@pawtrace/workspace": ["./libs/web/workspace/src/index.ts"],
+      "@pawtrace/shared-ui": ["./libs/web/shared/ui/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

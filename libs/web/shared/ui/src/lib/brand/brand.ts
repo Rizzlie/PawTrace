@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 @Component({
-  selector: "app-brand",
+  selector: "pt-brand",
   templateUrl: "./brand.html",
   styleUrl: "./brand.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
