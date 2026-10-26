@@ -1,3 +1,7 @@
+# Coding principles
+
+- Follow the [coding principles in AGENTS.md](AGENTS.md#coding-principles), including **declarative > imperative**, when implementing or reviewing code.
+
 # Contribution workflow
 
 - Before changing files, create or switch to a dedicated task branch (for example, `feat/f02-map` or `chore/tooling`). Never commit on `main`.
