@@ -47,6 +47,10 @@ export default [
               onlyDependOnLibsWithTags: ["platform:shared"],
             },
             {
+              allSourceTags: ["platform:web", "type:app"],
+              bannedExternalImports: ["leaflet", "leaflet/*"],
+            },
+            {
               sourceTag: "type:browser-persistence",
               onlyDependOnLibsWithTags: ["platform:shared"],
             },

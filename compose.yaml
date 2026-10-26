@@ -8,6 +8,11 @@ services:
       - "${ASSET_DIRECTORY:-./data/assets}:/app/data/assets"
     environment:
       ASSET_DIRECTORY: /app/data/assets
+      MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-}
+      OSM_TILE_URL: ${OSM_TILE_URL:-}
+      OSM_ATTRIBUTION: ${OSM_ATTRIBUTION:-}
+      SATELLITE_TILE_URL: ${SATELLITE_TILE_URL:-}
+      SATELLITE_ATTRIBUTION: ${SATELLITE_ATTRIBUTION:-}
     healthcheck:
       test:
         [

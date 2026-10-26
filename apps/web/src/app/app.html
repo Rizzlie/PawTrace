@@ -6,43 +6,42 @@
       <p>Każdy ślad ma znaczenie</p>
     </div>
   </div>
-  <span class="stage">Przestrzeń poszukiwań</span>
+  <div class="connection">
+    <p
+      role="status"
+      aria-label="Połączenie z serwerem"
+      [class.online]="connection() === 'online'"
+      [class.offline]="connection() === 'offline'"
+    >
+      @switch (connection()) { @case ('checking') { Sprawdzanie połączenia… }
+      @case ('online') { Połączono z serwerem } @case ('offline') { Serwer jest
+      niedostępny } }
+    </p>
+    @if (connection() === 'offline') {
+    <button type="button" (click)="checkConnection()">Spróbuj ponownie</button>
+    }
+  </div>
 </header>
 <main>
   <section class="workspace" aria-label="Przestrzeń poszukiwań">
-    <aside class="panel intro">
-      <span class="eyebrow">Zacznij od jednego śladu</span>
-      <h2>Bliżej do domu.</h2>
-      <p>Miejsce na informacje, które pomogą odnaleźć zaginione zwierzę.</p>
-      <div class="empty">
-        <span aria-hidden="true">⌖</span>
-        <div>
-          <strong>Tu zacznie się Twoja mapa</strong>
-          <p>Mapa i miejsca poszukiwań pojawią się w kolejnym etapie.</p>
-        </div>
-      </div>
-    </aside>
-    <div class="workspace-label" aria-hidden="true">
-      <span>PAWTRACE</span>
-      <p>Przestrzeń na kolejne ślady</p>
-    </div>
-    <aside class="panel connection">
-      <h2>Połączenie</h2>
-      <p
-        role="status"
-        [class.online]="connection() === 'online'"
-        [class.offline]="connection() === 'offline'"
-      >
-        @switch (connection()) { @case ('checking') { Sprawdzanie połączenia… }
-        @case ('online') { Połączono z serwerem } @case ('offline') { Serwer
-        jest niedostępny } }
+    <pt-map [config]="mapConfig()" />
+    <aside class="intro">
+      <span class="eyebrow">Przestrzeń poszukiwań</span>
+      <h2>Zacznij od miejsca.</h2>
+      <p>
+        Przesuwaj mapę i przybliżaj teren poszukiwań. Wybierz mapę uliczną lub
+        satelitę.
       </p>
-      @if (connection() === 'offline') {
-      <button type="button" (click)="checkConnection()">
-        Spróbuj ponownie
-      </button>
-      }
     </aside>
-    <p class="workspace-note">Spokojnie, krok po kroku.</p>
+    @if (configFailed()) {
+    <aside class="config-error">
+      <p role="status">
+        Nie udało się pobrać konfiguracji satelity. Mapa OSM działa niezależnie.
+      </p>
+      <button type="button" (click)="loadMapConfig()">
+        Ponów konfigurację
+      </button>
+    </aside>
+    }
   </section>
 </main>

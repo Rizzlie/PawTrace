@@ -4,6 +4,9 @@ test("shell connects to the real API through the browser origin", async ({
   page,
   request,
 }) => {
+  await page.route("https://tile.openstreetmap.org/**", (route) =>
+    route.abort(),
+  );
   const health = await request.get("/api/health");
   expect(health.ok()).toBeTruthy();
   expect(await health.json()).toEqual({ status: "ok" });
@@ -11,7 +14,9 @@ test("shell connects to the real API through the browser origin", async ({
   await expect(
     page.getByRole("heading", { name: "PawTrace", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Połączono z serwerem");
+  await expect(
+    page.getByRole("status", { name: "Połączenie z serwerem" }),
+  ).toHaveText("Połączono z serwerem");
   await expect
     .poll(() =>
       page
