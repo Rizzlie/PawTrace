@@ -13,6 +13,10 @@ services:
       OSM_ATTRIBUTION: ${OSM_ATTRIBUTION:-}
       SATELLITE_TILE_URL: ${SATELLITE_TILE_URL:-}
       SATELLITE_ATTRIBUTION: ${SATELLITE_ATTRIBUTION:-}
+      ADDRESS_SEARCH_URL: ${ADDRESS_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
+      ADDRESS_SEARCH_USER_AGENT: ${ADDRESS_SEARCH_USER_AGENT:-PawTrace/1.0 (+https://github.com/Rizzlie/PawTrace)}
+      ADDRESS_SEARCH_ATTRIBUTION: ${ADDRESS_SEARCH_ATTRIBUTION:-© OpenStreetMap contributors}
+      ADDRESS_SEARCH_ATTRIBUTION_URL: ${ADDRESS_SEARCH_ATTRIBUTION_URL:-https://www.openstreetmap.org/copyright}
     healthcheck:
       test:
         [

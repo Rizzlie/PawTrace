@@ -24,7 +24,8 @@
 </header>
 <main>
   <section class="workspace" aria-label="Przestrzeń poszukiwań">
-    <pt-map [config]="mapConfig()" />
+    <pt-map [config]="mapConfig()" [viewport]="viewport()" />
+    <pt-address-search (resultSelected)="selectAddress($event)" />
     <aside class="intro">
       <span class="eyebrow">Przestrzeń poszukiwań</span>
       <h2>Zacznij od miejsca.</h2>

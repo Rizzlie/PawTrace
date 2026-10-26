@@ -2,7 +2,7 @@
 
 Use this index when the user asks to implement an identifier such as `F01`. Open the matching task file, read this execution guide, and follow that task's specification pointers. These are implementation tasks; the numbered decision tickets under `docs/mvp/issues/` remain the product specification.
 
-F01 is implemented and verified. F02 is implemented with deterministic checks passing, but remains `blocked` on live Mapbox account/token acceptance. F03–F15 remain `planned`; task documents alone do not implement application features.
+F01 and F03 are implemented and verified. F02 is implemented with deterministic checks passing, but remains `blocked` on live Mapbox account/token acceptance. F04–F15 remain `planned`; task documents alone do not implement application features.
 
 ## Execution guide
 
@@ -21,7 +21,7 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 
 1. [F01 — Nx workspace and local Docker runtime](F01-workspace-and-docker.md) — done. Dependencies: none.
 2. [F02 — Leaflet map and basemap switching](F02-map-and-basemaps.md) — blocked: implementation ready; live Mapbox tile verification requires a configured public token. Dependencies: F01.
-3. [F03 — Address search through the local API](F03-address-search.md) — planned. Dependencies: F01, F02.
+3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM while F02's satellite-token check remains pending.
 4. [F04 — Case domain model and JSON contract](F04-domain-and-json-contract.md) — planned. Dependencies: F01.
 5. [F05 — Case lifecycle, autosave, and file transfer](F05-case-persistence.md) — planned. Dependencies: F02, F04.
 6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — planned. Dependencies: F04, F05.

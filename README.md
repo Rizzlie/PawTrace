@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
+F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -117,5 +117,15 @@ Tiles load directly through the browser, retaining normal HTTP caching and refer
 Tile caching uses the browser's HTTP memory/disk cache, honoring the provider's `Cache-Control`, `Expires`, `Age` and validators such as `ETag`. A fresh cached response can be reused without a provider request; an expired response may require revalidation or download. Cache retention also depends on the browser and available storage. There is no application-owned tile cache in IndexedDB, Cache Storage, the API or Docker, and no offline guarantee. The API's `no-store` header applies to `/api/map-config`; tile images receive their own provider headers.
 
 OSM's policy accepts normal browser HTTP caching. A small OSM HEAD check on 2026-10-26 confirmed cache-control and ETag headers; its TTL is provider-controlled, not hardcoded in PawTrace. Mapbox Static Tiles currently documents `max-age=43200` (12 hours for the browser) and a separate shared/CDN TTL. The `keepBuffer: 0` Leaflet option limits offscreen tile elements; it does not disable HTTP caching or prefetch extra tiles. Only changes to the active source or an explicit retry replace a layer; equivalent configuration, inactive-source changes and loading/error signal updates retain it. Automated tests with routed tile responses verify behavior, not the browser's real HTTP cache hit rate.
+
+## Address search
+
+Type a Polish address and use Enter or **Szukaj**, then choose a result to move the map. Selecting a result creates no case point. Loading, no-results and provider-error feedback leave manual map navigation available. Search input goes to the geocoder; enter address information only, without personal or case-history text.
+
+The accepted public [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) requires explicit user-triggered searches, application identification, attribution, caching, and at most one upstream request per second across all users. No autocomplete, bulk lookup or automatic retries are implemented. Availability is not guaranteed. Keep this local deployment to **one API process/replica**: its singleton queue serializes requests and waits at least a second after each response. Do not run multiple independent PawTrace instances against the public service; a larger deployment requires one shared gateway or a different provider.
+
+`GET /api/address-search?q=...` accepts 2–200 characters and sends only the normalized query plus fixed Poland/language/format/result-limit parameters. The response contains `results` (`id`, `label`, `latitude`, `longitude`) and provider `attribution`. It does not accept or forward case data. Successful and empty results are cached in memory for 24 hours, up to 500 queries; concurrent duplicates share one request. Restarting the API clears this cache. At most 50 distinct searches can be pending; overload returns 503. Upstream calls time out after 10 seconds; provider 429/503 responses defer subsequent calls according to `Retry-After` (60 seconds if missing). Failures are not cached. The browser gives up after 30 seconds and offers manual resubmission, without an automatic retry loop.
+
+Configure `ADDRESS_SEARCH_URL` (a Nominatim-compatible `/search` endpoint), `ADDRESS_SEARCH_USER_AGENT`, `ADDRESS_SEARCH_ATTRIBUTION` (plain text), and `ADDRESS_SEARCH_ATTRIBUTION_URL` (HTTP(S)) on the server. Defaults are in `.env.example`; Compose forwards these settings. Restart/recreate the API to switch provider without rebuilding the browser. For Node development, export the variables in the shell before starting the API; `.env` is read automatically only by Compose. The server sends the configured identification, never browser cookies or case history, and refuses upstream redirects.
 
 Temporary working files belong in `.scratch/`, which is ignored by Git. Durable specifications, research, and prototypes belong in `docs/`.

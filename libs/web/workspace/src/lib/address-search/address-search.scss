@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  color: #263d30;
+}
+section {
+  padding: 16px;
+  background: #fffef8f5;
+  border: 1px solid #dce4d5;
+  border-radius: 16px;
+  box-shadow: 0 10px 35px #405a3120;
+}
+label {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.search-row {
+  display: flex;
+  gap: 8px;
+}
+input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #a9ba9d;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+  font-size: 13px;
+  background: white;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #416b37;
+  color: #fffef8;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+:is(input, button, a):focus-visible {
+  outline: 3px solid #a7be91;
+  outline-offset: 2px;
+}
+p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+#search-help {
+  color: #657560;
+  font-size: 11px;
+}
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  max-height: min(30vh, 240px);
+  overflow: auto;
+}
+li + li {
+  margin-top: 5px;
+}
+.result {
+  text-align: left;
+  width: 100%;
+  background: #eaf0df;
+  color: #263d30;
+  line-height: 1.5;
+}
+.result:hover {
+  background: #dce8d1;
+}
+a {
+  display: inline-block;
+  font-size: 11px;
+  color: #416b37;
+  margin-top: 10px;
+}
+[role="alert"] {
+  color: #91462f;
+}

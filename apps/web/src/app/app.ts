@@ -12,16 +12,27 @@ import {
   MapEngine,
   parseMapConfig,
   type MapConfig,
+  type MapViewport,
 } from "@pawtrace/map-engine";
+import { AddressSearch, type AddressSearchResult } from "@pawtrace/workspace";
 
 @Component({
   selector: "app-root",
-  imports: [MapEngine],
+  imports: [MapEngine, AddressSearch],
   templateUrl: "./app.html",
   styleUrl: "./app.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
+  protected readonly viewport = signal<MapViewport | undefined>(undefined);
+
+  protected selectAddress(result: AddressSearchResult): void {
+    this.viewport.set({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      zoom: 15,
+    });
+  }
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly mapConfig = signal<MapConfig>({ mapboxToken: "" });
