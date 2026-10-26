@@ -1,0 +1,17 @@
+{
+  "name": "case-domain",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/case-domain/src",
+  "projectType": "library",
+  "tags": ["platform:shared", "type:case-domain"],
+  "// targets": "to see all targets run: nx show project case-domain --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "tsc -p libs/shared/case-domain/tsconfig.lib.json --noEmit && tsc -p libs/shared/case-domain/tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

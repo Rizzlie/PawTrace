@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-26T12:00:00Z",
+  "case": {
+    "id": "case-luna",
+    "title": "Poszukiwania Luny",
+    "createdAt": "2026-10-25T10:00:00+01:00",
+    "updatedAt": "2026-10-25T10:00:00+01:00",
+    "timeZone": "Europe/Warsaw",
+    "escape": {
+      "occurredAt": { "kind": "unknown", "description": null },
+      "escapePointId": null,
+      "description": null,
+      "directionOfTravel": null,
+      "familiarWithLocation": null
+    }
+  },
+  "animal": null,
+  "points": [],
+  "areas": [],
+  "assets": [],
+  "mapView": {
+    "center": { "latitude": 52.1, "longitude": 19.4 },
+    "zoom": 6,
+    "basemap": "osm"
+  }
+}
