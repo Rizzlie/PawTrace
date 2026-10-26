@@ -30,14 +30,14 @@ Types come from `@commitlint/config-conventional`: `build`, `chore`, `ci`, `docs
 
 Run `npm ci` with the Node and npm versions in the root README. The prepare lifecycle installs Husky hooks automatically.
 
-- `pre-commit`: rejects `main` and detached HEAD, runs lint-staged to format staged files with Prettier, then runs workspace typechecking and the full unit/integration suite through Nx.
+- `pre-commit`: rejects `main` and detached HEAD, runs lint-staged to format staged files with Prettier, then passes the staged file list (including deletions and both sides of renames) to `nx affected --stdin` for typechecking and unit/integration tests. Only projects and dependent tasks affected by those staged paths are selected; checks read the current working tree.
 - `commit-msg`: validates the proposed commit message with commitlint.
 - `pre-merge-commit`: blocks local merge commits; merge PRs on GitHub.
 - `pre-push`: rejects any push targeting `refs/heads/main`, including a feature-branch refspec targeting `main`.
 
 Prettier formats staged files and lint-staged stages the results while preserving unstaged changes. Generated files, vendored agent skills and original standalone prototypes are excluded through `.prettierignore`. `npm run format` formats changed files; `npm run format:check` checks them. Formatting uses the repository's existing double quotes, two-space indentation and trailing commas, with LF line endings. Git attributes keep hook scripts portable on Windows and Linux.
 
-The GitHub PR workflow validates commit messages and the PR title, checks changed file formatting, runs typecheck, lint, tests and production builds, and exercises Chromium against both development servers. CI and container installs skip local hook installation; production-only installs do not require Husky.
+The GitHub PR workflow validates commit messages and the PR title, checks changed file formatting, uses `nx affected -t typecheck lint test build e2e --base="$BASE_SHA" --head="$HEAD_SHA"` to run only affected checks. Chromium is installed only when a browser-test project is affected; e2e waits for its application build dependencies. Shared configuration and lockfile changes still select every task whose inputs they affect. CI and container installs skip local hook installation; production-only installs do not require Husky.
 
 ## GitHub protection
 

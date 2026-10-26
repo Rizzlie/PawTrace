@@ -15,7 +15,8 @@
         {
           "env": "BASE_URL"
         }
-      ]
+      ],
+      "dependsOn": ["^build"]
     }
   },
   "plugins": [

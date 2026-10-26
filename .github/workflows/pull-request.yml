@@ -54,9 +54,13 @@ jobs:
       - run: npm ci
       - name: Check changed file formatting
         run: npm run format:check -- --base="$BASE_SHA" --head="$HEAD_SHA"
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+      - name: Detect affected browser tests
+        id: affected-browser-tests
+        run: |
+          projects=$(npm exec --no -- nx show projects --affected --withTarget=e2e --base="$BASE_SHA" --head="$HEAD_SHA" --json)
+          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+      - name: Install Chromium for affected browser tests
+        if: steps.affected-browser-tests.outputs.projects != '[]'
+        run: npx playwright install --with-deps chromium
+      - name: Check affected projects
+        run: npm exec --no -- nx affected -t typecheck lint test build e2e --base="$BASE_SHA" --head="$HEAD_SHA"
