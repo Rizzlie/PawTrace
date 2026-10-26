@@ -1,34 +1,42 @@
 import * as L from "leaflet";
+import {
+  inject,
+  SecurityContext,
+  Service,
+  type OnDestroy,
+} from "@angular/core";
+import { DomSanitizer } from "@angular/platform-browser";
 import type { Basemap, MapConfig, MapViewport } from "./map-types";
+import { defaultMapSources } from "./map-config";
 
-const osmAttribution =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-const satelliteAttribution =
-  '<a href="https://www.mapbox.com/about/maps/">&copy; Mapbox</a> | ' +
-  osmAttribution +
-  ' | <a href="https://www.maxar.com/">&copy; Maxar</a> | <a href="https://www.mapbox.com/map-feedback/">Improve this map</a>';
 interface MapEvents {
   viewportChanged: (view: MapViewport) => void;
   basemapChanged: (basemap: Basemap) => void;
   tileMessage: (message: string) => void;
 }
 
-/** Owns Leaflet resources; case state and persistence belong to the caller. */
-export class LeafletMap {
-  private readonly map: L.Map;
-  private readonly resizeObserver: ResizeObserver;
+/** One component-scoped map; Angular destroys its resources with the host. */
+@Service({ autoProvided: false })
+export class LeafletMap implements OnDestroy {
+  private readonly sanitizer = inject(DomSanitizer);
+  private map!: L.Map;
+  private events!: MapEvents;
+  private resizeObserver?: ResizeObserver;
   private layer?: L.TileLayer;
   private basemap: Basemap = "osm";
   private config: MapConfig = { mapboxToken: "" };
   private restoring = false;
   private destroyed = false;
+  private zooming = false;
+  private pendingViewport?: MapViewport;
+  private restoreFrame?: number;
   private tileTimeout?: ReturnType<typeof setTimeout>;
   private locationLayers?: L.LayerGroup;
 
-  constructor(
-    container: HTMLElement,
-    private readonly events: MapEvents,
-  ) {
+  initialize(container: HTMLElement, events: MapEvents): void {
+    if (this.map || this.destroyed)
+      throw new Error("Map service can only be initialized once.");
+    this.events = events;
     this.map = L.map(container, {
       zoomControl: false,
       minZoom: 3,
@@ -53,10 +61,16 @@ export class LeafletMap {
       { animate: false },
     );
     this.map.on("moveend", this.onMoveEnd);
+    this.map.on("zoomstart", this.onZoomStart);
+    this.map.on("zoomend", this.onZoomEnd);
     this.resizeObserver = new ResizeObserver(() => {
+      const wasRestoring = this.restoring;
       this.restoring = true;
-      this.map.invalidateSize({ pan: false, debounceMoveend: false });
-      this.restoring = false;
+      try {
+        this.map.invalidateSize({ pan: false, debounceMoveend: false });
+      } finally {
+        this.restoring = wasRestoring;
+      }
     });
     this.resizeObserver.observe(container);
     this.selectBasemap("osm");
@@ -72,22 +86,39 @@ export class LeafletMap {
   }
 
   restoreViewport(view: MapViewport): void {
+    if (this.destroyed) return;
     this.restoring = true;
-    this.map.stop();
-    this.map.setView([view.latitude, view.longitude], view.zoom, {
-      animate: false,
+    this.pendingViewport = view;
+    // An earlier user zoom may still be queued for the next frame. Let it
+    // start before deciding whether to wait for its completed move event.
+    this.restoreFrame ??= requestAnimationFrame(() => {
+      this.restoreFrame = undefined;
+      if (!this.zooming) this.applyPendingViewport();
     });
-    this.restoring = false;
+    this.map.stop();
   }
 
   configure(config: MapConfig): void {
-    if (this.config.mapboxToken === config.mapboxToken) return;
+    if (
+      this.config.mapboxToken === config.mapboxToken &&
+      this.config.osm?.urlTemplate === config.osm?.urlTemplate &&
+      this.config.osm?.attribution === config.osm?.attribution &&
+      this.config.satellite?.urlTemplate === config.satellite?.urlTemplate &&
+      this.config.satellite?.attribution === config.satellite?.attribution
+    )
+      return;
     this.config = config;
-    if (this.basemap === "satellite") this.selectBasemap("osm");
+    if (
+      this.basemap === "satellite" &&
+      this.requiresToken("satellite") &&
+      !config.mapboxToken
+    )
+      this.selectBasemap("osm");
+    else this.retryTiles();
   }
 
   selectBasemap(basemap: Basemap): void {
-    if (basemap === "satellite" && !this.config.mapboxToken) {
+    if (this.requiresToken(basemap) && !this.config.mapboxToken) {
       this.events.tileMessage(
         "Satelita wymaga skonfigurowania tokenu Mapbox. Mapa OSM jest dostępna.",
       );
@@ -98,29 +129,32 @@ export class LeafletMap {
     this.basemap = basemap;
     this.events.basemapChanged(basemap);
     this.events.tileMessage("");
+    const source = this.config[basemap] ?? defaultMapSources[basemap];
+    const url = source.urlTemplate.replace(
+      /\{accessToken\}/g,
+      encodeURIComponent(this.config.mapboxToken),
+    );
+    const attribution =
+      this.sanitizer.sanitize(SecurityContext.HTML, source.attribution) ?? "";
     const layer =
       basemap === "osm"
-        ? L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        ? L.tileLayer(url, {
             maxZoom: 19,
-            attribution: osmAttribution,
+            attribution,
             updateWhenIdle: true,
             keepBuffer: 0,
             referrerPolicy: "strict-origin-when-cross-origin",
           })
-        : L.tileLayer(
-            "https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/512/{z}/{x}/{y}?access_token=" +
-              encodeURIComponent(this.config.mapboxToken),
-            {
-              tileSize: 512,
-              zoomOffset: -1,
-              minZoom: 1,
-              maxZoom: 19,
-              attribution: satelliteAttribution,
-              updateWhenIdle: true,
-              keepBuffer: 0,
-              referrerPolicy: "strict-origin-when-cross-origin",
-            },
-          );
+        : L.tileLayer(url, {
+            tileSize: 512,
+            zoomOffset: -1,
+            minZoom: 1,
+            maxZoom: 19,
+            attribution,
+            updateWhenIdle: true,
+            keepBuffer: 0,
+            referrerPolicy: "strict-origin-when-cross-origin",
+          });
     this.layer = layer;
     layer.on("tileerror", () => {
       if (this.destroyed || this.layer !== layer) return;
@@ -145,6 +179,12 @@ export class LeafletMap {
     this.selectBasemap(basemap);
   }
 
+  private requiresToken(basemap: Basemap): boolean {
+    return (
+      this.config[basemap] ?? defaultMapSources[basemap]
+    ).urlTemplate.includes("{accessToken}");
+  }
+
   showLocation(latitude: number, longitude: number, accuracy: number): void {
     if (this.destroyed) return;
     this.locationLayers?.remove();
@@ -166,18 +206,55 @@ export class LeafletMap {
     this.map.setView([latitude, longitude], 16, { animate: false });
   }
 
-  destroy(): void {
+  ngOnDestroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
-    this.resizeObserver.disconnect();
+    if (this.restoreFrame !== undefined)
+      cancelAnimationFrame(this.restoreFrame);
+    this.pendingViewport = undefined;
+    this.resizeObserver?.disconnect();
     this.removeLayer();
-    this.map.off("moveend", this.onMoveEnd);
-    this.map.remove();
+    this.map?.off("moveend", this.onMoveEnd);
+    this.map?.off("zoomstart", this.onZoomStart);
+    this.map?.off("zoomend", this.onZoomEnd);
+    // Leaflet's CSS zoom has its own completion timer which stop() cannot
+    // cancel. Removing the map earlier makes that timer touch a deleted pane.
+    if (this.zooming) this.map.once("zoomend", () => this.map.remove());
+    else this.map?.remove();
   }
 
+  private readonly onZoomStart = (): void => {
+    this.zooming = true;
+  };
+  private readonly onZoomEnd = (): void => {
+    this.zooming = false;
+  };
+
   private readonly onMoveEnd = (): void => {
+    if (
+      this.pendingViewport &&
+      this.restoreFrame === undefined &&
+      !this.zooming
+    ) {
+      this.applyPendingViewport();
+      return;
+    }
     if (!this.restoring && !this.destroyed)
       this.events.viewportChanged(this.getViewport());
   };
+
+  private applyPendingViewport(): void {
+    const view = this.pendingViewport;
+    if (!view || this.destroyed) return;
+    this.pendingViewport = undefined;
+    try {
+      this.map.setView([view.latitude, view.longitude], view.zoom, {
+        animate: false,
+      });
+    } finally {
+      this.restoring = false;
+    }
+  }
 
   private satelliteFailed(): void {
     this.selectBasemap("osm");

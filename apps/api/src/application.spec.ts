@@ -3,6 +3,15 @@ import { createApplication } from "./application";
 
 describe("HTTP health endpoint", () => {
   let app: NestExpressApplication;
+  beforeEach(() => {
+    for (const setting of [
+      "OSM_TILE_URL",
+      "OSM_ATTRIBUTION",
+      "SATELLITE_TILE_URL",
+      "SATELLITE_ATTRIBUTION",
+    ])
+      vi.stubEnv(setting, "");
+  });
   afterEach(async () => {
     await app?.close();
     vi.unstubAllEnvs();
@@ -29,5 +38,37 @@ describe("HTTP health endpoint", () => {
     const response = await fetch(`${await app.getUrl()}/api/health`);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "ok" });
+  });
+
+  it("exposes both source templates and their attribution from the runtime environment", async () => {
+    vi.stubEnv("MAPBOX_PUBLIC_TOKEN", "");
+    vi.stubEnv(
+      "OSM_TILE_URL",
+      "https://maps.example.test/street/{z}/{x}/{y}.png",
+    );
+    vi.stubEnv(
+      "OSM_ATTRIBUTION",
+      '<a href="https://maps.example.test/">Street provider</a>',
+    );
+    vi.stubEnv(
+      "SATELLITE_TILE_URL",
+      "https://maps.example.test/satellite/{z}/{x}/{y}?token={accessToken}",
+    );
+    vi.stubEnv("SATELLITE_ATTRIBUTION", "Satellite provider");
+    app = await createApplication();
+    await app.listen(0, "127.0.0.1");
+    const response = await fetch(`${await app.getUrl()}/api/map-config`);
+    expect(await response.json()).toEqual({
+      mapboxToken: "",
+      osm: {
+        urlTemplate: "https://maps.example.test/street/{z}/{x}/{y}.png",
+        attribution: '<a href="https://maps.example.test/">Street provider</a>',
+      },
+      satellite: {
+        urlTemplate:
+          "https://maps.example.test/satellite/{z}/{x}/{y}?token={accessToken}",
+        attribution: "Satellite provider",
+      },
+    });
   });
 });

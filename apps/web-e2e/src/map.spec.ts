@@ -222,3 +222,83 @@ test("configuration failure does not block the map and can be retried", async ({
     page.getByRole("button", { name: "Satelita", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
 });
+
+test("uses runtime source templates and their corresponding attribution for both basemaps", async ({
+  page,
+}) => {
+  await page.route("**/api/map-config", (route) =>
+    route.fulfill({
+      json: {
+        mapboxToken: "",
+        osm: {
+          urlTemplate: "https://maps.example.test/street/{z}/{x}/{y}.png",
+          attribution:
+            '<a href="https://maps.example.test/street">Street provider</a>',
+        },
+        satellite: {
+          urlTemplate: "https://maps.example.test/satellite/{z}/{x}/{y}.png",
+          attribution:
+            '<a href="https://maps.example.test/satellite">Satellite provider</a>',
+        },
+      },
+    }),
+  );
+  await page.route("https://maps.example.test/street/**", (route) =>
+    route.fulfill({ contentType: "image/svg+xml", body: tile(256) }),
+  );
+  await page.route("https://maps.example.test/satellite/**", (route) =>
+    route.fulfill({ contentType: "image/svg+xml", body: tile(512) }),
+  );
+  await page.goto("/");
+  await expect(
+    page
+      .locator('img.leaflet-tile-loaded[src*="maps.example.test/street/"]')
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Street provider" }),
+  ).toBeVisible();
+  const scale = await page.locator(".leaflet-control-scale-line").textContent();
+  await page.getByRole("button", { name: "Satelita", exact: true }).click();
+  await expect(
+    page
+      .locator('img.leaflet-tile-loaded[src*="maps.example.test/satellite/"]')
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Satellite provider" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Street provider" })).toHaveCount(
+    0,
+  );
+  await expect(page.locator(".mapbox-logo")).toHaveCount(0);
+  await expect(page.locator(".leaflet-control-scale-line")).toHaveText(
+    scale ?? "",
+  );
+});
+
+test("rejects incomplete provider configuration and keeps the default map navigable", async ({
+  page,
+}) => {
+  await page.route("**/api/map-config", (route) =>
+    route.fulfill({
+      json: {
+        mapboxToken: "",
+        osm: {
+          urlTemplate: "https://maps.example.test/{z}/{x}/{y}.png",
+          attribution: "",
+        },
+      },
+    }),
+  );
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Ponów konfigurację" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('img.leaflet-tile-loaded[src*="tile.openstreetmap.org/"]')
+      .first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Przybliż", exact: true }).click();
+});

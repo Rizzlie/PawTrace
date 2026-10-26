@@ -8,7 +8,11 @@ import {
 } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { timeout } from "rxjs";
-import { MapEngine, type MapConfig } from "@pawtrace/map-engine";
+import {
+  MapEngine,
+  parseMapConfig,
+  type MapConfig,
+} from "@pawtrace/map-engine";
 
 @Component({
   selector: "app-root",
@@ -38,13 +42,9 @@ export class App {
       .pipe(timeout(5000), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (config) => {
-          if (
-            config &&
-            typeof config === "object" &&
-            "mapboxToken" in config &&
-            typeof config.mapboxToken === "string"
-          ) {
-            this.mapConfig.set({ mapboxToken: config.mapboxToken });
+          const parsed = parseMapConfig(config);
+          if (parsed) {
+            this.mapConfig.set(parsed);
           } else {
             this.configFailed.set(true);
           }

@@ -1,16 +1,38 @@
 import { TestBed } from "@angular/core/testing";
 import { MapEngine } from "./map-engine";
+import { LeafletMap } from "./leaflet-map";
 
+const lifecycle = vi.hoisted(() => ({ destroy: vi.fn() }));
 vi.mock("./leaflet-map", () => ({
   LeafletMap: class {
+    initialize = vi.fn();
     configure = vi.fn();
     restoreViewport = vi.fn();
-    destroy = vi.fn();
+    ngOnDestroy() {
+      lifecycle.destroy(this);
+    }
   },
 }));
 
 describe("Location on demand", () => {
+  beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllGlobals());
+  it("provides one map service per host and destroys only that host's instance", async () => {
+    const first = TestBed.createComponent(MapEngine);
+    const second = TestBed.createComponent(MapEngine);
+    await Promise.all([first.whenStable(), second.whenStable()]);
+    const firstMap = first.debugElement.injector.get(LeafletMap);
+    const secondMap = second.debugElement.injector.get(LeafletMap);
+    expect(firstMap).not.toBe(secondMap);
+    expect(firstMap.initialize).toHaveBeenCalledOnce();
+    expect(secondMap.initialize).toHaveBeenCalledOnce();
+    first.destroy();
+    expect(lifecycle.destroy).toHaveBeenCalledTimes(1);
+    expect(lifecycle.destroy).toHaveBeenLastCalledWith(firstMap);
+    second.destroy();
+    expect(lifecycle.destroy).toHaveBeenCalledTimes(2);
+    expect(lifecycle.destroy).toHaveBeenLastCalledWith(secondMap);
+  });
   it("explains unavailable geolocation", async () => {
     vi.stubGlobal("navigator", {});
     const fixture = TestBed.createComponent(MapEngine);
