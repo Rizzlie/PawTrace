@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-26T21:00:00Z",
+  "case": {
+    "id": "case-luna",
+    "title": "Luna — poszukiwania w Łodzi",
+    "createdAt": "2026-10-15T12:00:00+02:00",
+    "updatedAt": "2026-10-26T19:00:00+01:00",
+    "timeZone": "Europe/Warsaw",
+    "escape": {
+      "occurredAt": {
+        "kind": "approximate",
+        "at": "2026-10-15T14:00:00+02:00",
+        "description": "Około czternastej"
+      },
+      "escapePointId": "point-home",
+      "description": "Wybiegła przez otwarte drzwi.",
+      "directionOfTravel": "W stronę parku",
+      "familiarWithLocation": false
+    }
+  },
+  "animal": {
+    "name": "Luna",
+    "species": "kot",
+    "breed": null,
+    "sex": "female",
+    "neutered": true,
+    "age": { "value": 4, "unit": "years", "approximate": true },
+    "weightKilograms": 3.5,
+    "coatColor": "biało-ruda",
+    "coatPattern": "rude łaty",
+    "size": "mała",
+    "distinguishingFeatures": "Biała końcówka ogona",
+    "collarHarness": null,
+    "microchipped": false,
+    "microchipNumber": null,
+    "illnesses": null,
+    "injuries": null,
+    "mobilityLimitations": null,
+    "sensoryLimitations": null,
+    "medication": null,
+    "temperament": "płochliwa",
+    "reactionsToPeople": "unika obcych",
+    "reactionsToAnimals": null,
+    "fears": "ruch uliczny",
+    "responseToCalls": "reaguje na imię",
+    "attractionMethods": "szelest saszetki",
+    "favoriteFood": "tuńczyk",
+    "outdoorAccess": "indoor_only",
+    "familiarWithArea": false,
+    "usualRoutes": null,
+    "usualPlaces": null,
+    "previousEscapes": "Nigdy wcześniej nie uciekła.",
+    "additionalInformation": null,
+    "photos": ["luna-original.heic", "unavailable-original.jpg"],
+    "mainPhoto": "luna-original.heic",
+    "photoCaptions": [
+      { "filename": "luna-original.heic", "caption": "Widoczny wzór sierści" }
+    ]
+  },
+  "points": [
+    {
+      "id": "point-home",
+      "name": "Dom",
+      "coordinates": { "latitude": 51.7592, "longitude": 19.456 },
+      "roles": [],
+      "description": null,
+      "photos": [],
+      "entries": []
+    },
+    {
+      "id": "point-shed",
+      "name": "Szopa przy parku",
+      "coordinates": { "latitude": 51.76, "longitude": 19.457 },
+      "roles": ["potential_hiding_place", "feeding_location", "trail_camera"],
+      "description": "Możliwa kryjówka — brak potwierdzenia pobytu Luny.",
+      "photos": ["shed.jpg"],
+      "entries": [
+        {
+          "id": "observation-target",
+          "type": "observation",
+          "occurredAt": {
+            "kind": "exact",
+            "at": "2026-10-15T15:00:00+02:00",
+            "description": null
+          },
+          "createdAt": "2026-10-15T15:15:00+02:00",
+          "updatedAt": "2026-10-15T15:15:00+02:00",
+          "description": "Biała końcówka ogona, rozpoznana przez opiekuna.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": ["unavailable-original.jpg"],
+          "source": "personal_observation",
+          "sourceDescription": null,
+          "uncertaintyRadiusMeters": 15,
+          "identification": "target_animal"
+        },
+        {
+          "id": "observation-uncertain",
+          "type": "observation",
+          "occurredAt": {
+            "kind": "range",
+            "start": "2026-10-15T18:00:00+02:00",
+            "end": "2026-10-15T20:00:00+02:00",
+            "description": "Między szóstą a ósmą wieczorem"
+          },
+          "createdAt": "2026-10-16T09:00:00+02:00",
+          "updatedAt": "2026-10-16T09:00:00+02:00",
+          "description": "Kot widziany z daleka.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": [],
+          "source": "another_person",
+          "sourceDescription": "Relacja sąsiadki",
+          "uncertaintyRadiusMeters": null,
+          "identification": "uncertain"
+        },
+        {
+          "id": "observation-different",
+          "type": "observation",
+          "occurredAt": {
+            "kind": "date",
+            "date": "2026-10-16",
+            "description": "Godzina nieznana"
+          },
+          "createdAt": "2026-10-17T10:00:00+02:00",
+          "updatedAt": "2026-10-17T10:00:00+02:00",
+          "description": "Czarny kot sąsiada.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": [],
+          "source": "surveillance",
+          "sourceDescription": "Fotopułapka",
+          "uncertaintyRadiusMeters": null,
+          "identification": "different_animal"
+        },
+        {
+          "id": "observation-rejected",
+          "type": "observation",
+          "occurredAt": {
+            "kind": "unknown",
+            "description": "Nie ustalono daty nagrania"
+          },
+          "createdAt": "2026-10-17T11:00:00+02:00",
+          "updatedAt": "2026-10-17T12:00:00+02:00",
+          "description": "Nagranie z archiwum.",
+          "status": "rejected",
+          "rejectionReason": "Nagranie sprzed zaginięcia",
+          "photos": [],
+          "source": "other",
+          "sourceDescription": "Przesłany film",
+          "uncertaintyRadiusMeters": null,
+          "identification": "target_animal"
+        },
+        {
+          "id": "action-food",
+          "type": "action",
+          "occurredAt": {
+            "kind": "exact",
+            "at": "2026-10-15T22:00:00+02:00",
+            "description": null
+          },
+          "createdAt": "2026-10-15T22:01:00+02:00",
+          "updatedAt": "2026-10-15T22:01:00+02:00",
+          "description": "Wyłożono karmę.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": [],
+          "details": {
+            "kind": "food_placement",
+            "foodType": "mokra karma",
+            "foodQuantity": { "value": 85, "unit": "grams" }
+          }
+        },
+        {
+          "id": "check-food",
+          "type": "check",
+          "occurredAt": {
+            "kind": "approximate",
+            "at": "2026-10-16T15:00:00+02:00",
+            "description": "Około piętnastej"
+          },
+          "createdAt": "2026-10-16T15:10:00+02:00",
+          "updatedAt": "2026-10-16T15:10:00+02:00",
+          "description": "Pusta miska; nie wiadomo, kto zjadł karmę.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": [],
+          "result": "no_animal_or_signs",
+          "observationEntryId": null,
+          "method": "Obejrzano miskę i szopę.",
+          "details": { "foodStatus": "absent" }
+        },
+        {
+          "id": "note-evening",
+          "type": "note",
+          "occurredAt": {
+            "kind": "date",
+            "date": "2026-10-16",
+            "description": "Wieczorem"
+          },
+          "createdAt": "2026-10-16T21:00:00+02:00",
+          "updatedAt": "2026-10-16T21:00:00+02:00",
+          "description": "Sąsiadka zgodziła się sprawdzać szopę.",
+          "status": "active",
+          "rejectionReason": null,
+          "photos": []
+        }
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "id": "area-park",
+      "name": "Park",
+      "description": "Plan sprawdzenia parku",
+      "photos": [],
+      "plannedGeometry": {
+        "type": "circle",
+        "center": { "latitude": 51.76, "longitude": 19.457 },
+        "radiusMeters": 250
+      },
+      "checks": [
+        {
+          "id": "area-check-park",
+          "occurredAt": {
+            "kind": "range",
+            "start": "2026-10-16T18:00:00+02:00",
+            "end": null,
+            "description": "Od osiemnastej, koniec nieznany"
+          },
+          "createdAt": "2026-10-16T20:00:00+02:00",
+          "updatedAt": "2026-10-16T20:00:00+02:00",
+          "description": "Sprawdzono tylko wschodni fragment.",
+          "photos": [],
+          "actualGeometry": {
+            "type": "polygon",
+            "vertices": [
+              { "latitude": 51.76, "longitude": 19.457 },
+              { "latitude": 51.761, "longitude": 19.457 },
+              { "latitude": 51.761, "longitude": 19.459 },
+              { "latitude": 51.76, "longitude": 19.459 }
+            ]
+          },
+          "result": "animal_seen",
+          "observationEntryId": "observation-uncertain",
+          "method": "Pieszo, oglądanie krzewów latarką."
+        }
+      ]
+    },
+    {
+      "id": "area-unplanned",
+      "name": "Nieplanowany obchód",
+      "description": null,
+      "photos": [],
+      "plannedGeometry": null,
+      "checks": [
+        {
+          "id": "area-check-unplanned",
+          "occurredAt": { "kind": "unknown", "description": null },
+          "createdAt": "2026-10-17T20:00:00+02:00",
+          "updatedAt": "2026-10-17T20:00:00+02:00",
+          "description": null,
+          "photos": [],
+          "actualGeometry": {
+            "type": "circle",
+            "center": { "latitude": 51.758, "longitude": 19.455 },
+            "radiusMeters": 50
+          },
+          "result": "unable_to_check",
+          "observationEntryId": null,
+          "method": "Zamknięta brama."
+        }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "filename": "luna-original.heic",
+      "originalName": "IMG_001.HEIC",
+      "mediaType": "image/heic",
+      "sizeBytes": 4200000,
+      "widthPixels": 4032,
+      "heightPixels": 3024,
+      "thumbnailFilename": "luna-thumb.webp",
+      "previewFilename": "luna-preview.jpg"
+    },
+    {
+      "filename": "shed.jpg",
+      "originalName": "szopa.jpg",
+      "mediaType": "image/jpeg",
+      "sizeBytes": 380000,
+      "widthPixels": 1920,
+      "heightPixels": 1080,
+      "thumbnailFilename": null,
+      "previewFilename": null
+    }
+  ],
+  "mapView": {
+    "center": { "latitude": 51.76, "longitude": 19.457 },
+    "zoom": 16,
+    "basemap": "satellite"
+  }
+}

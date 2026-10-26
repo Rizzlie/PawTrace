@@ -1,6 +1,6 @@
 # F04 — Case domain model and JSON contract
 
-Status: planned
+Status: done
 Depends on: F01
 
 ## Goal
@@ -41,4 +41,25 @@ Place the shared contract in `libs/shared/case-domain`. Share strict base schema
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented and verified on 2026-10-26. `libs/shared/case-domain` exposes the framework-neutral `@pawtrace/case-domain` contract, Zod-inferred types, full-document validation, pure file parsing and serialization. It covers the profile, canonical escape reference, all four history types, independent identification/rejection, event-time precision, planned/actual geometry, photos/assets and map view. All objects reject unknown fields. Invalid references, duplicate IDs/filenames, inconsistent photo selections, malformed times and invalid geometry fail with paths and readable errors. Missing image files or asset metadata remain valid.
+
+The [v1 field reference](../architecture/case-json-v1.md) documents concrete fields and enums. Checked-in minimal and complete exported JSON fixtures are validated by the real public parser; the complete example retains all future feature fields and unavailable-photo references. Parsing consumes file-only `exportedAt`; export accepts a fresh timestamp without changing the committed document. State, IndexedDB and file-interface integration remain in F05.
+
+Validation:
+
+- Successive TDD cycles observed failures before implementing complete-case support, duplicate-ID/reference checks, rejection/photo rules, interval/time-zone checks and polygon invariants.
+- `npx nx run case-domain:test --run src/lib/case-contract.spec.ts --output-style=static`: 117 tests passed, including unknown-field injection at every object in the complete fixture.
+- `npx nx run-many -t typecheck lint test build e2e --output-style=static`: all typechecks, lint tasks, 175 unit/integration tests and both application builds passed. E2E startup encountered the already-running development API on port 3000; no existing server was stopped.
+- `$env:BASE_URL='http://127.0.0.1:4200'; npx nx run web-e2e:e2e --output-style=static`: all 19 Chromium tests passed against the running development application. `BASE_URL` was removed afterwards.
+- `npx nx format:check --uncommitted` and `git diff --check`: passed.
+- Runtime library typechecking uses ES2022 with `types: []`, verifying no browser/Node ambient dependency. Existing module-boundary rules enforce the shared-only dependency direction.
+
+The unchanged frontend build reports its existing 529.91 kB initial bundle warning; existing map e2e tests have four non-null-assertion lint warnings. Neither is an F04 failure. F02's live Mapbox token acceptance remains separately tracked.
+
+### Standards review
+
+Independent read-only review against task-start commit `306e0a63582882ff65da81d5d352fb6f458ef6d3`: no actionable documented-standard violations or baseline code smells.
+
+### Spec review
+
+Independent read-only review against the same fixed point: no actionable missing, incorrect or out-of-scope F04 behavior.

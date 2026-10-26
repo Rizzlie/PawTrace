@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
+F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. F04 adds the framework-neutral case model, strict JSON v1 validation and pure parse/export functions. Live Mapbox acceptance is pending a configured public token; browser persistence and case-editing interfaces remain planned.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -37,12 +37,13 @@ AI analysis and suggested search locations are planned for a later stage. Databa
 
 One application-state service owns committed case data, UI state, editor drafts, and save status. Only the committed document is persisted and exported. Photos remain server assets referenced by filename in the case file.
 
-The Leaflet host and adapter live in `libs/web/map-engine`. Further frontend libraries belong under `libs/web/**`, backend libraries under `libs/api/**`, and the framework-neutral case contract under `libs/shared/case-domain`; they will be created as needed. PostgreSQL and PostGIS are the intended later database direction.
+The Leaflet host and adapter live in `libs/web/map-engine`; the framework-neutral case contract lives in `libs/shared/case-domain` and is exported as `@pawtrace/case-domain`. Further frontend libraries belong under `libs/web/**` and backend libraries under `libs/api/**`; they will be created as needed. PostgreSQL and PostGIS are the intended later database direction.
 
 ## Documentation
 
 - [MVP specification](docs/mvp/spec.md) — product scope and detailed decisions.
 - [Frontend architecture](docs/architecture/frontend.md) — state ownership, map integration, JSON flows, and failure-safe persistence.
+- [Case JSON v1](docs/architecture/case-json-v1.md) — implemented fields, vocabulary, validation rules, and example files.
 - [Implementation tasks F01–F15](docs/implementation/README.md) — ordered delivery plan, dependencies, acceptance criteria, and validation.
 - [Domain glossary](GLOSSARY.md) — shared terminology.
 - [Architecture decisions](docs/adr/) — significant technical trade-offs.
@@ -98,7 +99,7 @@ npm run e2e
 
 The HTTP integration test starts a real NestJS server on an ephemeral loopback port. Angular tests cover connection success and recovery after a failed request. The Chromium end-to-end test starts both development servers and checks same-origin health, the shell and original icon. To exercise a running container instead, set `BASE_URL=http://127.0.0.1:8080` in your shell before `npm run e2e`; in PowerShell use `$env:BASE_URL='http://127.0.0.1:8080'` and then `Remove-Item Env:BASE_URL` afterwards.
 
-Nx tags enforce browser/API/shared dependency directions. Libraries under `libs/web/**`, `libs/api/**` and `libs/shared/case-domain` will be added when a feature needs them. Signal Forms and the published `linkedSignal` custom setter are available in the pinned Angular baseline; editor-state integration belongs to later tasks. Version-selection references: [Angular compatibility](https://angular.dev/reference/versions), [Nx/Angular matrix](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS prerequisites](https://docs.nestjs.com/first-steps), and [linkedSignal API](https://angular.dev/api/core/linkedSignal).
+Nx tags enforce browser/API/shared dependency directions. Further libraries under `libs/web/**` and `libs/api/**` will be added when a feature needs them; `libs/shared/case-domain` already provides the JSON v1 contract. Signal Forms and the published `linkedSignal` custom setter are available in the pinned Angular baseline; editor-state integration belongs to later tasks. Version-selection references: [Angular compatibility](https://angular.dev/reference/versions), [Nx/Angular matrix](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS prerequisites](https://docs.nestjs.com/first-steps), and [linkedSignal API](https://angular.dev/api/core/linkedSignal).
 
 ## Map configuration
 
