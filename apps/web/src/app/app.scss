@@ -20,7 +20,7 @@ main {
 .guide {
   position: absolute;
   z-index: 500;
-  top: 86px;
+  bottom: 80px;
   left: 16px;
   width: 260px;
   max-height: calc(100% - 155px);
@@ -121,8 +121,6 @@ li span {
     width: calc(100% - 174px);
   }
   .guide {
-    top: auto;
-    bottom: 80px;
     left: 12px;
     width: min(260px, calc(100% - 76px));
     max-height: min(270px, calc(100% - 160px));
