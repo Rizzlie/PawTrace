@@ -67,6 +67,8 @@ li + li {
   margin-top: 5px;
 }
 .result {
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   text-align: left;
   width: 100%;
   background: #eaf0df;

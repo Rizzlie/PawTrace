@@ -1,6 +1,40 @@
 import { createServer, type Server } from "node:http";
+import { randomUUID } from "node:crypto";
+import { createServer as createTcpServer, type Socket } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { createApplication } from "./application";
+import { createApplication as createConfiguredApplication } from "./application";
+
+const createApplication = () =>
+  createConfiguredApplication({ ignoreEnvFile: true });
+
+// Minimal controlled RESP boundary: handle complete array-of-bulk-string commands,
+// including pipelined/fragmented writes, without depending on cache internals.
+function readRedisCommands(
+  socket: Socket,
+  respond: (command: string) => void,
+): void {
+  let buffered = Buffer.alloc(0);
+  socket.on("data", (chunk) => {
+    buffered = Buffer.concat([buffered, chunk]);
+    while (buffered.length) {
+      const firstLine = buffered.indexOf("\r\n");
+      if (firstLine < 0) return;
+      const count = Number(buffered.subarray(1, firstLine).toString());
+      let offset = firstLine + 2;
+      const parts: string[] = [];
+      for (let index = 0; index < count; index++) {
+        const end = buffered.indexOf("\r\n", offset);
+        if (end < 0) return;
+        const length = Number(buffered.subarray(offset + 1, end).toString());
+        if (buffered.length < end + 2 + length + 2) return;
+        parts.push(buffered.subarray(end + 2, end + 2 + length).toString());
+        offset = end + 2 + length + 2;
+      }
+      buffered = buffered.subarray(offset);
+      respond(parts[0].toUpperCase());
+    }
+  });
+}
 
 describe("submitted address search over HTTP", () => {
   let app: NestExpressApplication;
@@ -47,6 +81,7 @@ describe("submitted address search over HTTP", () => {
     if (!address || typeof address === "string")
       throw new Error("No upstream port");
     vi.stubEnv("ADDRESS_SEARCH_URL", `http://127.0.0.1:${address.port}/search`);
+    vi.stubEnv("ADDRESS_SEARCH_USER_AGENT", `PawTrace/test-${randomUUID()}`);
     app = await createApplication();
     await app.listen(0, "127.0.0.1");
     base = `${await app.getUrl()}/api/address-search`;
@@ -102,6 +137,85 @@ describe("submitted address search over HTTP", () => {
     expect(await cached.json()).toEqual(await responses[0].json());
     expect(requests).toHaveLength(2);
   });
+
+  it("reuses cached results after restarting the API", async () => {
+    const first = await (await fetch(`${base}?q=Warszawa`)).json();
+    await app.close();
+    app = await createApplication();
+    await app.listen(0, "127.0.0.1");
+    const second = await (
+      await fetch(`${await app.getUrl()}/api/address-search?q=Warszawa`)
+    ).json();
+    expect(second).toEqual(first);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("returns a service error without contacting the geocoder when Redis is unavailable", async () => {
+    const reserved = createServer();
+    await new Promise<void>((resolve) =>
+      reserved.listen(0, "127.0.0.1", resolve),
+    );
+    const address = reserved.address();
+    if (!address || typeof address === "string")
+      throw new Error("No reserved port");
+    await new Promise<void>((resolve) => reserved.close(() => resolve()));
+    await app.close();
+    vi.stubEnv("REDIS_URL", `redis://127.0.0.1:${address.port}`);
+    app = await createApplication();
+    await app.listen(0, "127.0.0.1");
+    const response = await fetch(
+      `${await app.getUrl()}/api/address-search?q=Warszawa`,
+    );
+    expect(response.status).toBe(503);
+    expect(requests).toHaveLength(0);
+    expect((await fetch(`${await app.getUrl()}/api/health`)).status).toBe(200);
+  });
+
+  it.each(["GET", "SET"])(
+    "times out a stalled Redis %s and releases the shared queue for recovery",
+    async (stalledCommand) => {
+      const sockets = new Set<Socket>();
+      const held: (() => void)[] = [];
+      let stalling = true;
+      const redis = createTcpServer((socket) => {
+        sockets.add(socket);
+        socket.on("close", () => sockets.delete(socket));
+        socket.on("error", () => undefined); // Expected when the client times out and closes.
+        readRedisCommands(socket, (command) => {
+          const reply = () => {
+            if (!socket.destroyed && !socket.readableEnded)
+              socket.write(command === "GET" ? "$-1\r\n" : "+OK\r\n");
+          };
+          if (stalling && command === stalledCommand) held.push(reply);
+          else reply();
+        });
+      });
+      await new Promise<void>((resolve) =>
+        redis.listen(0, "127.0.0.1", resolve),
+      );
+      const address = redis.address();
+      if (!address || typeof address === "string")
+        throw new Error("No Redis fixture port");
+      try {
+        await app.close();
+        vi.stubEnv("REDIS_URL", `redis://127.0.0.1:${address.port}`);
+        app = await createApplication();
+        await app.listen(0, "127.0.0.1");
+        const url = `${await app.getUrl()}/api/address-search?q=Warszawa`;
+        const failure = await fetch(url, { signal: AbortSignal.timeout(2500) });
+        expect(failure.status).toBe(503);
+        expect(requests).toHaveLength(stalledCommand === "GET" ? 0 : 1);
+        stalling = false;
+        for (const reply of held) reply();
+        expect(
+          (await fetch(url, { signal: AbortSignal.timeout(2500) })).status,
+        ).toBe(200);
+      } finally {
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((resolve) => redis.close(() => resolve()));
+      }
+    },
+  );
 
   it("observes provider Retry-After across clients without automatic retry", async () => {
     status = 429;

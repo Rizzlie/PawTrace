@@ -1,5 +1,8 @@
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { createApplication } from "./application";
+import { createApplication as createConfiguredApplication } from "./application";
+
+const createApplication = () =>
+  createConfiguredApplication({ ignoreEnvFile: true });
 
 describe("HTTP health endpoint", () => {
   let app: NestExpressApplication;

@@ -5,10 +5,15 @@ import {
   Get,
   Header,
   Injectable,
+  Inject,
   Query,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { setTimeout as delay } from "node:timers/promises";
+import { createHash } from "node:crypto";
+import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
+import { ConfigService } from "@nestjs/config";
+import type { Environment } from "./environment";
 
 interface AddressResult {
   id: string;
@@ -23,27 +28,32 @@ interface SearchResponse {
 
 @Injectable()
 export class AddressSearch {
-  private readonly cache = new Map<
-    string,
-    { value: SearchResponse; expires: number }
-  >();
   private readonly pending = new Map<string, Promise<SearchResponse>>();
   private tail: Promise<unknown> = Promise.resolve();
   private nextAllowed = 0;
-  private readonly upstream =
-    process.env["ADDRESS_SEARCH_URL"] ||
-    "https://nominatim.openstreetmap.org/search";
-  private readonly userAgent =
-    process.env["ADDRESS_SEARCH_USER_AGENT"] ||
-    "PawTrace/1.0 (+https://github.com/Rizzlie/PawTrace)";
-  private readonly attribution = {
-    label:
-      process.env["ADDRESS_SEARCH_ATTRIBUTION"] ||
-      "© OpenStreetMap contributors",
-    url:
-      process.env["ADDRESS_SEARCH_ATTRIBUTION_URL"] ||
-      "https://www.openstreetmap.org/copyright",
-  };
+  private readonly upstream: string;
+  private readonly userAgent: string;
+  private readonly attribution: SearchResponse["attribution"];
+
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    settings: ConfigService<Environment, true>,
+  ) {
+    this.upstream = settings.get("ADDRESS_SEARCH_URL", { infer: true });
+    this.userAgent = settings.get("ADDRESS_SEARCH_USER_AGENT", { infer: true });
+    this.attribution = {
+      label: settings.get("ADDRESS_SEARCH_ATTRIBUTION", { infer: true }),
+      url: settings.get("ADDRESS_SEARCH_ATTRIBUTION_URL", { infer: true }),
+    };
+    // cache-manager reports read failures via this event and otherwise treats them as misses.
+    // Fail closed instead of repeatedly querying the public provider without a working cache.
+    this.cache.on("get", (event) => {
+      if (event.error)
+        throw new ServiceUnavailableException(
+          "Cache wyszukiwania jest niedostępny. Przesuń mapę ręcznie lub spróbuj później.",
+        );
+    });
+  }
 
   async search(query: unknown): Promise<SearchResponse> {
     if (
@@ -58,36 +68,57 @@ export class AddressSearch {
       throw new BadRequestException("Podaj adres od 2 do 200 znaków.");
     }
     const normalized = query.trim().normalize("NFC").replace(/\s+/gu, " ");
-    const key = normalized.toLocaleLowerCase("pl");
-    const cached = this.cache.get(key);
-    if (cached && cached.expires > Date.now()) return cached.value;
+    const key = `address-search:v1:${createHash("sha256")
+      .update(
+        JSON.stringify([
+          this.upstream,
+          this.userAgent,
+          this.attribution,
+          normalized.toLocaleLowerCase("pl"),
+        ]),
+      )
+      .digest("hex")}`;
     const existing = this.pending.get(key);
     if (existing) return existing;
     if (this.pending.size >= 50)
       throw new ServiceUnavailableException(
         "Kolejka wyszukiwania jest pełna. Spróbuj później.",
       );
+    // Reserve the query before the asynchronous Redis read, so late cache misses
+    // cannot enqueue a duplicate just after another request has filled the cache.
+    const result = this.cachedSearch(key, normalized).finally(() =>
+      this.pending.delete(key),
+    );
+    this.pending.set(key, result);
+    return result;
+  }
+
+  private async cachedSearch(
+    key: string,
+    query: string,
+  ): Promise<SearchResponse> {
+    const cached = await this.cache.get<SearchResponse>(key);
+    if (cached) return cached;
     const job = this.tail.then(async () => {
       // A full second after completion is conservative, including slow responses.
       while (performance.now() < this.nextAllowed)
-        await delay(Math.ceil(this.nextAllowed - performance.now()));
+        await delay(
+          Math.min(30000, Math.ceil(this.nextAllowed - performance.now())),
+        );
       try {
-        const value = await this.request(normalized);
-        this.cache.delete(key);
-        const oldest = this.cache.keys().next().value;
-        if (this.cache.size >= 500 && oldest !== undefined)
-          this.cache.delete(oldest);
-        this.cache.set(key, {
-          value,
-          expires: Date.now() + 24 * 60 * 60 * 1000,
-        });
+        const value = await this.request(query);
+        try {
+          await this.cache.set(key, value);
+        } catch {
+          throw new ServiceUnavailableException(
+            "Nie udało się zapisać wyniku w cache wyszukiwania. Spróbuj później.",
+          );
+        }
         return value;
       } finally {
         this.nextAllowed = Math.max(this.nextAllowed, performance.now() + 1000);
-        this.pending.delete(key);
       }
     });
-    this.pending.set(key, job);
     this.tail = job.catch(() => undefined);
     return job;
   }
