@@ -1,10 +1,13 @@
 import { Logger } from "@nestjs/common";
 import { createApplication } from "./application";
+import { ConfigService } from "@nestjs/config";
+import type { Environment } from "./app/environment";
 
 async function bootstrap(): Promise<void> {
   const app = await createApplication();
-  const port = Number(process.env["API_PORT"] ?? 3000);
-  const host = process.env["API_HOST"] ?? "127.0.0.1";
+  const config = app.get(ConfigService<Environment, true>);
+  const port = config.get("API_PORT", { infer: true });
+  const host = config.get("API_HOST", { infer: true });
   await app.listen(port, host);
   Logger.log(`PawTrace API listening on http://${host}:${port}/api`);
 }

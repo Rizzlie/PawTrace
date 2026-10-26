@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
+F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -74,10 +74,11 @@ Use Node **24.16.0** (also recorded in `.node-version`) and npm **11.13.0**. Dep
 
 ```sh
 npm ci
+docker compose up -d --wait redis
 npm run dev
 ```
 
-Open http://localhost:4200. Angular proxies `/api/**` to NestJS at http://127.0.0.1:3000. Stop both with Ctrl+C. To start them separately, run `npx nx run api:serve` and `npx nx run web:serve` in separate terminals. `API_HOST` and `API_PORT` configure the server; if you change its development port, update `apps/web/proxy.conf.json` too. `WEB_ROOT` optionally enables static frontend serving and is set automatically in Docker. Node development does not automatically load Compose's `.env` file.
+Open http://localhost:4200. Angular proxies `/api/**` to NestJS at http://127.0.0.1:3000. Stop both with Ctrl+C. To start them separately, run `npx nx run api:serve` and `npx nx run web:serve` in separate terminals. `API_HOST` and `API_PORT` configure the server; if you change its development port, update `apps/web/proxy.conf.json` too. `WEB_ROOT` optionally enables static frontend serving and is set automatically in Docker. NestJS `ConfigModule` loads the root `.env` when starting from the repository root; shell/container settings take precedence. `ConfigService` exposes the Zod-validated configuration, including numeric ports, HTTP(S) geocoder/attribution URLs and a Redis URL. Invalid configuration stops startup with field names only.
 
 ## Contributing
 
@@ -86,6 +87,7 @@ Use a dedicated branch for each change, Conventional Commits, and a GitHub PR in
 ## Checks
 
 ```sh
+docker compose up -d --wait redis
 npm run typecheck
 npm run lint
 npm run build
@@ -102,7 +104,7 @@ Nx tags enforce browser/API/shared dependency directions. Libraries under `libs/
 
 OSM works without an account or token. The map starts over Poland, supports mouse/keyboard navigation, and offers **Moja lokalizacja** on demand. Location requires browser permission and a secure context (localhost is supported); denial leaves manual navigation available. The accuracy circle and position are temporary, with no continuous tracking. View persistence follows in F05.
 
-Satellite imagery uses Mapbox `satellite-streets-v12` through Static Tiles API with 512-pixel tiles and Leaflet zoom offset -1. Set `MAPBOX_PUBLIC_TOKEN` to your public browser token (`pk.*`) in the ignored `.env` for Compose, then run `docker compose up -d --force-recreate pawtrace`. For Node development set the same environment variable in the terminal before `npm run dev`; `.env` is not automatically loaded by Node. Restart the API and reload the page after changing the token. No frontend rebuild is needed.
+Satellite imagery uses Mapbox `satellite-streets-v12` through Static Tiles API with 512-pixel tiles and Leaflet zoom offset -1. Set `MAPBOX_PUBLIC_TOKEN` to your public browser token (`pk.*`) in the ignored `.env` for Compose, then run `docker compose up -d --force-recreate pawtrace`. Node development reads the same `.env` through NestJS ConfigModule; an exported shell variable takes precedence. Restart the API and reload the page after changing the token. No frontend rebuild is needed.
 
 `GET /api/map-config` returns this public token to the browser with `Cache-Control: no-store`; private (`sk.*`) tokens are not returned. Browser tokens are visible in network requests. Use account-supported URL restrictions for your actual origin; never use an administrative token or commit local credentials. A missing token, tile error, or 15-second satellite load timeout keeps or restores OSM, preserves the viewport, and displays a message. OSM errors offer a manual retry. Tile-image errors cannot distinguish denied access, quota exhaustion, and network failure, so the message identifies the possible causes without inventing an HTTP status.
 
@@ -117,5 +119,17 @@ Tiles load directly through the browser, retaining normal HTTP caching and refer
 Tile caching uses the browser's HTTP memory/disk cache, honoring the provider's `Cache-Control`, `Expires`, `Age` and validators such as `ETag`. A fresh cached response can be reused without a provider request; an expired response may require revalidation or download. Cache retention also depends on the browser and available storage. There is no application-owned tile cache in IndexedDB, Cache Storage, the API or Docker, and no offline guarantee. The API's `no-store` header applies to `/api/map-config`; tile images receive their own provider headers.
 
 OSM's policy accepts normal browser HTTP caching. A small OSM HEAD check on 2026-10-26 confirmed cache-control and ETag headers; its TTL is provider-controlled, not hardcoded in PawTrace. Mapbox Static Tiles currently documents `max-age=43200` (12 hours for the browser) and a separate shared/CDN TTL. The `keepBuffer: 0` Leaflet option limits offscreen tile elements; it does not disable HTTP caching or prefetch extra tiles. Only changes to the active source or an explicit retry replace a layer; equivalent configuration, inactive-source changes and loading/error signal updates retain it. Automated tests with routed tile responses verify behavior, not the browser's real HTTP cache hit rate.
+
+## Address search
+
+Type a Polish address and use Enter or **Szukaj**, then choose a result to move the map. Selecting a result creates no case point. Loading, no-results and provider-error feedback leave manual map navigation available. Search input goes to the geocoder; enter address information only, without personal or case-history text.
+
+The accepted public [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) requires explicit user-triggered searches, application identification, attribution, caching, and at most one upstream request per second across all users. No autocomplete, bulk lookup or automatic retries are implemented. Availability is not guaranteed. Keep this local deployment to **one API process/replica**: its singleton queue serializes requests and waits at least a second after each response. Do not run multiple independent PawTrace instances against the public service; a larger deployment requires one shared gateway or a different provider.
+
+`GET /api/address-search?q=...` accepts 2–200 characters and sends only the normalized query plus fixed Poland/language/format/result-limit parameters. The response contains `results` (`id`, `label`, `latitude`, `longitude`) and provider `attribution`. It does not accept or forward case data. Successful and empty results are cached for 24 hours through NestJS `CacheModule`/`CACHE_MANAGER`, using the `@keyv/redis` store without an in-memory fallback; concurrent duplicates share one request. Cache entries survive API restarts. Keys include the provider configuration and normalized query, hashed with SHA-256; provider changes cannot reuse an old provider's result/attribution. Cache failure returns 503 before contacting the geocoder. At most 50 distinct searches can be pending; overload returns 503. Upstream calls time out after 10 seconds; provider 429/503 responses defer subsequent calls according to `Retry-After` (60 seconds if missing). Failures are not cached. The browser gives up after 30 seconds and offers manual resubmission, without an automatic retry loop.
+
+Configure `ADDRESS_SEARCH_URL` (a Nominatim-compatible `/search` endpoint), `ADDRESS_SEARCH_USER_AGENT`, `ADDRESS_SEARCH_ATTRIBUTION` (plain text), and `ADDRESS_SEARCH_ATTRIBUTION_URL` (HTTP(S)) on the server. Defaults are in `.env.example`; Compose forwards these settings and Node development loads them via NestJS ConfigModule. Restart/recreate the API to switch provider without rebuilding the browser. The server sends the configured identification, never browser cookies or case history, and refuses upstream redirects.
+
+Compose starts Redis alongside the API, waits for its healthcheck and keeps its append-only data in the `redis-data` named volume. Redis has a 64 MB technical memory budget with LRU eviction; cached data can be evicted before its TTL and is not a case backup. `docker compose down` preserves the cache volume. For Node development and API tests start only `docker compose up -d --wait redis`; it exposes a loopback-only port (`REDIS_PORT`, default 6379). `REDIS_URL` defaults to `redis://127.0.0.1:6379`; if changing `REDIS_PORT`, update the URL too. Compose supplies the API with its internal `redis://redis:6379` URL. Redis connection/queued-command limits and socket inactivity timeout are one second, with automatic reconnection disabled; a stalled read or write returns 503 and releases the search queue, allowing recovery on explicit resubmission. The GitHub quality job starts a separate Redis service for HTTP integration tests. Redis shares cached responses, but does not distribute the request queue: retain one API process against public Nominatim.
 
 Temporary working files belong in `.scratch/`, which is ignored by Git. Durable specifications, research, and prototypes belong in `docs/`.

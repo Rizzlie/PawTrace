@@ -1,6 +1,9 @@
 services:
   pawtrace:
     build: .
+    depends_on:
+      redis:
+        condition: service_healthy
     init: true
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:3000"
@@ -8,11 +11,16 @@ services:
       - "${ASSET_DIRECTORY:-./data/assets}:/app/data/assets"
     environment:
       ASSET_DIRECTORY: /app/data/assets
+      REDIS_URL: redis://redis:6379
       MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-}
       OSM_TILE_URL: ${OSM_TILE_URL:-}
       OSM_ATTRIBUTION: ${OSM_ATTRIBUTION:-}
       SATELLITE_TILE_URL: ${SATELLITE_TILE_URL:-}
       SATELLITE_ATTRIBUTION: ${SATELLITE_ATTRIBUTION:-}
+      ADDRESS_SEARCH_URL: ${ADDRESS_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
+      ADDRESS_SEARCH_USER_AGENT: ${ADDRESS_SEARCH_USER_AGENT:-PawTrace/1.0 (+https://github.com/Rizzlie/PawTrace)}
+      ADDRESS_SEARCH_ATTRIBUTION: ${ADDRESS_SEARCH_ATTRIBUTION:-© OpenStreetMap contributors}
+      ADDRESS_SEARCH_ATTRIBUTION_URL: ${ADDRESS_SEARCH_ATTRIBUTION_URL:-https://www.openstreetmap.org/copyright}
     healthcheck:
       test:
         [
@@ -25,3 +33,27 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+  redis:
+    image: redis:7.4.6-alpine
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:
