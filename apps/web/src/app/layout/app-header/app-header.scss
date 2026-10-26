@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 74px;
+  padding: 14px 18px;
+  background: var(--pt-surface);
+  border-bottom: 1px solid var(--pt-border);
+}
+.connection {
+  text-align: right;
+}
+p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--pt-muted);
+  font-size: 11px;
+}
+p::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--pt-warning);
+}
+.online::before {
+  background: var(--pt-primary);
+}
+.offline::before {
+  background: var(--pt-danger);
+}
+button {
+  margin-top: 6px;
+  font-size: 11px;
+  padding: 6px 9px;
+}
+@media (max-width: 480px) {
+  header {
+    min-height: 68px;
+    padding: 12px;
+    gap: 10px;
+  }
+  .connection {
+    max-width: 145px;
+  }
+  p {
+    font-size: 10px;
+  }
+}

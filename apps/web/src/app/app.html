@@ -1,48 +1,54 @@
-<header class="header">
-  <div class="brand">
-    <img src="assets/icon.svg" alt="" width="44" height="44" />
-    <div>
-      <h1>PawTrace</h1>
-      <p>Każdy ślad ma znaczenie</p>
-    </div>
-  </div>
-  <div class="connection">
-    <p
-      role="status"
-      aria-label="Połączenie z serwerem"
-      [class.online]="connection() === 'online'"
-      [class.offline]="connection() === 'offline'"
-    >
-      @switch (connection()) { @case ('checking') { Sprawdzanie połączenia… }
-      @case ('online') { Połączono z serwerem } @case ('offline') { Serwer jest
-      niedostępny } }
-    </p>
-    @if (connection() === 'offline') {
-    <button type="button" (click)="checkConnection()">Spróbuj ponownie</button>
-    }
-  </div>
-</header>
+<app-header [connection]="connection()" (reconnect)="checkConnection()" />
 <main>
   <section class="workspace" aria-label="Przestrzeń poszukiwań">
     <pt-map [config]="mapConfig()" [viewport]="viewport()" />
     <pt-address-search (resultSelected)="selectAddress($event)" />
-    <aside class="intro">
-      <span class="eyebrow">Przestrzeń poszukiwań</span>
-      <h2>Zacznij od miejsca.</h2>
-      <p>
-        Przesuwaj mapę i przybliżaj teren poszukiwań. Wybierz mapę uliczną lub
-        satelitę.
-      </p>
-    </aside>
-    @if (configFailed()) {
-    <aside class="config-error">
+    <div class="guide">
+      <button
+        class="guide-toggle"
+        type="button"
+        [attr.aria-expanded]="guideOpen()"
+        aria-controls="map-guide"
+        (click)="guideOpen.set(!guideOpen())"
+      >
+        <span aria-hidden="true">⌖</span> Przestrzeń poszukiwań
+        <span aria-hidden="true">{{ guideOpen() ? '−' : '+' }}</span>
+      </button>
+      <app-floating-panel
+        id="map-guide"
+        label="Jak korzystać z mapy"
+        [hidden]="!guideOpen()"
+      >
+        <div panel-heading class="eyebrow">Każdy ślad ma znaczenie</div>
+        <div class="guide-icon" aria-hidden="true">⌖</div>
+        <h2>Zacznij od miejsca.</h2>
+        <p>Rozejrzyj się po okolicy i poznaj teren poszukiwań.</p>
+        <ul>
+          <li>
+            <span aria-hidden="true">01</span> Przesuwaj mapę i przybliżaj
+            teren.
+          </li>
+          <li>
+            <span aria-hidden="true">02</span> Wybierz mapę uliczną lub
+            satelitę.
+          </li>
+          <li>
+            <span aria-hidden="true">03</span> Użyj swojej lokalizacji, aby
+            wrócić w pobliże.
+          </li>
+        </ul>
+      </app-floating-panel>
+    </div>
+    @if(configFailed()) {<app-floating-panel
+      class="config-error"
+      label="Konfiguracja mapy"
+      ><div panel-heading class="eyebrow">Konfiguracja mapy</div>
       <p role="status">
         Nie udało się pobrać konfiguracji satelity. Mapa OSM działa niezależnie.
       </p>
       <button type="button" (click)="loadMapConfig()">
         Ponów konfigurację
-      </button>
-    </aside>
-    }
+      </button></app-floating-panel
+    >}
   </section>
 </main>

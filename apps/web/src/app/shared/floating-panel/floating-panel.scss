@@ -1,0 +1,16 @@
+:host {
+  display: block;
+  padding: 16px;
+  border: 1px solid var(--pt-panel-border);
+  border-radius: 16px;
+  background: var(--pt-panel);
+  box-shadow: var(--pt-shadow);
+  backdrop-filter: blur(8px);
+  overflow: auto;
+}
+.panel-heading {
+  margin-bottom: 12px;
+}
+.panel-heading:empty {
+  display: none;
+}

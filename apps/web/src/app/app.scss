@@ -2,168 +2,132 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  min-height: 550px;
-  color: #263d30;
-}
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  background: #fffef8;
-  padding: 14px 28px;
-  border-bottom: 1px solid #dce4d5;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-h1 {
-  font-size: 25px;
-  letter-spacing: -0.8px;
-  margin: 0;
-}
-.brand p {
-  font-size: 12px;
-  color: #657560;
-  margin: 3px 0 0;
+  min-height: 420px;
+  color: var(--pt-foreground);
 }
 main {
   display: flex;
   flex: 1;
   min-height: 0;
-  padding: 12px;
 }
 .workspace {
   position: relative;
   flex: 1;
   overflow: hidden;
   isolation: isolate;
-  border-radius: 20px;
-  border: 1px solid #d4dfc8;
-  background: #eaf0df;
+  background: var(--pt-map);
 }
-.intro {
+.guide {
   position: absolute;
   z-index: 500;
-  bottom: 78px;
-  left: 22px;
-  width: 240px;
-  background: #fffef8f5;
-  border: 1px solid #dce4d5;
+  top: 79px;
+  left: 16px;
+  width: 260px;
+  max-height: calc(100% - 155px);
+  overflow: auto;
   border-radius: 16px;
-  padding: 20px 22px;
-  box-shadow: 0 10px 35px #405a3120;
-  pointer-events: none;
 }
-pt-address-search {
-  position: absolute;
-  z-index: 600;
-  top: 22px;
-  left: 22px;
-  width: min(370px, calc(100% - 100px));
+.guide-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: var(--pt-shadow);
+}
+.guide-toggle span:last-child {
+  margin-left: auto;
+}
+app-floating-panel {
+  margin-top: 8px;
+}
+app-floating-panel[hidden] {
+  display: none;
 }
 .eyebrow {
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #66815a;
+  color: var(--pt-muted);
+}
+.guide-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--pt-soft);
+  color: var(--pt-primary);
+  font-size: 24px;
 }
 h2 {
-  margin: 10px 0;
-  font-size: 24px;
-  letter-spacing: -0.8px;
+  margin: 13px 0 8px;
+  font-size: 19px;
+  letter-spacing: -0.4px;
 }
-.intro p {
-  font-size: 13px;
+p {
+  margin: 0;
+  color: var(--pt-muted);
+  font-size: 12px;
   line-height: 1.6;
-  color: #657560;
-  margin: 0;
 }
-.connection {
-  text-align: right;
+ul {
+  display: grid;
+  gap: 13px;
+  margin: 18px 0 0;
+  padding: 15px 0 0;
+  border-top: 1px solid var(--pt-border);
+  list-style: none;
 }
-.connection p {
-  font-size: 12px;
-  margin: 0;
-  color: #657560;
+li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 11px;
+  line-height: 1.6;
 }
-.connection p::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 8px;
-  border-radius: 50%;
-  background: #a28c52;
-}
-.connection .online::before {
-  background: #568445;
-}
-.connection .offline::before {
-  background: #b85b41;
-}
-button {
-  font: inherit;
-  font-size: 12px;
-  color: #fffef8;
-  background: #416b37;
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-top: 8px;
-  cursor: pointer;
-}
-button:focus-visible {
-  outline: 3px solid #a7be91;
-  outline-offset: 3px;
+li span {
+  color: var(--pt-primary);
+  background: var(--pt-soft);
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 9px;
 }
 .config-error {
   position: absolute;
-  z-index: 500;
-  bottom: 22px;
-  left: 22px;
-  max-width: 250px;
-  background: #fffef8;
-  border-radius: 14px;
-  padding: 14px;
-  font-size: 12px;
+  z-index: 501;
+  bottom: 80px;
+  right: 16px;
+  width: 280px;
+  max-height: calc(100% - 160px);
 }
-.config-error p {
-  margin: 0;
+.config-error button {
+  margin-top: 12px;
 }
-@media (max-width: 760px) {
-  .header {
-    padding: 12px 16px;
+@media (max-width: 600px) {
+  .guide {
+    top: auto;
+    bottom: 80px;
+    left: 12px;
+    width: min(260px, calc(100% - 76px));
+    max-height: min(270px, calc(100% - 160px));
   }
-  .brand p {
+  .guide-icon,
+  .eyebrow,
+  ul {
     display: none;
   }
-  .brand img {
-    width: 36px;
-    height: 36px;
-  }
-  h1 {
-    font-size: 21px;
-  }
-  .connection {
-    max-width: 145px;
-  }
-  .connection p {
-    font-size: 11px;
-  }
-  main {
-    padding: 6px;
-  }
-  .intro {
-    display: none;
+  h2 {
+    margin-top: 0;
+    font-size: 17px;
   }
   .config-error {
-    top: auto;
-    bottom: 78px;
+    bottom: 230px;
     left: 12px;
-    right: 62px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100% - 310px);
   }
 }
