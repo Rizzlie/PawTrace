@@ -1,5 +1,7 @@
 import { LeafletMap } from "./leaflet-map";
 import { TestBed } from "@angular/core/testing";
+import { signal, type WritableSignal } from "@angular/core";
+import type { Basemap, MapConfig, MapViewport } from "./map-types";
 
 const captured = vi.hoisted(() => ({
   layers: [] as import("leaflet").TileLayer[],
@@ -22,19 +24,43 @@ vi.mock("leaflet", async (importOriginal) => {
   };
 });
 
-describe("Leaflet lifecycle and basemaps", () => {
+describe("Reactive Leaflet integration", () => {
   let engine: LeafletMap;
   let container: HTMLDivElement;
+  let config: WritableSignal<MapConfig>;
+  let viewport: WritableSignal<MapViewport | undefined>;
   const viewportChanged = vi.fn();
-  const basemapChanged = vi.fn();
-  const tileMessage = vi.fn();
   const disconnect = vi.fn();
   let resize: () => void;
+  const restoreViewport = (view: MapViewport) => {
+    viewport.set(view);
+    TestBed.tick();
+  };
+  const configure = (value: MapConfig) => {
+    config.set(value);
+    TestBed.tick();
+  };
+  const selectBasemap = (basemap: Basemap) => {
+    engine.selectBasemap(basemap);
+    TestBed.tick();
+  };
+  const retryTiles = () => {
+    engine.retryTiles();
+    TestBed.tick();
+  };
+  const initialize = () => {
+    TestBed.configureTestingModule({ providers: [LeafletMap] });
+    engine = TestBed.inject(LeafletMap);
+    engine.initialize(container, { config, viewport, viewportChanged });
+    TestBed.tick();
+  };
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     captured.layers.length = 0;
     captured.maps.length = 0;
+    config = signal<MapConfig>({ mapboxToken: "" });
+    viewport = signal<MapViewport | undefined>(undefined);
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -53,13 +79,7 @@ describe("Leaflet lifecycle and basemaps", () => {
       clientHeight: { value: 700 },
     });
     document.body.append(container);
-    TestBed.configureTestingModule({ providers: [LeafletMap] });
-    engine = TestBed.inject(LeafletMap);
-    engine.initialize(container, {
-      viewportChanged,
-      basemapChanged,
-      tileMessage,
-    });
+    initialize();
   });
   afterEach(() => {
     TestBed.resetTestingModule();
@@ -72,15 +92,15 @@ describe("Leaflet lifecycle and basemaps", () => {
     expect(engine.getViewport().latitude).toBeGreaterThan(49);
     expect(engine.getViewport().latitude).toBeLessThan(55);
     const view = { latitude: 52.23, longitude: 21.01, zoom: 13 };
-    engine.restoreViewport(view);
+    restoreViewport(view);
     await vi.advanceTimersByTimeAsync(20);
-    engine.configure({ mapboxToken: "pk.controlled-test" });
-    engine.selectBasemap("satellite");
+    configure({ mapboxToken: "pk.controlled-test" });
+    selectBasemap("satellite");
     const layer = captured.layers[captured.layers.length - 1];
     expect(layer.options.tileSize).toBe(512);
     expect(layer.options.zoomOffset).toBe(-1);
     expect(engine.getViewport()).toEqual(view);
-    engine.selectBasemap("osm");
+    selectBasemap("osm");
     expect(engine.getViewport()).toEqual(view);
     expect(viewportChanged).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("Improve this map");
@@ -89,7 +109,7 @@ describe("Leaflet lifecycle and basemaps", () => {
   });
 
   it("emits completed user navigation but suppresses restore and resize", async () => {
-    engine.restoreViewport({ latitude: 52, longitude: 20, zoom: 10 });
+    restoreViewport({ latitude: 52, longitude: 20, zoom: 10 });
     await vi.advanceTimersByTimeAsync(20);
     resize();
     expect(viewportChanged).not.toHaveBeenCalled();
@@ -102,17 +122,16 @@ describe("Leaflet lifecycle and basemaps", () => {
 
   it("restores the latest viewport after an in-flight animated zoom without emitting an edit", async () => {
     const map = captured.maps[0];
-    // jsdom has no CSS transitions. Drive the pinned Leaflet animation path
-    // itself, including its real completion timer and event ordering.
+    // Exercise Leaflet's actual CSS animation path/timer in jsdom.
     map.fire("zoomstart");
     Reflect.apply(Reflect.get(map, "_animateZoom"), map, [
       map.getCenter(),
       8,
       true,
     ]);
-    engine.restoreViewport({ latitude: 51, longitude: 19, zoom: 11 });
+    restoreViewport({ latitude: 51, longitude: 19, zoom: 11 });
     const latestView = { latitude: 52.23, longitude: 21.01, zoom: 13 };
-    engine.restoreViewport(latestView);
+    restoreViewport(latestView);
     resize();
     await vi.advanceTimersByTimeAsync(500);
     expect(engine.getViewport()).toEqual(latestView);
@@ -121,7 +140,7 @@ describe("Leaflet lifecycle and basemaps", () => {
     expect(viewportChanged).toHaveBeenCalledTimes(1);
   });
 
-  it("restores after a zoom that was queued for the next animation frame", async () => {
+  it("restores after a zoom queued for the next animation frame", async () => {
     const map = captured.maps[0];
     requestAnimationFrame(() => {
       map.fire("zoomstart");
@@ -132,25 +151,38 @@ describe("Leaflet lifecycle and basemaps", () => {
       ]);
     });
     const view = { latitude: 52.23, longitude: 21.01, zoom: 13 };
-    engine.restoreViewport(view);
+    restoreViewport(view);
     await vi.advanceTimersByTimeAsync(500);
     expect(engine.getViewport()).toEqual(view);
     expect(viewportChanged).not.toHaveBeenCalled();
   });
 
-  it("does not request satellite tiles without credentials", () => {
-    engine.selectBasemap("satellite");
+  it("exposes missing-credential state without requesting satellite tiles", () => {
+    expect(engine.satelliteAvailable()).toBe(false);
+    selectBasemap("satellite");
     expect(captured.layers).toHaveLength(1);
-    expect(tileMessage).toHaveBeenLastCalledWith(
-      expect.stringContaining("tokenu Mapbox"),
-    );
+    expect(engine.basemap()).toBe("osm");
+    expect(engine.tileMessage()).toContain("tokenu Mapbox");
   });
 
-  it("reconfigures source URLs and attribution in place while preserving the viewport", async () => {
+  it("updates computed availability and resets an unavailable selection without automatically retrying it", () => {
+    configure({ mapboxToken: "pk.test" });
+    expect(engine.satelliteAvailable()).toBe(true);
+    selectBasemap("satellite");
+    expect(engine.basemap()).toBe("satellite");
+    expect(engine.showMapboxLogo()).toBe(true);
+    configure({ mapboxToken: "" });
+    expect(engine.basemap()).toBe("osm");
+    expect(engine.showMapboxLogo()).toBe(false);
+    configure({ mapboxToken: "pk.test" });
+    expect(engine.basemap()).toBe("osm");
+  });
+
+  it("updates the active source and attribution without changing viewport", async () => {
     const view = { latitude: 52.23, longitude: 21.01, zoom: 13 };
-    engine.restoreViewport(view);
+    restoreViewport(view);
     await vi.advanceTimersByTimeAsync(20);
-    const config = {
+    const value: MapConfig = {
       mapboxToken: "pk.test&value",
       osm: {
         urlTemplate: "https://maps.example.test/street/{z}/{x}/{y}",
@@ -162,19 +194,25 @@ describe("Leaflet lifecycle and basemaps", () => {
         attribution: "Satellite provider",
       },
     };
-    engine.configure(config);
+    configure(value);
     expect(
       container.querySelector<HTMLImageElement>("img.leaflet-tile")?.src,
     ).toContain("maps.example.test/street/");
     expect(container.textContent).toContain("Street provider");
-    engine.selectBasemap("satellite");
+    selectBasemap("satellite");
     expect(
       container.querySelector<HTMLImageElement>("img.leaflet-tile")?.src,
     ).toContain("token=pk.test%26value");
     expect(container.textContent).toContain("Satellite provider");
-    engine.configure({
-      ...config,
-      satellite: { ...config.satellite, attribution: "Updated provider" },
+    expect(engine.showMapboxLogo()).toBe(false);
+    configure({
+      ...value,
+      satellite: {
+        ...value.satellite,
+        urlTemplate:
+          "https://maps.example.test/satellite/{z}/{x}/{y}?token={accessToken}",
+        attribution: "Updated provider",
+      },
     });
     expect(container.textContent).toContain("Updated provider");
     expect(container.textContent).not.toContain("Satellite provider");
@@ -182,8 +220,45 @@ describe("Leaflet lifecycle and basemaps", () => {
     expect(viewportChanged).not.toHaveBeenCalled();
   });
 
-  it("sanitizes configured attribution before Leaflet inserts it into the DOM", () => {
-    engine.configure({
+  it("keeps tiles in place through status changes, equivalent inputs and inactive source changes", () => {
+    const originalLayer = captured.layers[0];
+    expect(engine.loading()).toBe(true);
+    originalLayer.fire("load");
+    expect(engine.loading()).toBe(false);
+    TestBed.tick();
+    originalLayer.fire("tileerror");
+    TestBed.tick();
+    expect(engine.tileMessage()).toContain("Nie udało");
+    configure({
+      mapboxToken: "pk.test",
+      satellite: {
+        urlTemplate: "https://maps.example.test/{z}/{x}/{y}",
+        attribution: "Satellite provider",
+      },
+    });
+    configure({ ...config() });
+    expect(captured.layers).toHaveLength(1);
+    retryTiles();
+    expect(captured.layers).toHaveLength(2);
+    expect(engine.tileMessage()).toBe("");
+  });
+
+  it("resets a source error declaratively when its configuration changes", () => {
+    captured.layers[0].fire("tileerror");
+    expect(engine.tileMessage()).toContain("Nie udało");
+    configure({
+      mapboxToken: "",
+      osm: {
+        urlTemplate: "https://maps.example.test/{z}/{x}/{y}",
+        attribution: "Replacement provider",
+      },
+    });
+    expect(engine.tileMessage()).toBe("");
+    expect(container.textContent).toContain("Replacement provider");
+  });
+
+  it("sanitizes configured attribution before Leaflet inserts it", () => {
+    configure({
       mapboxToken: "",
       osm: {
         urlTemplate: "https://maps.example.test/{z}/{x}/{y}",
@@ -200,7 +275,7 @@ describe("Leaflet lifecycle and basemaps", () => {
   });
 
   it("cancels pending restoration when Angular destroys the map service", async () => {
-    engine.restoreViewport({ latitude: 52, longitude: 21, zoom: 12 });
+    restoreViewport({ latitude: 52, longitude: 21, zoom: 12 });
     TestBed.resetTestingModule();
     await vi.advanceTimersByTimeAsync(500);
     expect(disconnect).toHaveBeenCalledOnce();
@@ -208,7 +283,7 @@ describe("Leaflet lifecycle and basemaps", () => {
     expect(container.querySelector(".leaflet-map-pane")).toBeNull();
   });
 
-  it("lets an active zoom finish safely when the host is destroyed during restoration", async () => {
+  it("lets active zoom finish safely when destroyed during restoration", async () => {
     const map = captured.maps[0];
     map.fire("zoomstart");
     Reflect.apply(Reflect.get(map, "_animateZoom"), map, [
@@ -216,7 +291,7 @@ describe("Leaflet lifecycle and basemaps", () => {
       8,
       true,
     ]);
-    engine.restoreViewport({ latitude: 52, longitude: 21, zoom: 13 });
+    restoreViewport({ latitude: 52, longitude: 21, zoom: 13 });
     await vi.advanceTimersByTimeAsync(20);
     TestBed.resetTestingModule();
     await vi.advanceTimersByTimeAsync(500);
@@ -225,48 +300,40 @@ describe("Leaflet lifecycle and basemaps", () => {
     expect(container.querySelector(".leaflet-map-pane")).toBeNull();
   });
 
-  it("falls back once after a satellite error and ignores stale layer events", () => {
-    engine.configure({ mapboxToken: "pk.controlled-test" });
-    engine.selectBasemap("satellite");
+  it("falls back once after satellite error and ignores stale layer events", () => {
+    configure({ mapboxToken: "pk.test" });
+    selectBasemap("satellite");
     const satellite = captured.layers[captured.layers.length - 1];
     satellite.fire("tileerror");
-    expect(basemapChanged).toHaveBeenLastCalledWith("osm");
-    expect(tileMessage).toHaveBeenLastCalledWith(
-      expect.stringContaining("Przywrócono"),
-    );
+    TestBed.tick();
+    expect(engine.basemap()).toBe("osm");
+    expect(engine.tileMessage()).toContain("Przywrócono");
     const count = captured.layers.length;
     satellite.fire("tileerror");
     vi.advanceTimersByTime(16000);
+    TestBed.tick();
     expect(captured.layers).toHaveLength(count);
   });
 
   it("falls back when satellite requests hang", () => {
-    engine.configure({ mapboxToken: "pk.controlled-test" });
-    engine.selectBasemap("satellite");
+    configure({ mapboxToken: "pk.test" });
+    selectBasemap("satellite");
     vi.advanceTimersByTime(15000);
-    expect(basemapChanged).toHaveBeenLastCalledWith("osm");
+    TestBed.tick();
+    expect(engine.basemap()).toBe("osm");
   });
 
-  it("allows manual OSM recovery and destroys resources so the container can be reused", () => {
+  it("recovers from OSM failure and releases resources so the container can be reused", () => {
     captured.layers[0].fire("tileerror");
-    expect(tileMessage).toHaveBeenLastCalledWith(
-      expect.stringContaining("Nie udało"),
-    );
-    engine.retryTiles();
-    expect(tileMessage).toHaveBeenLastCalledWith("");
-    const map = captured.maps[0];
+    expect(engine.tileMessage()).toContain("Nie udało");
+    retryTiles();
+    expect(engine.tileMessage()).toBe("");
     const removed = vi.fn();
-    map.on("unload", removed);
+    captured.maps[0].on("unload", removed);
     TestBed.resetTestingModule();
     expect(disconnect).toHaveBeenCalledOnce();
     expect(removed).toHaveBeenCalledOnce();
-    TestBed.configureTestingModule({ providers: [LeafletMap] });
-    engine = TestBed.inject(LeafletMap);
-    engine.initialize(container, {
-      viewportChanged,
-      basemapChanged,
-      tileMessage,
-    });
+    initialize();
     expect(container.querySelectorAll(".leaflet-map-pane")).toHaveLength(1);
   });
 });

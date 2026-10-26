@@ -2,37 +2,56 @@ import { TestBed } from "@angular/core/testing";
 import { MapEngine } from "./map-engine";
 import { LeafletMap } from "./leaflet-map";
 
-const lifecycle = vi.hoisted(() => ({ destroy: vi.fn() }));
-vi.mock("./leaflet-map", () => ({
-  LeafletMap: class {
-    initialize = vi.fn();
-    configure = vi.fn();
-    restoreViewport = vi.fn();
-    ngOnDestroy() {
-      lifecycle.destroy(this);
-    }
-  },
-}));
-
-describe("Location on demand", () => {
-  beforeEach(() => vi.clearAllMocks());
+describe("Map host and location on demand", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+  });
   afterEach(() => vi.unstubAllGlobals());
-  it("provides one map service per host and destroys only that host's instance", async () => {
+
+  it("provides separate map services and destroys only the removed host's map", async () => {
     const first = TestBed.createComponent(MapEngine);
     const second = TestBed.createComponent(MapEngine);
     await Promise.all([first.whenStable(), second.whenStable()]);
     const firstMap = first.debugElement.injector.get(LeafletMap);
     const secondMap = second.debugElement.injector.get(LeafletMap);
     expect(firstMap).not.toBe(secondMap);
-    expect(firstMap.initialize).toHaveBeenCalledOnce();
-    expect(secondMap.initialize).toHaveBeenCalledOnce();
+    const firstHost: HTMLElement = first.nativeElement;
+    const secondHost: HTMLElement = second.nativeElement;
+    expect(firstHost.querySelector(".leaflet-map-pane")).not.toBeNull();
+    expect(secondHost.querySelector(".leaflet-map-pane")).not.toBeNull();
     first.destroy();
-    expect(lifecycle.destroy).toHaveBeenCalledTimes(1);
-    expect(lifecycle.destroy).toHaveBeenLastCalledWith(firstMap);
+    expect(firstHost.querySelector(".leaflet-map-pane")).toBeNull();
+    expect(secondHost.querySelector(".leaflet-map-pane")).not.toBeNull();
     second.destroy();
-    expect(lifecycle.destroy).toHaveBeenCalledTimes(2);
-    expect(lifecycle.destroy).toHaveBeenLastCalledWith(secondMap);
+    expect(secondHost.querySelector(".leaflet-map-pane")).toBeNull();
   });
+
+  it("renders service signals directly and reacts to changing inputs", async () => {
+    const fixture = TestBed.createComponent(MapEngine);
+    fixture.componentRef.setInput("config", { mapboxToken: "pk.test" });
+    await fixture.whenStable();
+    const map = fixture.debugElement.injector.get(LeafletMap);
+    map.selectBasemap("satellite");
+    await fixture.whenStable();
+    const host: HTMLElement = fixture.nativeElement;
+    expect(
+      host.querySelector('button[aria-pressed="true"]')?.textContent,
+    ).toContain("Satelita");
+    expect(host.querySelector(".mapbox-logo")).not.toBeNull();
+    fixture.componentRef.setInput("config", { mapboxToken: "" });
+    await fixture.whenStable();
+    expect(
+      host.querySelector('button[aria-pressed="true"]')?.textContent,
+    ).toContain("Mapa OSM");
+    expect(host.querySelector(".mapbox-logo")).toBeNull();
+  });
+
   it("explains unavailable geolocation", async () => {
     vi.stubGlobal("navigator", {});
     const fixture = TestBed.createComponent(MapEngine);
@@ -42,7 +61,8 @@ describe("Location on demand", () => {
     await fixture.whenStable();
     expect(host.textContent).toContain("Lokalizacja jest niedostępna");
   });
-  it("requests once on click, handles denial, and ignores a late callback after destruction", async () => {
+
+  it("requests once on click, handles denial and ignores callbacks after destruction", async () => {
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
     const fixture = TestBed.createComponent(MapEngine);

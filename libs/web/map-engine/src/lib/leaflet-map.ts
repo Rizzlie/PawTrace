@@ -1,30 +1,100 @@
 import * as L from "leaflet";
 import {
+  afterRenderEffect,
+  computed,
   inject,
+  linkedSignal,
   SecurityContext,
   Service,
+  signal,
+  untracked,
   type OnDestroy,
+  type Signal,
 } from "@angular/core";
 import { DomSanitizer } from "@angular/platform-browser";
 import type { Basemap, MapConfig, MapViewport } from "./map-types";
 import { defaultMapSources } from "./map-config";
 
-interface MapEvents {
+interface MapBindings {
+  config: Signal<MapConfig>;
+  viewport?: Signal<MapViewport | undefined>;
   viewportChanged: (view: MapViewport) => void;
-  basemapChanged: (basemap: Basemap) => void;
-  tileMessage: (message: string) => void;
 }
+
+interface TileSource {
+  basemap: Basemap;
+  url: string;
+  attribution: string;
+}
+
+const emptyConfig: MapConfig = { mapboxToken: "" };
 
 /** One component-scoped map; Angular destroys its resources with the host. */
 @Service({ autoProvided: false })
 export class LeafletMap implements OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly bindings = signal<MapBindings | undefined>(undefined);
+  private readonly config = computed(
+    () => this.bindings()?.config() ?? emptyConfig,
+  );
+  private readonly satelliteSource = computed(
+    () => this.config().satellite ?? defaultMapSources.satellite,
+  );
+  readonly satelliteAvailable = computed(
+    () =>
+      !this.satelliteSource().urlTemplate.includes("{accessToken}") ||
+      !!this.config().mapboxToken,
+  );
+  private readonly basemapState = linkedSignal<boolean, Basemap>({
+    source: this.satelliteAvailable,
+    computation: (available, previous) =>
+      available ? (previous?.value ?? "osm") : "osm",
+  });
+  readonly basemap = this.basemapState.asReadonly();
+  private readonly loadingState = signal(false);
+  readonly loading = this.loadingState.asReadonly();
+  private readonly locationMessageState = signal("");
+  readonly locationMessage = this.locationMessageState.asReadonly();
+  private readonly locatingState = signal(false);
+  readonly locating = this.locatingState.asReadonly();
+  private readonly retryRevision = signal(0);
+  private readonly tileSource = computed<TileSource>(
+    () => {
+      const basemap = this.basemap();
+      const source = this.config()[basemap] ?? defaultMapSources[basemap];
+      return {
+        basemap,
+        url: source.urlTemplate.replace(
+          /\{accessToken\}/g,
+          encodeURIComponent(this.config().mapboxToken),
+        ),
+        attribution:
+          this.sanitizer.sanitize(SecurityContext.HTML, source.attribution) ??
+          "",
+      };
+    },
+    {
+      equal: (previous, current) =>
+        previous.basemap === current.basemap &&
+        previous.url === current.url &&
+        previous.attribution === current.attribution,
+    },
+  );
+  private readonly tileMessageState = linkedSignal(() => {
+    this.tileSource();
+    return "";
+  });
+  readonly tileMessage = this.tileMessageState.asReadonly();
+  readonly showMapboxLogo = computed(
+    () =>
+      this.basemap() === "satellite" &&
+      new URL(this.satelliteSource().urlTemplate, "https://pawtrace.invalid")
+        .hostname === "api.mapbox.com",
+  );
+
   private map!: L.Map;
-  private events!: MapEvents;
   private resizeObserver?: ResizeObserver;
   private layer?: L.TileLayer;
-  private basemap: Basemap = "osm";
-  private config: MapConfig = { mapboxToken: "" };
   private restoring = false;
   private destroyed = false;
   private zooming = false;
@@ -33,10 +103,29 @@ export class LeafletMap implements OnDestroy {
   private tileTimeout?: ReturnType<typeof setTimeout>;
   private locationLayers?: L.LayerGroup;
 
-  initialize(container: HTMLElement, events: MapEvents): void {
+  constructor() {
+    afterRenderEffect({
+      mixedReadWrite: () => {
+        if (!this.bindings() || this.destroyed) return;
+        const source = this.tileSource();
+        this.retryRevision();
+        // Only declarative source/retry changes should replace a Leaflet layer.
+        // Synchronous Leaflet callbacks must not become effect dependencies.
+        untracked(() => this.renderTiles(source));
+      },
+    });
+    afterRenderEffect({
+      mixedReadWrite: () => {
+        const view = this.bindings()?.viewport?.();
+        if (view && !this.destroyed)
+          untracked(() => this.restoreViewport(view));
+      },
+    });
+  }
+
+  initialize(container: HTMLElement, bindings: MapBindings): void {
     if (this.map || this.destroyed)
       throw new Error("Map service can only be initialized once.");
-    this.events = events;
     this.map = L.map(container, {
       zoomControl: false,
       minZoom: 3,
@@ -64,6 +153,7 @@ export class LeafletMap implements OnDestroy {
     this.map.on("zoomstart", this.onZoomStart);
     this.map.on("zoomend", this.onZoomEnd);
     this.resizeObserver = new ResizeObserver(() => {
+      if (this.destroyed) return;
       const wasRestoring = this.restoring;
       this.restoring = true;
       try {
@@ -73,7 +163,7 @@ export class LeafletMap implements OnDestroy {
       }
     });
     this.resizeObserver.observe(container);
-    this.selectBasemap("osm");
+    this.bindings.set(bindings);
   }
 
   getViewport(): MapViewport {
@@ -85,12 +175,110 @@ export class LeafletMap implements OnDestroy {
     };
   }
 
-  restoreViewport(view: MapViewport): void {
+  selectBasemap(basemap: Basemap): void {
+    if (basemap === "satellite" && !this.satelliteAvailable()) {
+      this.tileMessageState.set(
+        "Satelita wymaga skonfigurowania tokenu Mapbox. Mapa OSM jest dostępna.",
+      );
+      return;
+    }
+    if (this.basemap() === basemap) return;
+    this.tileMessageState.set("");
+    this.basemapState.set(basemap);
+  }
+
+  retryTiles(): void {
+    this.tileMessageState.set("");
+    this.retryRevision.update((revision) => revision + 1);
+  }
+
+  locate(): void {
+    if (this.locating() || this.destroyed) return;
+    if (!navigator.geolocation) {
+      this.locationMessageState.set(
+        "Lokalizacja jest niedostępna w tej przeglądarce. Możesz przesuwać mapę ręcznie.",
+      );
+      return;
+    }
+    this.locatingState.set(true);
+    this.locationMessageState.set("Ustalanie lokalizacji…");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (this.destroyed) return;
+        this.locatingState.set(false);
+        this.showLocation(coords.latitude, coords.longitude, coords.accuracy);
+        this.locationMessageState.set(
+          `Twoja lokalizacja (dokładność około ${Math.round(coords.accuracy)} m).`,
+        );
+      },
+      (error) => {
+        if (this.destroyed) return;
+        this.locatingState.set(false);
+        this.locationMessageState.set(
+          error.code === 1
+            ? "Brak zgody na lokalizację. Możesz przesuwać mapę ręcznie."
+            : "Nie udało się ustalić lokalizacji. Spróbuj ponownie lub przesuń mapę ręcznie.",
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+    );
+  }
+
+  ngOnDestroy(): void {
     if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.restoreFrame !== undefined)
+      cancelAnimationFrame(this.restoreFrame);
+    this.pendingViewport = undefined;
+    this.resizeObserver?.disconnect();
+    this.removeLayer();
+    this.map?.off("moveend", this.onMoveEnd);
+    this.map?.off("zoomstart", this.onZoomStart);
+    this.map?.off("zoomend", this.onZoomEnd);
+    // Leaflet's CSS zoom completion timer must run before its pane is removed.
+    if (this.zooming) this.map.once("zoomend", () => this.map.remove());
+    else this.map?.remove();
+  }
+
+  private renderTiles({ basemap, url, attribution }: TileSource): void {
+    this.removeLayer();
+    this.loadingState.set(false);
+    const layer = L.tileLayer(url, {
+      ...(basemap === "satellite"
+        ? { tileSize: 512, zoomOffset: -1, minZoom: 1 }
+        : {}),
+      maxZoom: 19,
+      attribution,
+      updateWhenIdle: true,
+      keepBuffer: 0,
+      referrerPolicy: "strict-origin-when-cross-origin",
+    });
+    this.layer = layer;
+    layer.on("tileerror", () => {
+      if (this.destroyed || this.layer !== layer) return;
+      if (basemap === "satellite") this.satelliteFailed();
+      else
+        this.tileMessageState.set(
+          "Nie udało się pobrać mapy OSM. Sprawdź połączenie i spróbuj ponownie.",
+        );
+    });
+    layer.on("loading", () => {
+      this.loadingState.set(true);
+      clearTimeout(this.tileTimeout);
+      if (basemap === "satellite")
+        this.tileTimeout = setTimeout(() => this.satelliteFailed(), 15000);
+    });
+    layer.on("load", () => {
+      this.loadingState.set(false);
+      clearTimeout(this.tileTimeout);
+    });
+    layer.addTo(this.map);
+  }
+
+  private restoreViewport(view: MapViewport): void {
     this.restoring = true;
     this.pendingViewport = view;
-    // An earlier user zoom may still be queued for the next frame. Let it
-    // start before deciding whether to wait for its completed move event.
+    // Observe any earlier zoom queued for the next frame before applying a view.
     this.restoreFrame ??= requestAnimationFrame(() => {
       this.restoreFrame = undefined;
       if (!this.zooming) this.applyPendingViewport();
@@ -98,95 +286,11 @@ export class LeafletMap implements OnDestroy {
     this.map.stop();
   }
 
-  configure(config: MapConfig): void {
-    if (
-      this.config.mapboxToken === config.mapboxToken &&
-      this.config.osm?.urlTemplate === config.osm?.urlTemplate &&
-      this.config.osm?.attribution === config.osm?.attribution &&
-      this.config.satellite?.urlTemplate === config.satellite?.urlTemplate &&
-      this.config.satellite?.attribution === config.satellite?.attribution
-    )
-      return;
-    this.config = config;
-    if (
-      this.basemap === "satellite" &&
-      this.requiresToken("satellite") &&
-      !config.mapboxToken
-    )
-      this.selectBasemap("osm");
-    else this.retryTiles();
-  }
-
-  selectBasemap(basemap: Basemap): void {
-    if (this.requiresToken(basemap) && !this.config.mapboxToken) {
-      this.events.tileMessage(
-        "Satelita wymaga skonfigurowania tokenu Mapbox. Mapa OSM jest dostępna.",
-      );
-      return;
-    }
-    if (this.layer && this.basemap === basemap) return;
-    this.removeLayer();
-    this.basemap = basemap;
-    this.events.basemapChanged(basemap);
-    this.events.tileMessage("");
-    const source = this.config[basemap] ?? defaultMapSources[basemap];
-    const url = source.urlTemplate.replace(
-      /\{accessToken\}/g,
-      encodeURIComponent(this.config.mapboxToken),
-    );
-    const attribution =
-      this.sanitizer.sanitize(SecurityContext.HTML, source.attribution) ?? "";
-    const layer =
-      basemap === "osm"
-        ? L.tileLayer(url, {
-            maxZoom: 19,
-            attribution,
-            updateWhenIdle: true,
-            keepBuffer: 0,
-            referrerPolicy: "strict-origin-when-cross-origin",
-          })
-        : L.tileLayer(url, {
-            tileSize: 512,
-            zoomOffset: -1,
-            minZoom: 1,
-            maxZoom: 19,
-            attribution,
-            updateWhenIdle: true,
-            keepBuffer: 0,
-            referrerPolicy: "strict-origin-when-cross-origin",
-          });
-    this.layer = layer;
-    layer.on("tileerror", () => {
-      if (this.destroyed || this.layer !== layer) return;
-      if (basemap === "satellite") this.satelliteFailed();
-      else
-        this.events.tileMessage(
-          "Nie udało się pobrać mapy OSM. Sprawdź połączenie i spróbuj ponownie.",
-        );
-    });
-    layer.on("loading", () => {
-      clearTimeout(this.tileTimeout);
-      if (basemap === "satellite")
-        this.tileTimeout = setTimeout(() => this.satelliteFailed(), 15000);
-    });
-    layer.on("load", () => clearTimeout(this.tileTimeout));
-    layer.addTo(this.map);
-  }
-
-  retryTiles(): void {
-    const basemap = this.basemap;
-    this.removeLayer();
-    this.selectBasemap(basemap);
-  }
-
-  private requiresToken(basemap: Basemap): boolean {
-    return (
-      this.config[basemap] ?? defaultMapSources[basemap]
-    ).urlTemplate.includes("{accessToken}");
-  }
-
-  showLocation(latitude: number, longitude: number, accuracy: number): void {
-    if (this.destroyed) return;
+  private showLocation(
+    latitude: number,
+    longitude: number,
+    accuracy: number,
+  ): void {
     this.locationLayers?.remove();
     this.locationLayers = L.layerGroup([
       L.circle([latitude, longitude], {
@@ -206,30 +310,12 @@ export class LeafletMap implements OnDestroy {
     this.map.setView([latitude, longitude], 16, { animate: false });
   }
 
-  ngOnDestroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
-    if (this.restoreFrame !== undefined)
-      cancelAnimationFrame(this.restoreFrame);
-    this.pendingViewport = undefined;
-    this.resizeObserver?.disconnect();
-    this.removeLayer();
-    this.map?.off("moveend", this.onMoveEnd);
-    this.map?.off("zoomstart", this.onZoomStart);
-    this.map?.off("zoomend", this.onZoomEnd);
-    // Leaflet's CSS zoom has its own completion timer which stop() cannot
-    // cancel. Removing the map earlier makes that timer touch a deleted pane.
-    if (this.zooming) this.map.once("zoomend", () => this.map.remove());
-    else this.map?.remove();
-  }
-
   private readonly onZoomStart = (): void => {
     this.zooming = true;
   };
   private readonly onZoomEnd = (): void => {
     this.zooming = false;
   };
-
   private readonly onMoveEnd = (): void => {
     if (
       this.pendingViewport &&
@@ -240,7 +326,7 @@ export class LeafletMap implements OnDestroy {
       return;
     }
     if (!this.restoring && !this.destroyed)
-      this.events.viewportChanged(this.getViewport());
+      this.bindings()?.viewportChanged(this.getViewport());
   };
 
   private applyPendingViewport(): void {
@@ -257,9 +343,9 @@ export class LeafletMap implements OnDestroy {
   }
 
   private satelliteFailed(): void {
-    this.selectBasemap("osm");
-    // Image errors do not expose HTTP status; do not guess 401 vs 429.
-    this.events.tileMessage(
+    this.basemapState.set("osm");
+    this.loadingState.set(false);
+    this.tileMessageState.set(
       "Satelita jest niedostępna — sprawdź token, limit Mapbox lub połączenie. Przywrócono mapę OSM.",
     );
   }
@@ -267,8 +353,7 @@ export class LeafletMap implements OnDestroy {
   private removeLayer(): void {
     clearTimeout(this.tileTimeout);
     this.layer?.remove();
-    // Leaflet's remove listeners detach map events and provider attribution.
-    // Keep them alive until removal has completed.
+    // Keep Leaflet's own removal listeners alive until removal is complete.
     this.layer?.off();
     this.layer = undefined;
   }
