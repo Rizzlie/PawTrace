@@ -25,8 +25,7 @@
   </p>
   } @if (state.status === 'success') { @if (state.selected; as selected) {
   <p role="status" aria-label="Wybrane miejsce">
-    Wybrano: {{ selected.label }} ({{ selected.latitude.toFixed(5) }}, {{
-    selected.longitude.toFixed(5) }})
+    Wybrano: {{ selected.label }}
   </p>
   } @else {
   <p role="status">

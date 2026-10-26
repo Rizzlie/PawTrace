@@ -48,7 +48,7 @@ test("only searches on submission and selecting a result moves the real map with
   await page.getByRole("button", { name: result.label, exact: true }).click();
   await expect(
     page.getByRole("status", { name: "Wybrane miejsce" }),
-  ).toHaveText("Wybrano: Warszawa, Polska (52.23000, 21.01000)");
+  ).toHaveText("Wybrano: Warszawa, Polska");
   // Leaflet requests z=15 tiles containing the selected latitude/longitude.
   await expect(
     map.locator('img.leaflet-tile-loaded[src*="/15/18296/10789.png"]').first(),
