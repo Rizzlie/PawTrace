@@ -1,6 +1,6 @@
 # F01 — Nx workspace and local Docker runtime
 
-Status: planned
+Status: done
 Depends on: none
 
 ## Goal
@@ -42,4 +42,23 @@ Create frontend projects under `libs/web/**`, API-only projects under `libs/api/
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented and verified on 2026-10-26. The partially generated Angular project is now a usable Polish green shell based on the approved floating-panel direction. It requests same-origin `/api/health`, shows checking/online/offline states, and offers retry after failure. NestJS Express returns `{"status":"ok"}`; the production process also serves the compiled browser files. The original `assets/icon.svg` is used without modification.
+
+Versions: Node 24.16.0, npm 11.13.0, Nx and all direct Nx plugins 24.0.1, Angular runtime/forms 22.2.3, Angular build/CLI 22.2.4, NestJS 11.2.8, TypeScript 6.0.3, RxJS 7.8.2, Webpack 5.112.2. Exact direct pins and npm lockfile are committed. Node/npm are recorded in package engines, packageManager and .node-version; Docker pins the same versions. Compatibility was checked against [Angular](https://angular.dev/reference/versions), [Nx](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS](https://docs.nestjs.com/first-steps), and installed package peer declarations. Angular forms declarations expose the stable v22 API, and `node_modules/@angular/core/types/core.d.ts` contains both public `linkedSignal` overloads with `set?: (value, rawSet) => void`. Actual editor integration belongs to later tasks.
+
+Projects are `apps/web`, `apps/api` and `apps/web-e2e`. Nx tags enforce web/API/shared dependency direction, with map-engine and browser-persistence constraints reserved for those future projects. No shared library is needed for this health-only slice. Docker has build, dependency and non-root runtime stages, a healthcheck, a loopback-bound configurable desktop port, and the future asset bind mount. Root README documents installation, development, production startup, logs, restart, shutdown and checks. Local environment and asset contents are ignored.
+
+Validation completed:
+
+- `npm run typecheck`, `npm run lint`, `npm run build`: passed (both applications; e2e configuration also typechecked/linted).
+- `npx nx run web:test --run src/app/app.spec.ts --output-style=static`: passed after the initial health-request test failed against the generated shell. Two Angular tests cover successful connection and recovery after HTTP 503.
+- `npx nx run api:test --run src/application.spec.ts --output-style=static`: passed after the initial red run; a real HTTP server returns status 200 and the health JSON.
+- `npm test`: full unit/integration suite passed, 3 tests across 2 projects.
+- `npx playwright install chromium`, then `npx nx run web-e2e:e2e --output-style=static`: passed against the development proxy, including the actual API response and original icon.
+- `docker compose config --quiet`: passed.
+- `docker compose up --build --wait`: clean Linux `npm ci` and both production builds passed; runtime became healthy. Initial verification was delayed by Docker Desktop being paused; it succeeded after Desktop resumed.
+- With PowerShell `$env:BASE_URL='http://127.0.0.1:8080'`, `npx nx run web-e2e:e2e --output-style=static`: passed against the container; environment override removed afterwards. Collaborative browser inspection confirmed the shell, icon and health request (HTTP 200), without browser errors.
+- `docker compose restart pawtrace`, `docker compose up --wait`, `docker compose ps`: healthy after restart. `Invoke-RestMethod http://127.0.0.1:8080/api/health` returned `{"status":"ok"}`. Runtime reports Node v24.16.0 and uid/gid 1000 (node).
+- Two independent code-review axes (Standards and Spec) reported no findings against the initial repository HEAD `0d0720f` and staged F01 changes.
+
+No database, authentication, image processing, uploads, real map integration, or mobile HTTPS was introduced. No map token is required. Existing planning assets remain intact; only completion tracking and startup documentation were updated.

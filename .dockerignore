@@ -1,0 +1,17 @@
+node_modules
+dist
+.nx
+.angular
+.git
+.agents
+.claude
+.codex
+.vscode
+.scratch
+docs
+data
+coverage
+test-results
+playwright-report
+.env
+.env.*

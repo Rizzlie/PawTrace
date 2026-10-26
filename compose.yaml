@@ -1,0 +1,22 @@
+services:
+  pawtrace:
+    build: .
+    init: true
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:3000"
+    volumes:
+      - "${ASSET_DIRECTORY:-./data/assets}:/app/data/assets"
+    environment:
+      ASSET_DIRECTORY: /app/data/assets
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
