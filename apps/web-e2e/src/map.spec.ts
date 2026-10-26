@@ -12,6 +12,13 @@ for (const width of [390, 1280]) {
     const guide = page.getByRole("complementary", {
       name: "Jak korzystać z mapy",
     });
+    const search = page.getByRole("search");
+    const basemaps = page.getByRole("toolbar", { name: "Podkład mapy" });
+    await expect(search).toBeVisible();
+    const searchBox = await search.boundingBox();
+    const basemapBox = await basemaps.boundingBox();
+    expect(searchBox!.x + searchBox!.width).toBeLessThan(basemapBox!.x);
+    expect(basemapBox!.x).toBeGreaterThan(width / 2);
     const toggle = page.getByRole("button", { name: "Przestrzeń poszukiwań" });
     await expect(guide).toBeVisible();
     await toggle.focus();
@@ -50,6 +57,21 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://api.mapbox.com/**", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: tile(512) }),
   );
+});
+
+test("basemap toolbar supports arrow-key navigation", async ({ page }) => {
+  await page.goto("/");
+  const street = page.getByRole("button", { name: "Mapa OSM", exact: true });
+  const satellite = page.getByRole("button", { name: "Satelita", exact: true });
+  await street.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(satellite).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Satelita wymaga skonfigurowania tokenu Mapbox.", {
+      exact: false,
+    }),
+  ).toBeVisible();
 });
 
 test.afterEach(async ({ page }) => {

@@ -2,12 +2,13 @@
   <form role="search" (submit)="search($event)">
     <label for="address-query">Adres w Polsce</label>
     <div class="search-row">
+      <span class="search-icon" aria-hidden="true">⌕</span>
       <input
         id="address-query"
         type="search"
         [formField]="searchForm.query"
         autocomplete="off"
-        placeholder="Miejscowość, ulica, numer"
+        placeholder="Szukaj adresu lub miejsca…"
         aria-describedby="search-help"
       />
       <button type="submit" [disabled]="!canSearch()">Szukaj</button>

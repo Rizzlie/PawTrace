@@ -20,12 +20,20 @@ main {
 .guide {
   position: absolute;
   z-index: 500;
-  top: 79px;
+  top: 86px;
   left: 16px;
   width: 260px;
   max-height: calc(100% - 155px);
   overflow: auto;
   border-radius: 16px;
+}
+pt-address-search {
+  position: absolute;
+  z-index: 502;
+  top: 16px;
+  left: 16px;
+  width: min(320px, calc(100% - 220px));
+  max-height: calc(100% - 96px);
 }
 .guide-toggle {
   display: flex;
@@ -107,6 +115,11 @@ li span {
   margin-top: 12px;
 }
 @media (max-width: 600px) {
+  pt-address-search {
+    top: 12px;
+    left: 12px;
+    width: calc(100% - 174px);
+  }
   .guide {
     top: auto;
     bottom: 80px;

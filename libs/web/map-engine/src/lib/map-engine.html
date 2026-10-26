@@ -6,8 +6,9 @@
   aria-label="Mapa poszukiwań"
 ></div>
 <div class="map-tools" role="group" aria-label="Narzędzia mapy">
-  <div class="basemaps" role="group" aria-label="Podkład mapy">
+  <div class="basemaps" ngToolbar aria-label="Podkład mapy">
     <button
+      ngToolbarWidget
       type="button"
       [attr.aria-pressed]="map.basemap() === 'osm'"
       (click)="map.selectBasemap('osm')"
@@ -15,6 +16,7 @@
       Mapa OSM
     </button>
     <button
+      ngToolbarWidget
       type="button"
       [attr.aria-pressed]="map.basemap() === 'satellite'"
       (click)="map.selectBasemap('satellite')"

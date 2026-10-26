@@ -29,7 +29,11 @@ export class App {
   protected readonly viewport = signal<MapViewport | undefined>(undefined);
 
   protected selectAddress(result: AddressSearchResult): void {
-    this.viewport.set({ latitude: result.latitude, longitude: result.longitude, zoom: 15 });
+    this.viewport.set({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      zoom: 15,
+    });
   }
   protected readonly guideOpen = signal(true);
   private readonly http = inject(HttpClient);
