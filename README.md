@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides a runnable Angular shell and a NestJS Express API in one Nx workspace, with a Linux Docker Compose runtime. The shell displays the live API connection status and offers retry after a connection failure. Map editing and case features follow in F02–F15.
+F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. Live Mapbox acceptance is pending a configured public token; subsequent case features remain planned.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -37,7 +37,7 @@ AI analysis and suggested search locations are planned for a later stage. Databa
 
 One application-state service owns committed case data, UI state, editor drafts, and save status. Only the committed document is persisted and exported. Photos remain server assets referenced by filename in the case file.
 
-Frontend libraries belong under `libs/web/**`, backend libraries under `libs/api/**`, and the framework-neutral case contract under `libs/shared/case-domain`. These directories will be created as the relevant implementation tasks are completed. PostgreSQL and PostGIS are the intended later database direction.
+The Leaflet host and adapter live in `libs/web/map-engine`. Further frontend libraries belong under `libs/web/**`, backend libraries under `libs/api/**`, and the framework-neutral case contract under `libs/shared/case-domain`; they will be created as needed. PostgreSQL and PostGIS are the intended later database direction.
 
 ## Documentation
 
@@ -98,6 +98,24 @@ The HTTP integration test starts a real NestJS server on an ephemeral loopback p
 
 Nx tags enforce browser/API/shared dependency directions. Libraries under `libs/web/**`, `libs/api/**` and `libs/shared/case-domain` will be added when a feature needs them. Signal Forms and the published `linkedSignal` custom setter are available in the pinned Angular baseline; editor-state integration belongs to later tasks. Version-selection references: [Angular compatibility](https://angular.dev/reference/versions), [Nx/Angular matrix](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS prerequisites](https://docs.nestjs.com/first-steps), and [linkedSignal API](https://angular.dev/api/core/linkedSignal).
 
-No external token is needed for F01. Real satellite tiles in F02 require a Mapbox account and client token; see the [satellite-provider decision](docs/mvp/issues/12-satellite-provider.md).
+## Map configuration
+
+OSM works without an account or token. The map starts over Poland, supports mouse/keyboard navigation, and offers **Moja lokalizacja** on demand. Location requires browser permission and a secure context (localhost is supported); denial leaves manual navigation available. The accuracy circle and position are temporary, with no continuous tracking. View persistence follows in F05.
+
+Satellite imagery uses Mapbox `satellite-streets-v12` through Static Tiles API with 512-pixel tiles and Leaflet zoom offset -1. Set `MAPBOX_PUBLIC_TOKEN` to your public browser token (`pk.*`) in the ignored `.env` for Compose, then run `docker compose up -d --force-recreate pawtrace`. For Node development set the same environment variable in the terminal before `npm run dev`; `.env` is not automatically loaded by Node. Restart the API and reload the page after changing the token. No frontend rebuild is needed.
+
+`GET /api/map-config` returns this public token to the browser with `Cache-Control: no-store`; private (`sk.*`) tokens are not returned. Browser tokens are visible in network requests. Use account-supported URL restrictions for your actual origin; never use an administrative token or commit local credentials. A missing token, tile error, or 15-second satellite load timeout keeps or restores OSM, preserves the viewport, and displays a message. OSM errors offer a manual retry. Tile-image errors cannot distinguish denied access, quota exhaustion, and network failure, so the message identifies the possible causes without inventing an HTTP status.
+
+Both source URLs and their attribution can be overridden at runtime. Set `OSM_TILE_URL` together with `OSM_ATTRIBUTION`, or `SATELLITE_TILE_URL` together with `SATELLITE_ATTRIBUTION`, in the same environment as the API. Compose forwards all four settings from `.env`. Leave a pair empty to retain its accepted default. Restart/recreate the API and reload the browser after changes; no frontend rebuild is required.
+
+URL templates must use HTTP(S) or a relative path and contain `{z}`, `{x}`, and `{y}`. Satellite templates may contain `{accessToken}`, replaced with the URL-encoded public token; sources without this placeholder need no token. Replacement basic sources must provide 256-pixel XYZ tiles, and satellite sources 512-pixel XYZ tiles (zoom offset -1), within the map's zoom range 3–19. Provide the matching provider's attribution as HTML links; the browser sanitizes the markup before Leaflet displays it. Incomplete/invalid settings display the configuration error and retain the current usable configuration. The Mapbox logo is shown for the Mapbox satellite endpoint. Custom providers remain subject to their own attribution and access requirements.
+
+Provider documentation checked on 2026-10-26: [Static Tiles API](https://docs.mapbox.com/api/maps/static-tiles/), [Mapbox trial limits](https://docs.mapbox.com/accounts/guides/signup/), [attribution requirements](https://docs.mapbox.com/help/ja/dive-deeper/attribution/), and [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). The card-free trial currently includes 20,000 Static Tiles requests per month, subject to provider changes; no payment method or upgrade is configured. See the [provider decision](docs/mvp/issues/12-satellite-provider.md).
+
+Tiles load directly through the browser, retaining normal HTTP caching and referrer headers. There is no bulk download, offline prefetch, proxy, or automatic satellite retry. OSM attribution remains visible; satellite mode adds Mapbox/OSM/Maxar links, feedback, and the official Mapbox logo (vendored from Mapbox GL JS 3.17.0 CSS). Automated map tests use controlled tile responses and never consume provider quotas. Real OSM tiles were separately verified; real Mapbox imagery still requires account/token verification.
+
+Tile caching uses the browser's HTTP memory/disk cache, honoring the provider's `Cache-Control`, `Expires`, `Age` and validators such as `ETag`. A fresh cached response can be reused without a provider request; an expired response may require revalidation or download. Cache retention also depends on the browser and available storage. There is no application-owned tile cache in IndexedDB, Cache Storage, the API or Docker, and no offline guarantee. The API's `no-store` header applies to `/api/map-config`; tile images receive their own provider headers.
+
+OSM's policy accepts normal browser HTTP caching. A small OSM HEAD check on 2026-10-26 confirmed cache-control and ETag headers; its TTL is provider-controlled, not hardcoded in PawTrace. Mapbox Static Tiles currently documents `max-age=43200` (12 hours for the browser) and a separate shared/CDN TTL. The `keepBuffer: 0` Leaflet option limits offscreen tile elements; it does not disable HTTP caching or prefetch extra tiles. Only changes to the active source or an explicit retry replace a layer; equivalent configuration, inactive-source changes and loading/error signal updates retain it. Automated tests with routed tile responses verify behavior, not the browser's real HTTP cache hit rate.
 
 Temporary working files belong in `.scratch/`, which is ignored by Git. Durable specifications, research, and prototypes belong in `docs/`.
