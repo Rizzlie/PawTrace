@@ -1,3 +1,7 @@
+# Coding principles
+
+- **Declarative > imperative.** Express state, derived values, and dependencies declaratively. In Angular, prefer `computed` for derived state and template bindings for rendering. Use imperative code for side effects and APIs that require it, keeping those operations behind focused adapters or services.
+
 # Contribution workflow
 
 - Before changing files, create or switch to a dedicated task branch (for example, `feat/f02-map` or `chore/tooling`). Never commit on `main`.
