@@ -79,6 +79,10 @@ npm run dev
 
 Open http://localhost:4200. Angular proxies `/api/**` to NestJS at http://127.0.0.1:3000. Stop both with Ctrl+C. To start them separately, run `npx nx run api:serve` and `npx nx run web:serve` in separate terminals. `API_HOST` and `API_PORT` configure the server; if you change its development port, update `apps/web/proxy.conf.json` too. `WEB_ROOT` optionally enables static frontend serving and is set automatically in Docker. Node development does not automatically load Compose's `.env` file.
 
+## Contributing
+
+Use a dedicated branch for each change, Conventional Commits, and a GitHub PR into `main`. Local hooks enforce formatting, typechecks, tests and commit messages. See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete workflow and GitHub protection settings.
+
 ## Checks
 
 ```sh

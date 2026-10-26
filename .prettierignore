@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out-tsc/
+coverage/
+.nx/
+.angular/
+.scratch/
+.husky/_/
+.agents/
+package-lock.json
+data/assets/
+docs/mvp/prototypes/
