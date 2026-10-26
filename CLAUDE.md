@@ -1,3 +1,10 @@
+# Contribution workflow
+
+- Before changing files, create or switch to a dedicated task branch (for example, `feat/f02-map` or `chore/tooling`). Never commit on `main`.
+- Use Conventional Commits for every commit and PR title: `type(scope): description`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and checks.
+- Push the task branch and open a GitHub PR against `main`. Merge through GitHub only; leave the PR open for review unless the user explicitly requests merging it. Do not merge locally or push directly to `main`.
+- Run the installed hooks normally; do not bypass them with `--no-verify` or `HUSKY=0` for commits or pushes.
+
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
@@ -19,6 +26,5 @@
 - USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
 - DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
-
 
 <!-- nx configuration end-->

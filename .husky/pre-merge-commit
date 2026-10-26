@@ -1,0 +1,2 @@
+echo "Local merge commits are blocked. Open a PR and merge it on GitHub." >&2
+exit 1

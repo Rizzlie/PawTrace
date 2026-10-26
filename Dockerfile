@@ -2,6 +2,7 @@ FROM node:24.16.0-bookworm-slim AS dependencies
 WORKDIR /app
 RUN npm install --global npm@11.13.0
 COPY package.json package-lock.json .npmrc ./
+COPY .husky/install.mjs .husky/install.mjs
 RUN npm ci --no-audit --no-fund
 
 FROM dependencies AS build
@@ -13,6 +14,7 @@ FROM node:24.16.0-bookworm-slim AS production-dependencies
 WORKDIR /app
 RUN npm install --global npm@11.13.0
 COPY package.json package-lock.json .npmrc ./
+COPY .husky/install.mjs .husky/install.mjs
 RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node:24.16.0-bookworm-slim AS runtime

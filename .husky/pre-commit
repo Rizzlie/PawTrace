@@ -1,0 +1,10 @@
+branch=$(git symbolic-ref --quiet --short HEAD) || {
+  echo "Create or switch to a task branch before committing (detached HEAD)." >&2
+  exit 1
+}
+if [ "$branch" = "main" ]; then
+  echo "Commits on main are blocked. Create a task branch and open a GitHub PR." >&2
+  exit 1
+fi
+npm exec --no -- lint-staged
+git -c core.quotepath=false diff --cached --name-only --no-renames | npm exec --no -- nx affected -t typecheck test --stdin
