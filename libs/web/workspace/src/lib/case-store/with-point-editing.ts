@@ -267,10 +267,11 @@ export function withPointEditing() {
             const document = store.document();
             const id = store.deletingPointId();
             if (!document || !id || store.editor() || caseBusy(getState(store))) return;
+            const now = new Date().toISOString();
             dispatch.deleted({
               id,
-              document: removePoint(document, id),
-              updatedAt: new Date().toISOString(),
+              document: removePoint(document, id, now),
+              updatedAt: now,
             });
           },
         };

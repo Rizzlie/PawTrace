@@ -1,6 +1,6 @@
 # F08 — Point history and animal identification
 
-Status: in_progress
+Status: done
 Depends on: F07
 
 ## Goal
@@ -47,4 +47,22 @@ Pure history projections provide deterministic newest-first ordering in the case
 
 Profile/history drafts share time conversion, including explicit repeated-hour choices, nonexistent-hour validation and preservation of imported offsets/precision. A lightweight `case-domain/history` entry point keeps these projections separate from lazy Zod validation. All editors share session IDs; selection from markers/list, profile routing and case transfer resolve dirty history first.
 
-TDD observed failures for missing chronology, history editing, marker outcomes and dirty selection before their implementation. Focused regressions pass. Final acceptance and independent Standards/Spec review are in progress; completion status will be updated with their results.
+TDD observed failures for missing chronology, history editing, marker outcomes and dirty selection before their implementation. Regression coverage includes all entry types, invalid rejection/quantity/link data, delayed-Save cancellation, stale field writes, outcome-count changes, preservation of all imported time variants and photo references, and deletion reference repair.
+
+Validation:
+
+- `npm exec nx run-many -- -t typecheck lint test build e2e --output-style=static` exercised all 25 targets. Typechecking, lint and both builds passed; the first run lacked the Redis and web services after a session interruption. Redis was started with the documented Compose command, and `npm exec nx run api:test -- --output-style=static` passed all 31 API tests. Combined unit/integration coverage passes 230 tests, including 120 case-domain, 44 workspace and 32 map-engine tests.
+- `npm exec nx run web-e2e:e2e -- --workers=4 --output-style=static` passed all 60 Chromium scenarios, including four new history scenarios. They exercise sighting/food placement/present/absent, reload, JSON transfer, mixed/different-animal outcomes, dirty transitions, deletion, repeated DST hours, reasoned rejection and editable recovery at 1280px/390px.
+- The first service-managed browser run passed 58/60: a new mobile helper checked the collapse toggle before the restored view rendered; waiting for the save status and toggle fixed synchronization. An existing persistent-browser scenario also timed out under eight-worker load; the complete four-worker run passed. No timeout was increased or assertion bypassed.
+- Screenshots at 1280px/390px were inspected. Save/Cancel returns focus and scroll to the place heading, keeping identity and counts visible. Map canvas dimensions stay unchanged; phone places remain collapsed initially.
+- Following the review's shared-unlink refinement, case-domain/workspace typechecking, lint and all 164 tests passed again; targeted browser coverage repeats both removal paths and the four new history scenarios.
+
+The live F02 Mapbox acceptance remains separately blocked. Tests use controlled map responses; no paid service or server photo operation was used.
+
+### Standards review
+
+Independent review against user-confirmed `478529b` found no documented-standard violations and two low-priority duplication judgments. Entry/point deletion now shares the domain unlink operation, including metadata updates. The existing feature-owned Save protocol remains a nonblocking deepening opportunity; no speculative editor framework was introduced.
+
+### Spec review
+
+Independent review against the same base found no missing/partial requirements, scope creep or incorrect F08 behavior. Active filters and photo upload/viewing remain in F14/F13 respectively.

@@ -14,8 +14,10 @@ async function exportCase(page: Page) {
   return caseFileSchema.parse(JSON.parse(Buffer.concat(chunks).toString()));
 }
 async function selectHome(page: Page) {
-  const expand = page.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
-  if (await expand.isVisible()) await expand.click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  const toggle = page.getByRole('button', { name: /^(Rozwiń|Zwiń) miejsca$/ });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
   await page
     .getByRole('complementary', { name: 'Miejsca', exact: true })
     .getByRole('button', { name: 'Dom', exact: true })

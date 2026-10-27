@@ -1,5 +1,10 @@
 export * from './lib/case-contract';
-export { pointHistory, observationCounts, removeHistoryEntry } from './lib/point-history';
+export {
+  pointHistory,
+  observationCounts,
+  removeHistoryEntry,
+  unlinkRemovedObservations,
+} from './lib/point-history';
 export { animalProfileSchema, type AnimalProfile } from './lib/animal-profile';
 export {
   eventTimeSchema,

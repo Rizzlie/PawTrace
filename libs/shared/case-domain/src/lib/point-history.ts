@@ -62,6 +62,26 @@ export function removeHistoryEntry(
 ): CaseDocument {
   if (!document.points.find((p) => p.id === pointId)?.entries.some((e) => e.id === entryId))
     return document;
+  return unlinkRemovedObservations(
+    {
+      ...document,
+      points: document.points.map((point) =>
+        point.id === pointId
+          ? { ...point, entries: point.entries.filter((entry) => entry.id !== entryId) }
+          : point,
+      ),
+    },
+    new Set([entryId]),
+    updatedAt,
+  );
+}
+
+/** One referential-integrity rule shared by entry and whole-place removal. */
+export function unlinkRemovedObservations(
+  document: CaseDocument,
+  removed: ReadonlySet<string>,
+  updatedAt: string,
+): CaseDocument {
   const unlink = <
     T extends {
       observationEntryId: string | null;
@@ -71,7 +91,7 @@ export function removeHistoryEntry(
   >(
     check: T,
   ): T =>
-    check.observationEntryId !== entryId
+    !check.observationEntryId || !removed.has(check.observationEntryId)
       ? check
       : {
           ...check,
@@ -80,7 +100,7 @@ export function removeHistoryEntry(
           updatedAt,
           description: [
             check.description,
-            `Widziano zwierzę — powiązana obserwacja ${entryId} została usunięta.`,
+            `Widziano zwierzę — powiązana obserwacja ${check.observationEntryId} została usunięta.`,
           ]
             .filter(Boolean)
             .join('\n'),
@@ -89,9 +109,7 @@ export function removeHistoryEntry(
     ...document,
     points: document.points.map((point) => ({
       ...point,
-      entries: point.entries
-        .filter((entry) => point.id !== pointId || entry.id !== entryId)
-        .map((entry) => (entry.type === 'check' ? unlink(entry) : entry)),
+      entries: point.entries.map((entry) => (entry.type === 'check' ? unlink(entry) : entry)),
     })),
     areas: document.areas.map((area) => ({ ...area, checks: area.checks.map(unlink) })),
   };
