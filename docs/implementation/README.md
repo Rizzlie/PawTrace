@@ -2,7 +2,7 @@
 
 Use this index when the user asks to implement an identifier such as `F01`. Open the matching task file, read this execution guide, and follow that task's specification pointers. These are implementation tasks; the numbered decision tickets under `docs/mvp/issues/` remain the product specification.
 
-F01, F03, F04 and F05 are implemented and verified. F02 is implemented with deterministic checks passing, but remains `blocked` on live Mapbox account/token acceptance. The user explicitly authorized F05 without waiting for that external F02 check. F06–F15 remain `planned`; task documents alone do not implement application features.
+F01, F03, F04, F05 and F06 are implemented and verified. F02 is implemented with deterministic checks passing, but remains `blocked` on live Mapbox account/token acceptance. The user explicitly authorized F05 without waiting for that external F02 check. F07–F15 remain `planned`; task documents alone do not implement application features.
 
 ## Execution guide
 
@@ -24,7 +24,7 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM while F02's satellite-token check remains pending.
 4. [F04 — Case domain model and JSON contract](F04-domain-and-json-contract.md) — done. Dependencies: F01.
 5. [F05 — Case lifecycle, autosave, and file transfer](F05-case-persistence.md) — done. Dependencies: F02 implementation, F04; the user waived waiting for F02 live Mapbox acceptance.
-6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — planned. Dependencies: F04, F05.
+6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — done. Dependencies: F04, F05.
 7. [F07 — Named map points and place roles](F07-map-points.md) — planned. Dependencies: F02, F03, F04, F05, F06.
 8. [F08 — Point history and animal identification](F08-point-history.md) — planned. Dependencies: F07.
 9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — planned. Dependencies: F07, F08.
@@ -39,7 +39,7 @@ This ordering implements the accepted stages: Docker/map, data/JSON, points/hist
 
 ## Shared boundaries
 
-- Follow the agreed [frontend architecture](../architecture/frontend.md): `libs/web/**`, `libs/api/**`, and `libs/shared/case-domain`; one authoritative AppState with scoped Signal Forms drafts; isolated Leaflet; strict Zod contracts; and revision-aware transactional persistence.
+- Follow the agreed [frontend architecture](../architecture/frontend.md): `libs/web/**`, `libs/api/**`, and `libs/shared/case-domain`; one CaseStore composed from NgRx Events features, with one committed document and isolated drafts/candidates (ADR 0004); isolated Leaflet; strict Zod contracts; and revision-aware transactional persistence.
 - The case lives in the browser with manual JSON transfer. The NestJS server owns assets and the search proxy; a shared photo server is not case synchronization.
 - Use Nx + Angular + Leaflet + NestJS with Linux Docker. PostgreSQL/PostGIS are a later persistence direction. Current technical notes supersede the earlier Python/OpenLayers/GUGiK recommendations.
 - Use OSM and the accepted Mapbox Static Tiles style. A Mapbox account/token is needed for the real satellite integration; obtain user-supplied credentials through private secret entry when necessary, never ordinary chat. A public client token is not an administrative secret. Keep local credential files out of version control.

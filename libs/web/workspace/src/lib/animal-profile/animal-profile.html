@@ -1,0 +1,208 @@
+@if (state.profileEditor(); as session) {
+  <section aria-labelledby="profile-title" class="profile-panel">
+    <header>
+      <div>
+        <span class="eyebrow">Zwierzę i zaginięcie</span>
+        <h2 id="profile-title" #heading tabindex="-1">Profil zwierzęcia</h2>
+      </div>
+      <button type="button" aria-label="Zamknij profil" (click)="router.navigateByUrl('/')">
+        ×
+      </button>
+    </header>
+    <p id="profile-help">
+      Wszystkie pola są opcjonalne. Puste odpowiedzi oznaczają „nie wiadomo”. Możesz nadal przesuwać
+      mapę.
+    </p>
+    <p role="status">
+      {{
+        state.editorDirty()
+          ? 'Niezatwierdzony szkic — eksport obejmuje poprzednie dane.'
+          : 'Edytujesz szkic. Zapisz, aby zatwierdzić zmiany.'
+      }}
+    </p>
+
+    <form aria-describedby="profile-help" (submit)="$event.preventDefault(); save(session.id)">
+      <div class="groups">
+        @for (group of groups; track group.id) {
+          <details [open]="group.id === 'basics'">
+            <summary>{{ group.title }}</summary>
+            <div class="fields">
+              @for (field of group.fields; track field.key) {
+                <label>
+                  {{ field.label }}
+                  <textarea rows="2" [formField]="session.fields.animal[field.key]"></textarea>
+                </label>
+              }
+              @if (group.id === 'basics') {
+                <label>
+                  Płeć
+                  <select [formField]="session.fields.animal.sex">
+                    <option value="">Nie wiadomo</option>
+                    <option value="female">Samica</option>
+                    <option value="male">Samiec</option>
+                    <option value="intersex">Interpłciowe</option>
+                  </select>
+                </label>
+                <label>
+                  Kastracja / sterylizacja
+                  <select [formField]="session.fields.animal.neutered">
+                    <option value="">Nie wiadomo</option>
+                    <option value="yes">Tak</option>
+                    <option value="no">Nie</option>
+                  </select>
+                </label>
+                <fieldset class="age">
+                  <legend>Wiek</legend>
+                  <label>
+                    Wiek — wartość
+                    <input inputmode="decimal" [formField]="session.fields.animal.age.value" />
+                  </label>
+                  <label>
+                    Jednostka wieku
+                    <select [formField]="session.fields.animal.age.unit">
+                      <option value="years">Lata</option>
+                      <option value="months">Miesiące</option>
+                    </select>
+                  </label>
+                  <label class="checkbox"
+                    ><input type="checkbox" [formField]="session.fields.animal.age.approximate" />
+                    Wiek przybliżony</label
+                  >
+                </fieldset>
+                <label>
+                  Masa (kg)
+                  <input inputmode="decimal" [formField]="session.fields.animal.weightKilograms" />
+                </label>
+              }
+              @if (group.id === 'identification') {
+                <label>
+                  Mikroczip
+                  <select [formField]="session.fields.animal.microchipped">
+                    <option value="">Nie wiadomo</option>
+                    <option value="yes">Tak</option>
+                    <option value="no">Nie</option>
+                  </select>
+                </label>
+              }
+              @if (group.id === 'habits') {
+                <label>
+                  Wychodzenie
+                  <select [formField]="session.fields.animal.outdoorAccess">
+                    <option value="">Nie wiadomo</option>
+                    <option value="indoor_only">Wyłącznie w domu</option>
+                    <option value="supervised">Pod nadzorem</option>
+                    <option value="unrestricted">Swobodne</option>
+                  </select>
+                </label>
+                <label>
+                  Znajomość okolicy
+                  <select [formField]="session.fields.animal.familiarWithArea">
+                    <option value="">Nie wiadomo</option>
+                    <option value="yes">Tak</option>
+                    <option value="no">Nie</option>
+                  </select>
+                </label>
+              }
+            </div>
+          </details>
+        }
+        <details>
+          <summary>Okoliczności zaginięcia</summary>
+          <div class="fields">
+            <p class="wide">
+              Data i godzina w strefie sprawy: {{ state.document()?.case?.timeZone }}. Jeśli nie
+              znasz godziny, wybierz tylko datę albo zachowaj opis czasu.
+            </p>
+            <label>
+              Dokładność czasu
+              <select [formField]="session.fields.escape.time.kind">
+                <option value="unknown">Nie wiadomo / tylko opis</option>
+                <option value="exact">Dokładna chwila</option>
+                <option value="approximate">Przybliżona chwila</option>
+                <option value="range">Przedział czasu</option>
+                <option value="date">Tylko data</option>
+              </select>
+            </label>
+            @for (moment of momentInputs(); track moment.key) {
+              <div>
+                <label>
+                  {{ moment.label }}
+                  <input type="datetime-local" step="0.001" [formField]="moment.field" />
+                </label>
+                @if (moment.field().value() && moment.options.length === 0) {
+                  <p class="error" role="alert">
+                    Ta godzina nie istnieje w strefie sprawy. Wybierz inną datę lub godzinę.
+                  </p>
+                }
+                @if (moment.options.length > 1) {
+                  <label>
+                    {{ moment.label }} — wystąpienie godziny
+                    <select [formField]="moment.choice">
+                      <option value="">Wybierz wystąpienie godziny</option>
+                      @for (option of moment.options; track option.value) {
+                        <option [value]="option.value">
+                          {{ $first ? 'Pierwsze' : 'Drugie' }} ({{ option.label }})
+                        </option>
+                      }
+                    </select>
+                  </label>
+                }
+              </div>
+            }
+            @if (session.fields.escape.time.kind().value() === 'range') {
+              <p class="wide">Możesz podać tylko jedną granicę przedziału.</p>
+            }
+            @if (session.fields.escape.time.kind().value() === 'date') {
+              <label>
+                Data zaginięcia
+                <input type="date" [formField]="session.fields.escape.time.date" />
+              </label>
+            }
+            <label class="wide">
+              Oryginalny opis czasu
+              <textarea rows="2" [formField]="session.fields.escape.time.description"></textarea>
+            </label>
+            <label class="wide">
+              Miejsce ucieczki
+              <select [formField]="session.fields.escape.escapePointId">
+                <option value="">Nie wiadomo</option>
+                @for (point of state.document()?.points; track point.id) {
+                  <option [value]="point.id">{{ point.name }}</option>
+                }
+              </select>
+            </label>
+            <p class="wide">
+              Wybierz istniejący punkt z wczytanej sprawy. Tworzenie i wskazywanie punktów na mapie
+              będzie dostępne w kolejnym etapie.
+            </p>
+            <label class="wide">
+              Sytuacja zaginięcia
+              <textarea rows="3" [formField]="session.fields.escape.description"></textarea>
+            </label>
+            <label>
+              Możliwy kierunek
+              <textarea rows="2" [formField]="session.fields.escape.directionOfTravel"></textarea>
+            </label>
+            <label>
+              Znajomość miejsca ucieczki
+              <select [formField]="session.fields.escape.familiarWithLocation">
+                <option value="">Nie wiadomo</option>
+                <option value="yes">Tak</option>
+                <option value="no">Nie</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      </div>
+      @if (state.editorError()) {
+        <p role="alert" class="error">{{ state.editorError() }}</p>
+      }
+      <footer>
+        <button type="submit" class="primary" [disabled]="state.editorBusy()">Zapisz profil</button>
+        <button type="button" [disabled]="state.editorBusy()" (click)="cancel(session.id)">
+          Anuluj edycję
+        </button>
+      </footer>
+    </form>
+  </section>
+}

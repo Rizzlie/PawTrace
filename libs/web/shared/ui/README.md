@@ -8,6 +8,6 @@ Non-buildable Angular UI library, consumed through `@pawtrace/shared-ui`.
 
 Brand uses the shared `assets/icon.svg` asset, which the web build copies from the repository's assets directory. The same asset serves as the favicon.
 
-Keep application state, HTTP requests and feature-specific layout outside this library. The application header composes Brand and receives connection state and a reconnect callback through Angular inputs and outputs.
+Keep application state, HTTP requests and feature-specific layout outside this library. The application header composes Brand without requesting or displaying API connection status.
 
 Run `npm exec nx run shared-ui:lint` and `npm exec nx run shared-ui:typecheck`. The web application and browser tests cover component integration and responsive layout.

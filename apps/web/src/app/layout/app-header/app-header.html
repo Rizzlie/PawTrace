@@ -1,17 +1,49 @@
 <header>
   <pt-brand />
-  <div class="connection">
-    <p
-      role="status"
-      aria-label="Połączenie z serwerem"
-      [class.online]="connection() === 'online'"
-      [class.offline]="connection() === 'offline'"
-    >
-      @switch (connection()) { @case ('checking') { Sprawdzanie połączenia… }
-      @case ('online') { Połączono z serwerem } @case ('offline') { Serwer jest
-      niedostępny } }
-    </p>
-    @if (connection() === 'offline') {
-    <button type="button" (click)="reconnect.emit()">Spróbuj ponownie</button> }
-  </div>
+  <ng-content />
+  <button
+    #helpButton
+    class="help-button"
+    type="button"
+    aria-label="Jak korzystać z mapy"
+    aria-haspopup="dialog"
+    (click)="showHelp()"
+    title="Jak korzystać z mapy"
+  >
+    <mat-icon svgIcon="map-help" />
+  </button>
 </header>
+
+<dialog
+  #helpDialog
+  closedby="any"
+  aria-labelledby="map-help-title"
+  aria-describedby="map-help-description"
+  (close)="restoreHelpFocus()"
+>
+  <div class="help-heading">
+    <div>
+      <p class="eyebrow">Każdy ślad ma znaczenie</p>
+      <h2 id="map-help-title">Jak korzystać z mapy</h2>
+    </div>
+    <button
+      class="close-help"
+      type="button"
+      aria-label="Zamknij pomoc"
+      (click)="closeHelp()"
+      autofocus
+    >
+      ×
+    </button>
+  </div>
+  <p id="map-help-description">
+    Zacznij od miejsca. Rozejrzyj się po okolicy i poznaj teren poszukiwań.
+  </p>
+  <ol>
+    <li>Przesuwaj mapę i przybliżaj teren.</li>
+    <li>Wybierz mapę uliczną lub satelitę.</li>
+    <li>Użyj swojej lokalizacji, aby wrócić w pobliże.</li>
+  </ol>
+  <p class="help-hint">Do tej instrukcji możesz wrócić przyciskiem pomocy w górnym pasku.</p>
+  <button class="start-button" type="button" (click)="closeHelp()">Przejdź do mapy</button>
+</dialog>

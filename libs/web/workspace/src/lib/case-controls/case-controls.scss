@@ -1,17 +1,69 @@
-.case-panel,
-dialog {
-  padding: 16px;
-  background: var(--pt-panel, #fffef8);
-  color: var(--pt-foreground);
+:host {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+.case-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.case-identity {
+  min-width: 100px;
+  max-width: 240px;
+  flex: 0 1 auto;
+}
+.animal-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+.case-identity p {
+  margin: 3px 0 0;
+  color: var(--pt-muted);
+  font-size: 10px;
+}
+.notices {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-basis: 100%;
+}
+.notices p {
+  margin: 0;
+}
+.file-menu {
+  display: grid;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--pt-surface);
   border: 1px solid var(--pt-border);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: var(--pt-shadow);
 }
-.eyebrow {
-  color: var(--pt-muted);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+.file-menu button {
+  text-align: left;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 12px;
+}
+.file-menu button:hover,
+.file-menu button:focus-visible {
+  background: var(--pt-soft);
+}
+.file-menu button[aria-disabled='true'] {
+  opacity: 0.5;
+}
+button {
+  font-size: 12px;
+  padding: 9px 12px;
+  white-space: nowrap;
 }
 h2 {
   margin: 8px 0;
@@ -29,17 +81,13 @@ p {
   gap: 6px;
   margin-top: 12px;
 }
-button {
-  font-size: 11px;
-  padding: 8px 10px;
-}
 .warning,
 .error {
   color: #913600;
 }
 .error {
   white-space: pre-wrap;
-  max-height: 180px;
+  max-height: 120px;
   overflow: auto;
   overflow-wrap: anywhere;
 }
@@ -51,6 +99,11 @@ dialog {
   max-height: calc(100dvh - 64px);
   overflow: auto;
   padding: 24px;
+  color: var(--pt-foreground);
+  background: var(--pt-panel);
+  border: 1px solid var(--pt-border);
+  border-radius: 16px;
+  box-shadow: var(--pt-shadow);
 }
 dialog::backdrop {
   background: rgb(19 36 27 / 45%);
@@ -69,4 +122,24 @@ dl div {
 dd {
   margin: 0;
   font-weight: 600;
+}
+@media (max-width: 760px) {
+  :host {
+    flex-basis: 100%;
+    order: 1;
+  }
+  .case-identity {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+}
+@media (max-width: 420px) {
+  .case-controls {
+    gap: 6px;
+  }
+  button {
+    font-size: 11px;
+    padding: 9px;
+  }
 }

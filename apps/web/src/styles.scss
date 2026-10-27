@@ -1,5 +1,6 @@
-@use "../../../libs/web/shared/ui/src/theme";
-@import "leaflet/dist/leaflet.css";
+@use '../../../libs/web/shared/ui/src/theme';
+@import 'leaflet/dist/leaflet.css';
+@import '@angular/cdk/overlay-prebuilt.css';
 
 .leaflet-container {
   font-family: system-ui, sans-serif;
