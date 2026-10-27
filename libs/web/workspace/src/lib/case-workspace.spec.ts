@@ -19,6 +19,12 @@ function activeDocument(state: InstanceType<typeof CaseStore>): CaseDocument {
   return active;
 }
 
+function historyEditor(state: InstanceType<typeof CaseStore>) {
+  const editor = state.entryEditor();
+  if (!editor) throw new Error('Expected history editor');
+  return editor;
+}
+
 function deferred() {
   let resolve!: () => void;
   let reject!: (error: Error) => void;
@@ -55,6 +61,171 @@ async function setup(storage = new Storage()) {
     storage,
   };
 }
+
+it('edits an observation through isolated Signal Forms, validates rejection separately and derives counts', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editEntry('point-shed', 'observation-target');
+  const editor = state.entryEditor();
+  if (!editor) throw new Error('Expected history editor');
+  editor.fields.identification().value.set('different_animal');
+  editor.fields.rejected().value.set(true);
+  expect(await state.saveEntry(editor.id)).toBe(false);
+  expect(activeDocument(state)).toEqual(original);
+  editor.fields.rejectionReason().value.set('Błędna data relacji');
+  state.changeViewport({ latitude: 52, longitude: 21, zoom: 12 });
+  expect(editor.fields.identification().value()).toBe('different_animal');
+  expect(await state.saveEntry(editor.id)).toBe(true);
+  const saved = activeDocument(state).points[1].entries[0];
+  expect(saved).toMatchObject({
+    id: 'observation-target',
+    identification: 'different_animal',
+    status: 'rejected',
+    rejectionReason: 'Błędna data relacji',
+    photos: ['unavailable-original.jpg'],
+    createdAt: original.points[1].entries[0].createdAt,
+    occurredAt: original.points[1].entries[0].occurredAt,
+  });
+  expect(state.mapPlaces()[1].observations).toEqual({
+    target_animal: 1,
+    uncertain: 1,
+    different_animal: 2,
+  });
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('adds each history type with validation, preserves uncertain time and keeps recovery editable', async () => {
+  const { state } = await setup();
+  await state.editEntry('point-home');
+  let editor = historyEditor(state);
+  editor.fields.type().value.set('action');
+  editor.fields.foodQuantity().value.set('-2');
+  expect(await state.saveEntry(editor.id)).toBe(false);
+  editor.fields.foodQuantity().value.set('85');
+  editor.fields.actionKind().value.set('food_placement');
+  editor.fields.time.kind().value.set('range');
+  editor.fields.time.start().value.set('2026-10-20T18:00');
+  editor.fields.time.description().value.set('Od wieczora');
+  expect(await state.saveEntry(editor.id)).toBe(true);
+  expect(activeDocument(state).points[0].entries[0]).toMatchObject({
+    type: 'action',
+    details: { foodQuantity: { value: 85, unit: 'grams' } },
+    occurredAt: {
+      kind: 'range',
+      start: '2026-10-20T16:00:00.000Z',
+      end: null,
+      description: 'Od wieczora',
+    },
+  });
+  await state.editEntry('point-home');
+  editor = historyEditor(state);
+  editor.fields.type().value.set('check');
+  editor.fields.result().value.set('animal_seen');
+  expect(await state.saveEntry(editor.id)).toBe(false);
+  editor.fields.observationEntryId().value.set('observation-different');
+  expect(await state.saveEntry(editor.id)).toBe(true);
+  const check = activeDocument(state).points[0].entries[1];
+  await state.editEntry('point-home', check.id);
+  editor = historyEditor(state);
+  editor.fields.result().value.set('animal_secured');
+  expect(await state.saveEntry(editor.id)).toBe(true);
+  expect(activeDocument(state).points[0].entries[1]).toMatchObject({
+    result: 'animal_secured',
+    observationEntryId: null,
+    createdAt: check.createdAt,
+  });
+  await state.editEntry('point-home');
+  editor = historyEditor(state);
+  editor.fields.type().value.set('note');
+  editor.fields.description().value.set('Po odnalezieniu');
+  expect(await state.saveEntry(editor.id)).toBe(true);
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('cancels history drafts and delayed Saves, ignores stale fields, and unlinks deleted observations', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editEntry('point-home');
+  const first = historyEditor(state);
+  first.fields.description().value.set('Nie zapisuj');
+  const cancellation = new AbortController();
+  const exit = state.requestEditorExit(cancellation.signal);
+  const saving = state.resolveEditorTransition('save');
+  cancellation.abort();
+  await saving;
+  expect(await exit).toBe(false);
+  expect(activeDocument(state)).toEqual(original);
+  state.discardEditor(first.id);
+  await state.editEntry('point-home');
+  const second = historyEditor(state);
+  first.fields.description().value.set('Stara sesja');
+  expect(second.fields.description().value()).toBe('');
+  state.discardEditor(second.id);
+  state.requestEntryRemoval('point-shed', 'observation-uncertain');
+  state.cancelEntryRemoval();
+  expect(activeDocument(state)).toEqual(original);
+  state.requestEntryRemoval('point-shed', 'observation-uncertain');
+  await state.confirmEntryRemoval();
+  expect(activeDocument(state).areas[0].checks[0]).toMatchObject({
+    result: 'other_or_inconclusive',
+    observationEntryId: null,
+  });
+  expect(state.mapPlaces()[1].observations).toEqual({
+    target_animal: 2,
+    uncertain: 0,
+    different_animal: 1,
+  });
+  expect(activeDocument(state).assets).toEqual(original.assets);
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('resolves dirty history before selecting another place, including Stay and Discard', async () => {
+  const { state } = await setup();
+  await state.editEntry('point-home');
+  const editor = historyEditor(state);
+  editor.fields.description().value.set('Szkic obserwacji');
+  const selection = state.selectPoint('point-shed');
+  expect(state.selectedPointId()).toBe('point-home');
+  await state.resolveEditorTransition('stay');
+  await selection;
+  expect(state.selectedPointId()).toBe('point-home');
+  const nextSelection = state.selectPoint('point-shed');
+  await state.resolveEditorTransition('discard');
+  await nextSelection;
+  expect(state.selectedPointId()).toBe('point-shed');
+  expect(state.entryEditor()).toBeNull();
+});
+
+it.each([
+  'observation-target',
+  'observation-uncertain',
+  'observation-different',
+  'observation-rejected',
+  'check-food',
+])(
+  'preserves the imported event precision, original time description and photos when editing %s',
+  async (id) => {
+    const { state } = await setup();
+    const original = activeDocument(state).points[1].entries.find((entry) => entry.id === id);
+    if (!original) throw new Error('Expected fixture entry');
+    await state.editEntry('point-shed', id);
+    const editor = historyEditor(state);
+    const revision = state.persistence().revision;
+    expect(await state.saveEntry(editor.id)).toBe(true);
+    expect(state.persistence().revision).toBe(revision);
+    await state.editEntry('point-shed', id);
+    const changed = historyEditor(state);
+    changed.fields.description().value.set('Uzupełniony opis');
+    expect(await state.saveEntry(changed.id)).toBe(true);
+    expect(activeDocument(state).points[1].entries.find((entry) => entry.id === id)).toMatchObject({
+      id,
+      occurredAt: original.occurredAt,
+      photos: original.photos,
+      createdAt: original.createdAt,
+      description: 'Uzupełniony opis',
+    });
+  },
+);
 
 it('keeps point placement and Signal Forms isolated until confirmation, preserving imported history', async () => {
   const { state } = await setup();

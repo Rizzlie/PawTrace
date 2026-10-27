@@ -1,6 +1,6 @@
 # F08 — Point history and animal identification
 
-Status: planned
+Status: in_progress
 Depends on: F07
 
 ## Goal
@@ -41,4 +41,10 @@ Use the same one-owner Signal Forms draft lifecycle for history entries. Preserv
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented four entry forms and edit/removal commands in the existing CaseStore, using its one-owner Signal Forms draft and shared Save / Discard / Stay lifecycle. Entry IDs, type, creation time and photo references survive edits. Identification and reasoned manual rejection remain independent. Food details, check results, linked observations and recovery use the existing JSON contract; recovery leaves the case editable.
+
+Pure history projections provide deterministic newest-first ordering in the case zone, separate unknown-time entries and derived per-outcome counts. Different-animal and mixed sightings stay visible through marker accent rings and accessible summaries. F08 uses complete-history counts; F14 owns active filters. No food-action links, report grouping or custom roles were added.
+
+Profile/history drafts share time conversion, including explicit repeated-hour choices, nonexistent-hour validation and preservation of imported offsets/precision. A lightweight `case-domain/history` entry point keeps these projections separate from lazy Zod validation. All editors share session IDs; selection from markers/list, profile routing and case transfer resolve dirty history first.
+
+TDD observed failures for missing chronology, history editing, marker outcomes and dirty selection before their implementation. Focused regressions pass. Final acceptance and independent Standards/Spec review are in progress; completion status will be updated with their results.

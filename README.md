@@ -152,3 +152,13 @@ Edit a selected place to rename/reposition it without changing its ID or importe
 Removal asks for confirmation with the history-entry count. It removes the point and its history, clears its escape assignment, and retains unrelated places, areas and all asset filenames. Checks linked to deleted observations retain their records, geometry and photos; their result becomes `other_or_inconclusive`, with the prior sighting and removed observation ID recorded in the description. No server photo file is deleted.
 
 Map display zoom now supports 3–22. Beyond 19, Leaflet enlarges the existing tiles, so places can be positioned and separated more closely without requesting unsupported tile levels. This adds no imagery detail. The closer viewport is saved/restored and included in JSON; older application versions limited to zoom 19 may reject such a file.
+
+## Point history
+
+Select a place and choose **Dodaj wpis** to record an observation, action, check or note. Each type shows its relevant fields. **Zapisz wpis** validates and commits the draft; **Anuluj wpis** discards it. Existing entries retain their type, ID, creation time and photo filenames. Editing and removal are available on each history card. Removing an observation keeps linked checks with an explanatory note and an inconclusive result; original photo files remain untouched.
+
+An observation has its own source, optional location-uncertainty radius and identification: searched-for animal, uncertain or different animal. Different-animal sightings remain visible. Manual rejection requires a reason and is independent of identification. Colored marker rings and the opened place's counts distinguish outcomes, including mixed observations. F08 counts the complete history; filter-dependent counts arrive in F14.
+
+Event time can be exact, approximate, a range with either endpoint unknown, date only or unknown. Keep the original verbal description. Local date/time inputs use the case's time zone; repeated daylight-saving hours require an explicit occurrence, and nonexistent hours are rejected. History sorts newest local calendar days first, using the known instant (range start, otherwise end) within a day; date-only entries follow timed entries for that day. Creation time and then stable ID break ties, including in the separate **Nieznany czas** section. This is display ordering, not invented event precision.
+
+Food placement/refill details and food-status checks remain independent records in the place's history. Missing food does not assert the target animal's presence. Recording **Zwierzę odnalezione i zabezpieczone** keeps the case editable and exportable. JSON transfer and browser autosave include all committed history; photo upload/viewing comes in F13.

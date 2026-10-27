@@ -1,5 +1,9 @@
-import type { AnimalProfile, CaseDocument, EventTime } from '@pawtrace/case-domain';
-import { localIncidentMoment, resolveIncidentMoment } from './incident-time';
+import type { AnimalProfile, CaseDocument } from '@pawtrace/case-domain';
+import {
+  createEventTimeDraft,
+  applyEventTimeDraft,
+  type EventTimeDraft,
+} from '../event-time-draft';
 
 /** Labels and groups share the same text-field vocabulary as the document. */
 export const profileTextGroups = [
@@ -82,17 +86,7 @@ export interface ProfileDraft {
     age: { value: string; unit: 'months' | 'years'; approximate: boolean };
   };
   escape: {
-    time: {
-      kind: EventTime['kind'];
-      at: string;
-      atInstant: string;
-      start: string;
-      startInstant: string;
-      end: string;
-      endInstant: string;
-      date: string;
-      description: string;
-    };
+    time: EventTimeDraft;
     escapePointId: string;
     description: string;
     directionOfTravel: string;
@@ -115,9 +109,6 @@ export function createProfileDraft(document: CaseDocument): ProfileDraft {
   const escape = document.case.escape;
   const time = escape.occurredAt;
   const zone = document.case.timeZone;
-  const at = localIncidentMoment('at' in time ? time.at : null, zone);
-  const start = localIncidentMoment('start' in time ? time.start : null, zone);
-  const end = localIncidentMoment('end' in time ? time.end : null, zone);
   return {
     animal: {
       ...(Object.fromEntries(textKeys.map((key) => [key, animal?.[key] ?? ''])) as Record<
@@ -137,17 +128,7 @@ export function createProfileDraft(document: CaseDocument): ProfileDraft {
       },
     },
     escape: {
-      time: {
-        kind: time.kind,
-        at: at.local,
-        atInstant: at.instant,
-        start: start.local,
-        startInstant: start.instant,
-        end: end.local,
-        endInstant: end.instant,
-        date: 'date' in time ? time.date : '',
-        description: time.description ?? '',
-      },
+      time: createEventTimeDraft(time, zone),
       escapePointId: escape.escapePointId ?? '',
       description: escape.description ?? '',
       directionOfTravel: escape.directionOfTravel ?? '',
@@ -159,48 +140,11 @@ export function createProfileDraft(document: CaseDocument): ProfileDraft {
 /** Input conversion is explicit; the shared validator still checks the whole result. */
 export function applyProfileDraft(document: CaseDocument, draft: ProfileDraft): CaseDocument {
   const { animal, escape } = draft;
-  const { time } = escape;
-  const description = textValue(time.description);
-  const zone = document.case.timeZone;
-  const original = document.case.escape.occurredAt;
-  const occurredAt: EventTime =
-    time.kind === 'exact' || time.kind === 'approximate'
-      ? {
-          kind: time.kind,
-          at: resolveIncidentMoment(
-            time.at,
-            time.atInstant,
-            zone,
-            'at' in original ? original.at : null,
-          ),
-          description,
-        }
-      : time.kind === 'range'
-        ? {
-            kind: 'range',
-            start:
-              time.start === ''
-                ? null
-                : resolveIncidentMoment(
-                    time.start,
-                    time.startInstant,
-                    zone,
-                    'start' in original ? original.start : null,
-                  ),
-            end:
-              time.end === ''
-                ? null
-                : resolveIncidentMoment(
-                    time.end,
-                    time.endInstant,
-                    zone,
-                    'end' in original ? original.end : null,
-                  ),
-            description,
-          }
-        : time.kind === 'date'
-          ? { kind: 'date', date: time.date, description }
-          : { kind: 'unknown', description };
+  const occurredAt = applyEventTimeDraft(
+    escape.time,
+    document.case.timeZone,
+    document.case.escape.occurredAt,
+  );
   return {
     ...document,
     animal: {

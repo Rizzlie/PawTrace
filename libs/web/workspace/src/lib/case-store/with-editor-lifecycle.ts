@@ -1,3 +1,4 @@
+import type { EntryDraft } from '../history/entry-draft';
 import { EnvironmentInjector, inject } from '@angular/core';
 import {
   getState,
@@ -25,12 +26,17 @@ export function withEditorResources() {
       const parent = inject(EnvironmentInjector);
       const profile = new EditorForm<ProfileDraft>(parent);
       const point = new EditorForm<PointDraft>(parent);
+      const entry = new EditorForm<EntryDraft>(parent);
+      let sequence = 0;
       return {
+        _nextEditorId: () => ++sequence,
         _profileResources: profile,
         _pointResources: point,
+        _entryResources: entry,
         _editorTransition: new EditorTransition(() => {
           profile.saving?.abort();
           point.saving?.abort();
+          entry.saving?.abort();
         }),
       };
     }),
@@ -39,6 +45,7 @@ export function withEditorResources() {
         store._editorTransition.finishClose(false);
         store._profileResources.destroy();
         store._pointResources.destroy();
+        store._entryResources.destroy();
       },
     }),
   );
@@ -50,10 +57,14 @@ export function withEditorLifecycle() {
       props: type<{
         _profileResources: EditorForm<ProfileDraft>;
         _pointResources: EditorForm<PointDraft>;
+        _entryResources: EditorForm<EntryDraft>;
         _editorTransition: EditorTransition;
       }>(),
       methods: type<{
         _openPoint(id?: string): void;
+        _selectPoint(id: string | null): void;
+        _openEntry(pointId: string, entryId?: string): void;
+        saveEntry(id: number): Promise<boolean>;
         savePoint(id: number): Promise<boolean>;
         saveProfile(id: number): Promise<boolean>;
       }>(),
@@ -101,12 +112,20 @@ export function withEditorLifecycle() {
         if (store.editor()?.id !== id || caseBusy(getState(store))) return;
         store._profileResources.destroyBinding();
         store._pointResources.destroyBinding();
+        store._entryResources.destroyBinding();
         dispatch.discarded({ id });
         store._editorTransition.finishClose(true);
       };
       return {
+        async selectPoint(id: string | null): Promise<void> {
+          if (store.editor() && !(await this.requestEditorExit())) return;
+          store._selectPoint(id);
+        },
         async editPoint(id?: string): Promise<void> {
           if (await this.requestEditorExit()) store._openPoint(id);
+        },
+        async editEntry(pointId: string, entryId?: string): Promise<void> {
+          if (await this.requestEditorExit()) store._openEntry(pointId, entryId);
         },
         discardEditor,
         requestEditorExit(cancellation?: AbortSignal): Promise<boolean> {
@@ -134,10 +153,15 @@ export function withEditorLifecycle() {
           } else if (choice === 'save') {
             if (session.kind === 'point') {
               await store.savePoint(session.id);
-            } else await store.saveProfile(session.id);
+            } else if (session.kind === 'entry') await store.saveEntry(session.id);
+            else await store.saveProfile(session.id);
           } else discardEditor(session.id);
         },
-      } satisfies EditorCommands & { editPoint(id?: string): Promise<void> };
+      } satisfies EditorCommands & {
+        selectPoint(id: string | null): Promise<void>;
+        editPoint(id?: string): Promise<void>;
+        editEntry(pointId: string, entryId?: string): Promise<void>;
+      };
     }),
   );
 }
