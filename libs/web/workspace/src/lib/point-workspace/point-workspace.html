@@ -33,21 +33,17 @@
     </div>
   }
 </pt-floating-panel>
-@if (!state.editor()) {
+@if (!state.editor() || state.editor()?.kind === 'entry') {
   @if (state.selectedPoint(); as point) {
-    <pt-floating-panel class="details" label="Szczegóły miejsca">
+    <pt-floating-panel #details class="details" label="Szczegóły miejsca">
       <div panel-heading class="heading">
         <span class="eyebrow">Wybrane miejsce</span>
-        <button
-          type="button"
-          aria-label="Zamknij szczegóły miejsca"
-          (click)="state.selectPoint(null)"
-        >
+        <button type="button" aria-label="Zamknij szczegóły miejsca" (click)="selectPoint(null)">
           ×
         </button>
       </div>
       <section aria-label="Wybrane miejsce">
-        <h2>{{ point.name }}</h2>
+        <h2 #placeHeading tabindex="-1">{{ point.name }}</h2>
         @if (state.document()?.case?.escape?.escapePointId === point.id) {
           <p>Miejsce ucieczki</p>
         }
@@ -58,18 +54,21 @@
         }
         <p>{{ point.description }}</p>
         <p>Wpisy w historii: {{ point.entries.length }}</p>
-        <div class="actions">
-          <button type="button" [disabled]="state.busy()" (click)="edit(point.id)">
-            Edytuj punkt
-          </button>
-          <button
-            type="button"
-            [disabled]="state.busy() || !!state.editor() || !!state.candidate()"
-            (click)="state.requestPointRemoval(point.id)"
-          >
-            Usuń punkt
-          </button>
-        </div>
+        @if (!state.editor()) {
+          <div class="actions">
+            <button type="button" [disabled]="state.busy()" (click)="edit(point.id)">
+              Edytuj punkt
+            </button>
+            <button
+              type="button"
+              [disabled]="state.busy() || !!state.editor() || !!state.candidate()"
+              (click)="state.requestPointRemoval(point.id)"
+            >
+              Usuń punkt
+            </button>
+          </div>
+        }
+        <pt-point-history />
       </section>
     </pt-floating-panel>
   }

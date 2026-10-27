@@ -1,0 +1,265 @@
+@if (state.entryEditor(); as editor) {
+  <h3>{{ editor.existing ? 'Edycja wpisu' : 'Nowy wpis' }}</h3>
+  <form (submit)="$event.preventDefault(); state.saveEntry(editor.id)">
+    <fieldset [disabled]="state.editorBusy()">
+      @if (!editor.existing) {
+        <label
+          >Typ wpisu
+          <select [formField]="editor.fields.type">
+            @for (type of types; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select></label
+        >
+      }
+      <label
+        >Opis wpisu <textarea rows="3" [formField]="editor.fields.description"></textarea>
+      </label>
+      <fieldset>
+        <legend>Czas zdarzenia</legend>
+        <p>
+          Strefa: {{ state.document()?.case?.timeZone }}. Nieznana godzina nie wymaga uzupełnienia.
+        </p>
+        <label
+          >Dokładność czasu
+          <select [formField]="editor.fields.time.kind">
+            <option value="unknown">Nie wiadomo / tylko opis</option>
+            <option value="exact">Dokładna chwila</option>
+            <option value="approximate">Przybliżona chwila</option>
+            <option value="range">Przedział czasu</option>
+            <option value="date">Tylko data</option>
+          </select></label
+        >
+        @for (moment of moments(); track moment.key) {
+          <label
+            >{{ moment.label }}
+            <input type="datetime-local" step="0.001" [formField]="moment.field"
+          /></label>
+          @if (moment.field().value() && moment.options.length === 0) {
+            <p role="alert">Ta godzina nie istnieje w strefie sprawy.</p>
+          }
+          @if (moment.options.length > 1) {
+            <label
+              >{{ moment.label }} — wystąpienie godziny
+              <select [formField]="moment.choice">
+                <option value="">Wybierz wystąpienie godziny</option>
+                @for (option of moment.options; track option.value) {
+                  <option [value]="option.value">
+                    {{ $first ? 'Pierwsze' : 'Drugie' }} ({{ option.label }})
+                  </option>
+                }
+              </select></label
+            >
+          }
+        }
+        @if (editor.fields.time.kind().value() === 'date') {
+          <label>Data zdarzenia <input type="date" [formField]="editor.fields.time.date" /></label>
+        }
+        @if (editor.fields.time.kind().value() === 'range') {
+          <p>Możesz podać tylko jedną granicę przedziału.</p>
+        }
+        <label
+          >Oryginalny opis czasu <textarea [formField]="editor.fields.time.description"></textarea>
+        </label>
+      </fieldset>
+      @switch (editor.fields.type().value()) {
+        @case ('observation') {
+          <label
+            >Identyfikacja zwierzęcia
+            <select [formField]="editor.fields.identification">
+              @for (item of identifications; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Źródło obserwacji
+            <select [formField]="editor.fields.source">
+              <option value="">Nie wiadomo</option>
+              @for (item of sources; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Opis źródła <textarea [formField]="editor.fields.sourceDescription"></textarea>
+          </label>
+          <label
+            >Promień niepewności położenia (m)
+            <input inputmode="decimal" [formField]="editor.fields.uncertaintyRadiusMeters"
+          /></label>
+          <label class="checkbox"
+            ><input type="checkbox" [formField]="editor.fields.rejected" />Ręcznie odrzucona
+            relacja</label
+          >
+          @if (editor.fields.rejected().value()) {
+            <label
+              >Powód odrzucenia <textarea [formField]="editor.fields.rejectionReason"></textarea>
+            </label>
+          }
+          <p>Inne zwierzę pozostaje widoczne. Odrzucenie dotyczy wiarygodności relacji.</p>
+        }
+        @case ('action') {
+          <label
+            >Rodzaj działania
+            <select [formField]="editor.fields.actionKind">
+              <option value="">Nie określono</option>
+              @for (item of actions; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+          <label>Rodzaj karmy <input [formField]="editor.fields.foodType" /></label>
+          <label
+            >Ilość karmy <input inputmode="decimal" [formField]="editor.fields.foodQuantity"
+          /></label>
+          <label
+            >Jednostka ilości
+            <select [formField]="editor.fields.foodUnit">
+              @for (item of foodUnits; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+        }
+        @case ('check') {
+          <label
+            >Wynik kontroli
+            <select [formField]="editor.fields.result">
+              <option value="">Nie określono</option>
+              @for (item of results; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+          @if (editor.fields.result().value() === 'animal_seen') {
+            <label
+              >Powiązana obserwacja
+              <select [formField]="editor.fields.observationEntryId">
+                <option value="">Wybierz obserwację</option>
+                @for (item of observations(); track item.id) {
+                  <option [value]="item.id">{{ item.label }}</option>
+                }
+              </select></label
+            >
+          }
+          <label
+            >Metoda / przebieg kontroli <textarea [formField]="editor.fields.method"></textarea>
+          </label>
+          <label
+            >Stan karmy
+            <select [formField]="editor.fields.foodStatus">
+              <option value="">Nie wiadomo</option>
+              @for (item of foodStates; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+          <p>
+            Brak karmy nie potwierdza obecności szukanego zwierzęcia. Odnalezienie nie zamyka
+            sprawy.
+          </p>
+        }
+      }
+      @if (state.editorError()) {
+        <p role="alert">{{ state.editorError() }}</p>
+      }
+      <div class="actions">
+        <button type="submit">Zapisz wpis</button
+        ><button type="button" (click)="state.discardEditor(editor.id)">Anuluj wpis</button>
+      </div>
+    </fieldset>
+  </form>
+} @else {
+  <p aria-label="Podsumowanie obserwacji" class="counts">
+    <span class="target">Szukane: {{ counts().target_animal }}</span> ·
+    <span class="uncertain">Niepewne: {{ counts().uncertain }}</span> ·
+    <span class="different">Inne: {{ counts().different_animal }}</span>
+  </p>
+  <div class="actions">
+    <button
+      type="button"
+      [disabled]="state.busy() || !!state.candidate() || !!state.deletingHistoryEntry()"
+      (click)="state.editEntry(state.selectedPointId()!)"
+    >
+      Dodaj wpis
+    </button>
+    <button
+      type="button"
+      [attr.aria-expanded]="!collapsed()"
+      aria-controls="point-history"
+      (click)="collapsed.set(!collapsed())"
+    >
+      {{ collapsed() ? 'Rozwiń historię' : 'Zwiń historię' }}
+    </button>
+  </div>
+  @if (!collapsed()) {
+    <div id="point-history">
+      @for (section of sections(); track section.label) {
+        @if (section.entries.length) {
+          <h3>{{ section.label }}</h3>
+          <ol>
+            @for (item of section.entries; track item.entry.id) {
+              <li>
+                <article
+                  [attr.aria-label]="item.entry.description ?? item.title"
+                  [class.rejected]="item.entry.status === 'rejected'"
+                >
+                  <h4>{{ item.title }}</h4>
+                  <p class="time">{{ item.time }}</p>
+                  @if (item.entry.occurredAt.description) {
+                    <p>{{ item.entry.occurredAt.description }}</p>
+                  }
+                  <p class="description">{{ item.entry.description }}</p>
+                  @for (detail of item.details; track $index) {
+                    <p>{{ detail }}</p>
+                  }
+                  @if (item.entry.photos.length) {
+                    <p>Zapisane odnośniki do zdjęć: {{ item.entry.photos.join(', ') }}</p>
+                  }
+                  <div class="actions">
+                    <button
+                      type="button"
+                      [disabled]="
+                        state.busy() || !!state.candidate() || !!state.deletingHistoryEntry()
+                      "
+                      (click)="state.editEntry(state.selectedPointId()!, item.entry.id)"
+                    >
+                      Edytuj wpis
+                    </button>
+                    <button
+                      type="button"
+                      [disabled]="state.busy() || !!state.candidate()"
+                      (click)="state.requestEntryRemoval(state.selectedPointId()!, item.entry.id)"
+                    >
+                      Usuń wpis
+                    </button>
+                  </div>
+                </article>
+              </li>
+            }
+          </ol>
+        }
+      }
+      @if (!state.selectedPoint()?.entries?.length) {
+        <p>To miejsce nie ma jeszcze historii.</p>
+      }
+    </div>
+  }
+}
+@if (state.deletingHistoryEntry(); as entry) {
+  <dialog #confirmation aria-labelledby="remove-entry-title" (cancel)="cancelRemoval($event)">
+    <h2 id="remove-entry-title">Usunąć wpis z historii?</h2>
+    <p>{{ entry.description }}</p>
+    <p>
+      Kontrole powiązane z obserwacją pozostaną z wynikiem „inny/niejednoznaczny” i adnotacją. Pliki
+      zdjęć pozostaną na serwerze.
+    </p>
+    <div class="actions">
+      <button type="button" (click)="state.confirmEntryRemoval()">Potwierdź usunięcie wpisu</button
+      ><button type="button" autofocus (click)="state.cancelEntryRemoval()">
+        Anuluj usunięcie wpisu
+      </button>
+    </div>
+  </dialog>
+}

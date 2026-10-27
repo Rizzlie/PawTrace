@@ -119,7 +119,7 @@ export class LeafletMap implements OnDestroy {
   private navigationRevision = 0;
   private readonly markers = new Map<
     string,
-    { marker: L.Marker; selected: boolean; number: number }
+    { marker: L.Marker; selected: boolean; number: number; accents: string }
   >();
   private draftMarker?: { sessionId: number; marker: L.Marker };
 
@@ -327,10 +327,22 @@ export class LeafletMap implements OnDestroy {
     layer.addTo(this.map);
   }
 
-  private pointIcon(number: number, selected: boolean, draft = false): L.DivIcon {
+  private pointIcon(
+    number: number,
+    selected: boolean,
+    draft = false,
+    accents: string[] = [],
+  ): L.DivIcon {
     const badge = document.createElement('span');
     badge.textContent = String(number);
     badge.style.cssText = `display:grid;place-items:center;width:32px;height:32px;border:3px solid white;border-radius:50%;color:white;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;background:${draft ? '#c56c28' : selected ? '#233f1e' : '#5f7e45'};box-shadow:0 2px 8px #0006`;
+    if (!draft && accents.length) {
+      badge.style.borderColor = 'transparent';
+      badge.style.background = `linear-gradient(${selected ? '#233f1e' : '#fff'}, ${selected ? '#233f1e' : '#fff'}) padding-box, conic-gradient(${accents.map((color, index) => `${color} ${(index * 100) / accents.length}% ${((index + 1) * 100) / accents.length}%`).join(',')}) border-box`;
+      badge.style.color = selected ? '#fff' : '#233f1e';
+      badge.style.borderWidth = '5px';
+      badge.style.boxSizing = 'border-box';
+    }
     return L.divIcon({
       className: 'pt-place-marker',
       iconSize: [32, 32],
@@ -354,7 +366,7 @@ export class LeafletMap implements OnDestroy {
       if (!marker) {
         marker = L.marker([place.coordinates.latitude, place.coordinates.longitude], {
           title: place.name,
-          icon: this.pointIcon(place.number, place.selected),
+          icon: this.pointIcon(place.number, place.selected, false, place.accents),
           bubblingMouseEvents: false,
         }).addTo(this.map);
         marker.on('click', () => {
@@ -380,21 +392,36 @@ export class LeafletMap implements OnDestroy {
               .map((item) => item.id),
           );
         });
-        this.markers.set(place.id, { marker, selected: place.selected, number: place.number });
+        this.markers.set(place.id, {
+          marker,
+          selected: place.selected,
+          number: place.number,
+          accents: (place.accents ?? []).join(),
+        });
       }
       marker.setOpacity(place.id === draft?.pointId ? 0 : 1);
       marker.setLatLng([place.coordinates.latitude, place.coordinates.longitude]);
-      if (entry && (entry.selected !== place.selected || entry.number !== place.number)) {
-        marker.setIcon(this.pointIcon(place.number, place.selected));
+      if (
+        entry &&
+        (entry.selected !== place.selected ||
+          entry.number !== place.number ||
+          entry.accents !== (place.accents ?? []).join())
+      ) {
+        marker.setIcon(this.pointIcon(place.number, place.selected, false, place.accents));
         entry.selected = place.selected;
         entry.number = place.number;
+        entry.accents = (place.accents ?? []).join();
       }
       const element = marker.getElement();
       if (element) {
         element.style.pointerEvents = place.id === draft?.pointId ? 'none' : '';
         element.title = place.name;
         element.setAttribute('aria-label', place.name);
-        element.setAttribute('aria-description', `Punkt nr ${place.number}`);
+        element.setAttribute('data-observation-tones', (place.accents ?? []).join());
+        element.setAttribute(
+          'aria-description',
+          `Punkt nr ${place.number}${place.summary ? '. ' + place.summary : ''}`,
+        );
       }
     }
     if (

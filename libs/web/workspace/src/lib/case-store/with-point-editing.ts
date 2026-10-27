@@ -1,8 +1,9 @@
+import { observationCounts } from '@pawtrace/case-domain/history';
 import { computed } from '@angular/core';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
-import type { MapPlace, MapPointDraft, PointPlacement } from '@pawtrace/map-engine';
+import type { MapPointDraft, PointPlacement } from '@pawtrace/map-engine';
 import {
   applyPointDraft,
   createPointDraft,
@@ -32,6 +33,7 @@ export function withPointEditing() {
       props: type<{
         _pointResources: EditorForm<PointDraft>;
         _editorTransition: EditorTransition;
+        _nextEditorId: () => number;
       }>(),
     },
     withReducer(
@@ -40,7 +42,8 @@ export function withPointEditing() {
         caseBusy(state) ||
         state.editor ||
         state.transfer.candidate ||
-        state.deletingPointId
+        state.deletingPointId ||
+        state.deletingEntry
           ? {}
           : { editor: payload },
       ),
@@ -60,7 +63,7 @@ export function withPointEditing() {
         caseBusy(state) ? {} : { selectedPointId: payload },
       ),
       on(pointEvents.deletionRequested, ({ payload }, state) =>
-        caseBusy(state) || state.editor || state.transfer.candidate
+        caseBusy(state) || state.editor || state.transfer.candidate || state.deletingEntry
           ? {}
           : { deletingPointId: payload },
       ),
@@ -102,15 +105,27 @@ export function withPointEditing() {
           () =>
             store.document()?.points.find((point) => point.id === store.deletingPointId()) ?? null,
         ),
-        mapPlaces: computed<MapPlace[]>(
+        mapPlaces: computed(
           () =>
-            store.document()?.points.map((point, index) => ({
-              id: point.id,
-              number: index + 1,
-              name: point.name,
-              coordinates: point.coordinates,
-              selected: point.id === store.selectedPointId(),
-            })) ?? [],
+            store.document()?.points.map((point, index) => {
+              const observations = observationCounts(point.entries);
+              return {
+                id: point.id,
+                number: index + 1,
+                name: point.name,
+                coordinates: point.coordinates,
+                selected: point.id === store.selectedPointId(),
+                observations,
+                accents: [
+                  { count: observations.target_animal, color: '#347247' },
+                  { count: observations.uncertain, color: '#a77717' },
+                  { count: observations.different_animal, color: '#6e6098' },
+                ]
+                  .filter((item) => item.count > 0)
+                  .map((item) => item.color),
+                summary: `Szukane: ${observations.target_animal} · Niepewne: ${observations.uncertain} · Inne: ${observations.different_animal}`,
+              };
+            }) ?? [],
         ),
         mapPointDraft: computed<MapPointDraft | null>(() => {
           const session = store.editor();
@@ -142,7 +157,6 @@ export function withPointEditing() {
         dispatch = injectDispatch(pointEvents),
         editorDispatch = injectDispatch(editorEvents),
       ) => {
-        let sequence = 0;
         return {
           _openPoint(pointId?: string): void {
             const document = store.document();
@@ -151,7 +165,8 @@ export function withPointEditing() {
               caseBusy(getState(store)) ||
               store.editor() ||
               store.transfer().candidate ||
-              store.deletingPointId()
+              store.deletingPointId() ||
+              store.deletingEntry()
             )
               return;
             const point = document.points.find((point) => point.id === pointId);
@@ -159,7 +174,7 @@ export function withPointEditing() {
             const draft = createPointDraft(document, point);
             const session: PointSession = {
               kind: 'point',
-              id: --sequence,
+              id: store._nextEditorId(),
               generation: store.persistence().generation,
               version: 0,
               pointId: point?.id ?? crypto.randomUUID(),
@@ -239,7 +254,7 @@ export function withPointEditing() {
             store._editorTransition.finishClose(true);
             return true;
           },
-          selectPoint(id: string | null): void {
+          _selectPoint(id: string | null): void {
             dispatch.selected(id);
           },
           requestPointRemoval(id: string): void {
@@ -252,10 +267,11 @@ export function withPointEditing() {
             const document = store.document();
             const id = store.deletingPointId();
             if (!document || !id || store.editor() || caseBusy(getState(store))) return;
+            const now = new Date().toISOString();
             dispatch.deleted({
               id,
-              document: removePoint(document, id),
-              updatedAt: new Date().toISOString(),
+              document: removePoint(document, id, now),
+              updatedAt: now,
             });
           },
         };

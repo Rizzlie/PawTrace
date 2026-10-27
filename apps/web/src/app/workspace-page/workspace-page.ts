@@ -46,6 +46,11 @@ export class WorkspacePage {
   protected readonly state = inject(CaseStore);
   private readonly router = inject(Router);
 
+  protected async selectPoint(id: string): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.selectPoint(id);
+  }
+
   protected async addPoint(): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.editPoint();

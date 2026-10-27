@@ -1,3 +1,4 @@
+import { unlinkRemovedObservations } from '@pawtrace/case-domain/history';
 import type { CaseDocument, MapPoint } from '@pawtrace/case-domain';
 
 export const pointRoles = [
@@ -76,48 +77,24 @@ export function applyPointDraft(document: CaseDocument, session: PointSession): 
 }
 
 /** Unlink observations removed with the place; retain other records and every asset. */
-export function removePoint(document: CaseDocument, id: string): CaseDocument {
+export function removePoint(document: CaseDocument, id: string, updatedAt: string): CaseDocument {
   const removed = new Set(
     document.points.find((point) => point.id === id)?.entries.map((entry) => entry.id),
   );
-  const unlink = <
-    T extends {
-      observationEntryId: string | null;
-      result: string | null;
-      description: string | null;
-    },
-  >(
-    check: T,
-  ): T =>
-    check.observationEntryId && removed.has(check.observationEntryId)
-      ? {
-          ...check,
-          observationEntryId: null,
-          result: 'other_or_inconclusive',
-          description: [
-            check.description,
-            `Widziano zwierzę — powiązana obserwacja ${check.observationEntryId} została usunięta wraz z punktem.`,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        }
-      : check;
-  return {
-    ...document,
-    case: {
-      ...document.case,
-      escape: {
-        ...document.case.escape,
-        escapePointId:
-          document.case.escape.escapePointId === id ? null : document.case.escape.escapePointId,
+  return unlinkRemovedObservations(
+    {
+      ...document,
+      case: {
+        ...document.case,
+        escape: {
+          ...document.case.escape,
+          escapePointId:
+            document.case.escape.escapePointId === id ? null : document.case.escape.escapePointId,
+        },
       },
+      points: document.points.filter((point) => point.id !== id),
     },
-    points: document.points
-      .filter((point) => point.id !== id)
-      .map((point) => ({
-        ...point,
-        entries: point.entries.map((entry) => (entry.type === 'check' ? unlink(entry) : entry)),
-      })),
-    areas: document.areas.map((area) => ({ ...area, checks: area.checks.map(unlink) })),
-  };
+    removed,
+    updatedAt,
+  );
 }

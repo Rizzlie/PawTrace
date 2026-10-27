@@ -13,7 +13,7 @@
       [pointCreationEnabled]="!!state.document() && !state.busy() && !state.candidate()"
       (addPointRequested)="addPoint()"
       (pointPlaced)="state.placePoint($event)"
-      (placeSelected)="state.selectPoint($event)"
+      (placeSelected)="selectPoint($event)"
       [initialLocation]="initialLocation()"
       [viewport]="viewport()"
       [basemap]="state.basemap()"

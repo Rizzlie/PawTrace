@@ -27,6 +27,8 @@ export interface MapPlace {
   name: string;
   coordinates: MapCoordinates;
   selected: boolean;
+  accents?: string[];
+  summary?: string;
 }
 export interface MapPointDraft {
   number: number;

@@ -1,3 +1,4 @@
+import type { EntrySession } from '../history/entry-draft';
 import { createProfileDraft, type ProfileDraft } from '../animal-profile/profile-draft';
 import type { CaseDocument } from '@pawtrace/case-domain';
 import type { Basemap } from '@pawtrace/map-engine';
@@ -15,9 +16,10 @@ export interface ProfileSession {
 export interface CaseState {
   document: CaseDocument | null;
   emptyBasemap: Basemap;
-  editor: ProfileSession | PointSession | null;
+  editor: ProfileSession | PointSession | EntrySession | null;
   selectedPointId: string | null;
   deletingPointId: string | null;
+  deletingEntry: { pointId: string; entryId: string } | null;
   closeRequested: boolean;
   transfer: {
     request: number;
@@ -46,6 +48,7 @@ export function createCaseState(document: CaseDocument | null = null, generation
     editor: null,
     selectedPointId: null,
     deletingPointId: null,
+    deletingEntry: null,
     closeRequested: false,
     transfer: {
       request: 0,
@@ -85,7 +88,7 @@ export function editorDirty(state: Pick<CaseState, 'editor' | 'document'>): bool
     !!state.document &&
     JSON.stringify(state.editor.draft) !==
       JSON.stringify(
-        state.editor.kind === 'point' ? state.editor.initial : createProfileDraft(state.document),
+        state.editor.kind !== 'profile' ? state.editor.initial : createProfileDraft(state.document),
       )
   );
 }

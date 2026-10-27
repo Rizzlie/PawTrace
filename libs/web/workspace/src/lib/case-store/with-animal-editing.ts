@@ -14,6 +14,7 @@ export function withAnimalEditing() {
       props: type<{
         _profileResources: EditorForm<ProfileDraft>;
         _editorTransition: EditorTransition;
+        _nextEditorId: () => number;
       }>(),
     },
     withReducer(
@@ -55,7 +56,6 @@ export function withAnimalEditing() {
         dispatch = injectDispatch(profileEvents),
         editorDispatch = injectDispatch(editorEvents),
       ) => {
-        let sequence = 0;
         const resources = store._profileResources;
         const discardEditor = (id: number): void => {
           if (store.editor()?.id !== id || caseBusy(getState(store))) return;
@@ -119,7 +119,7 @@ export function withAnimalEditing() {
               return;
             const session = {
               kind: 'profile' as const,
-              id: ++sequence,
+              id: store._nextEditorId(),
               generation: store.persistence().generation,
               version: 0,
               draft: createProfileDraft(document),

@@ -17,7 +17,7 @@ pt-floating-panel {
 .details {
   right: 16px;
   bottom: 80px;
-  width: 280px;
+  width: 340px;
   max-height: min(392px, calc(100% - 220px));
 }
 .eyebrow {
@@ -174,4 +174,8 @@ dialog::backdrop {
     max-height: calc(100% - 160px);
     right: 12px;
   }
+}
+
+.details:has(form) {
+  max-height: calc(100% - 200px);
 }

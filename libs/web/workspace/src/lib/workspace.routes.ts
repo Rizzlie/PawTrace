@@ -20,7 +20,8 @@ const openProfile: CanActivateFn = () => {
         ? router.parseUrl('/')
         : !state.busy() &&
           state.candidate() === null &&
-          (state.editor()?.kind !== 'point' ||
+          (!state.editor() ||
+            state.editor()?.kind === 'profile' ||
             (await state.requestEditorExit(cancellation.signal)));
       subscriber.next(result);
       subscriber.complete();
