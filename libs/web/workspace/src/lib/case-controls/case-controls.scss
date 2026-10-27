@@ -1,0 +1,72 @@
+.case-panel,
+dialog {
+  padding: 16px;
+  background: var(--pt-panel, #fffef8);
+  color: var(--pt-foreground);
+  border: 1px solid var(--pt-border);
+  border-radius: 16px;
+  box-shadow: var(--pt-shadow);
+}
+.eyebrow {
+  color: var(--pt-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+h2 {
+  margin: 8px 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+p {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+button {
+  font-size: 11px;
+  padding: 8px 10px;
+}
+.warning,
+.error {
+  color: #913600;
+}
+.error {
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.file-input {
+  display: none;
+}
+dialog {
+  width: min(460px, calc(100vw - 48px));
+  max-height: calc(100dvh - 64px);
+  overflow: auto;
+  padding: 24px;
+}
+dialog::backdrop {
+  background: rgb(19 36 27 / 45%);
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+dd {
+  margin: 0;
+  font-weight: 600;
+}

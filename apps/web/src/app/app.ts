@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   inject,
   signal,
@@ -14,26 +15,38 @@ import {
   type MapConfig,
   type MapViewport,
 } from "@pawtrace/map-engine";
-import { AddressSearch, type AddressSearchResult } from "@pawtrace/workspace";
+import {
+  AddressSearch,
+  AppState,
+  CaseControls,
+  type AddressSearchResult,
+} from "@pawtrace/workspace";
 import { AppHeader } from "./layout/app-header/app-header";
 import { FloatingPanel } from "@pawtrace/shared-ui";
 
 @Component({
   selector: "app-root",
-  imports: [MapEngine, AddressSearch, AppHeader, FloatingPanel],
+  imports: [MapEngine, AddressSearch, CaseControls, AppHeader, FloatingPanel],
   templateUrl: "./app.html",
   styleUrl: "./app.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  protected readonly viewport = signal<MapViewport | undefined>(undefined);
+  protected readonly state = inject(AppState);
+  private readonly addressViewport = signal<MapViewport | undefined>(undefined);
+  protected readonly viewport = computed<MapViewport | undefined>(() => {
+    const view = this.state.document()?.mapView;
+    return view ? { ...view.center, zoom: view.zoom } : this.addressViewport();
+  });
 
   protected selectAddress(result: AddressSearchResult): void {
-    this.viewport.set({
+    const view = {
       latitude: result.latitude,
       longitude: result.longitude,
       zoom: 15,
-    });
+    };
+    if (this.state.document()) this.state.changeViewport(view);
+    else this.addressViewport.set(view);
   }
   protected readonly guideOpen = signal(true);
   private readonly http = inject(HttpClient);
@@ -45,6 +58,7 @@ export class App {
   );
 
   constructor() {
+    void this.state.initialize();
     this.checkConnection();
     this.loadMapConfig();
   }

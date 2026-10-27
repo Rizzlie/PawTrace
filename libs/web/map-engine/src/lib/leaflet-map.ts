@@ -19,6 +19,8 @@ interface MapBindings {
   config: Signal<MapConfig>;
   viewport?: Signal<MapViewport | undefined>;
   viewportChanged: (view: MapViewport) => void;
+  basemap?: Signal<Basemap>;
+  basemapChanged?: (basemap: Basemap) => void;
 }
 
 interface TileSource {
@@ -45,10 +47,13 @@ export class LeafletMap implements OnDestroy {
       !this.satelliteSource().urlTemplate.includes("{accessToken}") ||
       !!this.config().mapboxToken,
   );
-  private readonly basemapState = linkedSignal<boolean, Basemap>({
-    source: this.satelliteAvailable,
-    computation: (available, previous) =>
-      available ? (previous?.value ?? "osm") : "osm",
+  private readonly basemapState = linkedSignal({
+    source: () => ({
+      available: this.satelliteAvailable(),
+      requested: this.bindings()?.basemap?.(),
+    }),
+    computation: ({ available, requested }, previous): Basemap =>
+      available ? (requested ?? previous?.value ?? "osm") : "osm",
   });
   readonly basemap = this.basemapState.asReadonly();
   private readonly loadingState = signal(false);
@@ -170,7 +175,10 @@ export class LeafletMap implements OnDestroy {
     const center = this.map.getCenter();
     return {
       latitude: center.lat,
-      longitude: center.lng,
+      longitude:
+        center.lng >= -180 && center.lng <= 180
+          ? center.lng
+          : center.wrap().lng,
       zoom: this.map.getZoom(),
     };
   }
@@ -182,6 +190,7 @@ export class LeafletMap implements OnDestroy {
       );
       return;
     }
+    this.bindings()?.basemapChanged?.(basemap);
     if (this.basemap() === basemap) return;
     this.tileMessageState.set("");
     this.basemapState.set(basemap);

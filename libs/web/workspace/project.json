@@ -11,7 +11,7 @@
       "executor": "nx:run-commands",
       "cache": true,
       "options": {
-        "command": "ngc -p libs/web/workspace/tsconfig.lib.json --noEmit"
+        "command": "ngc -p libs/web/workspace/tsconfig.lib.json --noEmit && tsc -p libs/web/workspace/tsconfig.spec.json --noEmit"
       }
     }
   }

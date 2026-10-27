@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. F04 adds the framework-neutral case model, strict JSON v1 validation and pure parse/export functions. Live Mapbox acceptance is pending a configured public token; browser persistence and case-editing interfaces remain planned.
+F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. F04 adds the framework-neutral case model, strict JSON v1 validation and pure parse/export functions. F05 adds case creation, IndexedDB autosave/restoration, safe JSON import/export and saved/unsaved feedback. Live Mapbox acceptance is pending a configured public token; animal/point/area editing interfaces remain planned.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -120,6 +120,14 @@ Tiles load directly through the browser, retaining normal HTTP caching and refer
 Tile caching uses the browser's HTTP memory/disk cache, honoring the provider's `Cache-Control`, `Expires`, `Age` and validators such as `ETag`. A fresh cached response can be reused without a provider request; an expired response may require revalidation or download. Cache retention also depends on the browser and available storage. There is no application-owned tile cache in IndexedDB, Cache Storage, the API or Docker, and no offline guarantee. The API's `no-store` header applies to `/api/map-config`; tile images receive their own provider headers.
 
 OSM's policy accepts normal browser HTTP caching. A small OSM HEAD check on 2026-10-26 confirmed cache-control and ETag headers; its TTL is provider-controlled, not hardcoded in PawTrace. Mapbox Static Tiles currently documents `max-age=43200` (12 hours for the browser) and a separate shared/CDN TTL. The `keepBuffer: 0` Leaflet option limits offscreen tile elements; it does not disable HTTP caching or prefetch extra tiles. Only changes to the active source or an explicit retry replace a layer; equivalent configuration, inactive-source changes and loading/error signal updates retain it. Automated tests with routed tile responses verify behavior, not the browser's real HTTP cache hit rate.
+
+## Case files and browser saving
+
+Use **Nowa sprawa** to create a case or **Importuj JSON** to open a PawTrace JSON v1 file. The confirmation shows the incoming case and its record counts, offers an export of the current case, and allows cancellation. Replacement succeeds only after the candidate is safely stored; invalid files and failed writes leave the active case intact. Import preserves all fields, including information whose editing interface is planned for later tasks.
+
+The current case and map view restore after refreshing or reopening the same browser profile at the same origin. **Zapisano w przeglądarce** means the transaction completed. If saving fails, keep the page open and use **Eksportuj JSON** to download the latest in-memory data or **Ponów zapis** to retry. The next committed change also retries; there is no automatic retry timer. Invalid stored data is retained and presents recovery options instead of being silently overwritten.
+
+JSON export is a complete manual backup/transfer of committed case data, independent of view filters or save failures. It contains server-photo filenames, not the image files. Browser data is local to its profile and origin (host, protocol and port); clearing site data removes it. There is no automatic cross-device synchronization or cross-tab editing lock. Live Mapbox acceptance remains a separate F02 check and was explicitly excluded as a prerequisite for implementing F05.
 
 ## Address search
 
