@@ -3,48 +3,25 @@ import { BrowserFiles, BrowserSnapshot } from "@pawtrace/browser-persistence";
 import type { CaseDocument } from "@pawtrace/case-domain";
 import type { MapViewport, Basemap } from "@pawtrace/map-engine";
 import { SnapshotWriter, type SnapshotJob } from "./snapshot-writer";
+import {
+  createCaseDocument,
+  isValidViewport,
+  sameMapView,
+  summarizeCase,
+} from "./case-document";
+import {
+  createWorkspaceState,
+  saveStatus,
+  type WorkspaceState,
+} from "./workspace-state";
 
-interface PersistenceState {
-  initialized: boolean;
-  revision: number;
-  savedRevision: number;
-  generation: number;
-  writing: boolean;
-  replacing: boolean;
-  error: string;
-  recovery: string;
-}
-interface State {
-  document: CaseDocument | null;
-  ui: {
-    error: string;
-    candidate: CaseDocument | null;
-    reading: boolean;
-    emptyBasemap: Basemap;
-  };
-  editor: null;
-  persistence: PersistenceState;
-}
+const fileError = "Nie udało się odczytać lub pobrać pliku. Spróbuj ponownie.";
 
 @Service()
 export class AppState {
   private readonly storage = inject(BrowserSnapshot);
   private readonly files = inject(BrowserFiles);
-  private readonly root = signal<State>({
-    document: null,
-    ui: { error: "", candidate: null, reading: false, emptyBasemap: "osm" },
-    editor: null,
-    persistence: {
-      initialized: false,
-      revision: 0,
-      savedRevision: 0,
-      generation: 0,
-      writing: false,
-      replacing: false,
-      error: "",
-      recovery: "",
-    },
-  });
+  private readonly root = signal(createWorkspaceState());
   readonly document = computed(() => this.root().document);
   readonly persistence = computed(() => this.root().persistence);
   readonly ui = computed(() => this.root().ui);
@@ -57,41 +34,10 @@ export class AppState {
       this.persistence().replacing ||
       this.ui().reading,
   );
-  readonly replacementSummary = computed(() => {
-    const d = this.ui().candidate;
-    return d
-      ? {
-          title: d.case.title,
-          animal: d.animal?.name ?? "Brak profilu zwierzęcia",
-          points: d.points.length,
-          entries:
-            d.points.reduce((count, point) => count + point.entries.length, 0) +
-            d.areas.reduce((count, area) => count + area.checks.length, 0),
-          areas: d.areas.length,
-          photos: new Set([
-            ...(d.animal?.photos ?? []),
-            ...d.points.flatMap((p) => [
-              ...p.photos,
-              ...p.entries.flatMap((e) => e.photos),
-            ]),
-            ...d.areas.flatMap((a) => [
-              ...a.photos,
-              ...a.checks.flatMap((c) => c.photos),
-            ]),
-            ...d.assets.map((asset) => asset.filename),
-          ]).size,
-        }
-      : null;
-  });
-  readonly saveStatus = computed(() => {
-    const p = this.persistence();
-    if (!p.initialized) return "loading";
-    if (p.replacing) return "replacing";
-    if (p.error) return "error";
-    if (p.writing) return "saving";
-    if (p.revision !== p.savedRevision) return "unsaved";
-    return this.document() ? "saved" : "empty";
-  });
+  readonly replacementSummary = computed(() =>
+    summarizeCase(this.ui().candidate),
+  );
+  readonly saveStatus = computed(() => saveStatus(this.root()));
   private readonly writer = new SnapshotWriter(
     this.storage,
     () => this.patchPersistence({ writing: true }),
@@ -108,6 +54,127 @@ export class AppState {
 
   initialize(): Promise<void> {
     return (this.initialization ??= this.restore());
+  }
+
+  async retryRestore(): Promise<void> {
+    if (
+      this.document() ||
+      this.persistence().replacing ||
+      !this.persistence().initialized
+    )
+      return;
+    this.patchPersistence({ initialized: false, recovery: "" });
+    await this.restore();
+  }
+
+  prepareNewCase(): void {
+    if (this.busy()) return;
+    ++this.transitionRequest;
+    this.patchUi({ candidate: createCaseDocument(), error: "" });
+  }
+
+  async prepareImport(text: string): Promise<void> {
+    if (!this.persistence().initialized || this.persistence().replacing) return;
+    const request = ++this.transitionRequest;
+    const parsed = (await import("@pawtrace/case-domain")).parseCaseFile(text);
+    if (request !== this.transitionRequest || this.persistence().replacing)
+      return;
+    if (parsed.success) {
+      this.patchUi({ candidate: parsed.data, error: "" });
+      return;
+    }
+    this.patchUi({
+      candidate: null,
+      error: parsed.issues
+        .map((issue) => `${issue.path.join(".") || "plik"}: ${issue.message}`)
+        .join("\n"),
+    });
+  }
+
+  async confirmReplacement(): Promise<void> {
+    const candidate = this.ui().candidate;
+    if (
+      !candidate ||
+      this.persistence().replacing ||
+      !this.persistence().initialized
+    )
+      return;
+    this.patchPersistence({ replacing: true });
+    try {
+      await this.writer.replace(candidate);
+      this.root.set(
+        createWorkspaceState(candidate, this.persistence().generation + 1),
+      );
+    } catch {
+      this.patchPersistence({ replacing: false, writing: false });
+      this.patchUi({
+        error:
+          "Nie udało się zapisać nowej sprawy. Poprzednia sprawa i ostatni poprawny zapis zostały zachowane. Możesz ponowić lub anulować.",
+      });
+    }
+  }
+
+  cancelReplacement(): void {
+    if (this.persistence().replacing) return;
+    ++this.transitionRequest;
+    this.patchUi({ error: "", candidate: null });
+  }
+
+  changeViewport(view: MapViewport): void {
+    const document = this.document();
+    if (!document) return;
+    const mapView = {
+      ...document.mapView,
+      center: { latitude: view.latitude, longitude: view.longitude },
+      zoom: view.zoom,
+    };
+    if (!isValidViewport(view)) return;
+    this.commitMapView(mapView);
+  }
+
+  changeBasemap(basemap: Basemap): void {
+    const document = this.document();
+    if (document) this.commitMapView({ ...document.mapView, basemap });
+    else this.patchUi({ emptyBasemap: basemap });
+  }
+
+  retrySave(): void {
+    if (this.persistence().replacing || !this.document()) return;
+    this.patchPersistence({ error: "" });
+    this.queueSnapshot();
+  }
+
+  async importFile(file: File): Promise<void> {
+    if (this.busy()) return;
+    this.patchUi({ error: "", reading: true });
+    try {
+      await this.prepareImport(await this.files.read(file));
+    } catch {
+      this.patchUi({ error: fileError });
+    } finally {
+      this.patchUi({ reading: false });
+    }
+  }
+
+  async exportJson(): Promise<string> {
+    const document = this.document();
+    if (!document) throw new Error("Brak aktywnej sprawy do eksportu.");
+    const exportedAt = new Date().toISOString();
+    const { serializeCaseFile } = await import("@pawtrace/case-domain");
+    return serializeCaseFile(document, exportedAt);
+  }
+
+  async downloadExport(): Promise<void> {
+    const document = this.document();
+    if (!document) return;
+    try {
+      this.files.download(
+        await this.exportJson(),
+        `pawtrace-${document.case.id}.json`,
+      );
+    } catch {
+      this.patchUi({ error: fileError });
+    }
   }
 
   private async restore(): Promise<void> {
@@ -135,37 +202,6 @@ export class AppState {
     }
   }
 
-  changeViewport(view: MapViewport): void {
-    const document = this.document();
-    if (!document) return;
-    const mapView = {
-      ...document.mapView,
-      center: { latitude: view.latitude, longitude: view.longitude },
-      zoom: view.zoom,
-    };
-    if (
-      !Number.isFinite(view.latitude) ||
-      Math.abs(view.latitude) > 90 ||
-      !Number.isFinite(view.longitude) ||
-      Math.abs(view.longitude) > 180 ||
-      !Number.isFinite(view.zoom) ||
-      view.zoom < 3 ||
-      view.zoom > 19
-    )
-      return;
-    this.commitMapView(mapView);
-  }
-
-  changeBasemap(basemap: Basemap): void {
-    const document = this.document();
-    if (document) this.commitMapView({ ...document.mapView, basemap });
-    else
-      this.root.update((s) => ({
-        ...s,
-        ui: { ...s.ui, emptyBasemap: basemap },
-      }));
-  }
-
   private commitMapView(mapView: CaseDocument["mapView"]): void {
     const state = this.root();
     const document = state.document;
@@ -175,14 +211,7 @@ export class AppState {
       state.persistence.replacing
     )
       return;
-    const previous = document.mapView;
-    if (
-      previous.center.latitude === mapView.center.latitude &&
-      previous.center.longitude === mapView.center.longitude &&
-      previous.zoom === mapView.zoom &&
-      previous.basemap === mapView.basemap
-    )
-      return;
+    if (sameMapView(document.mapView, mapView)) return;
     this.root.update((state) => ({
       ...state,
       document: { ...document, mapView },
@@ -205,177 +234,6 @@ export class AppState {
       });
   }
 
-  async exportJson(): Promise<string> {
-    const document = this.document();
-    if (!document) throw new Error("Brak aktywnej sprawy do eksportu.");
-    const exportedAt = new Date().toISOString();
-    const { serializeCaseFile } = await import("@pawtrace/case-domain");
-    return serializeCaseFile(document, exportedAt);
-  }
-
-  retrySave(): void {
-    if (this.persistence().replacing || !this.document()) return;
-    this.patchPersistence({ error: "" });
-    this.queueSnapshot();
-  }
-
-  async prepareImport(text: string): Promise<void> {
-    if (!this.persistence().initialized || this.persistence().replacing) return;
-    const request = ++this.transitionRequest;
-    const parsed = (await import("@pawtrace/case-domain")).parseCaseFile(text);
-    if (request !== this.transitionRequest || this.persistence().replacing)
-      return;
-    if (!parsed.success) {
-      this.root.update((s) => ({
-        ...s,
-        ui: {
-          ...s.ui,
-          candidate: null,
-          error: parsed.issues
-            .map(
-              (issue) => `${issue.path.join(".") || "plik"}: ${issue.message}`,
-            )
-            .join("\n"),
-        },
-      }));
-      return;
-    }
-    this.root.update((s) => ({
-      ...s,
-      ui: { ...s.ui, candidate: parsed.data, error: "" },
-    }));
-  }
-
-  prepareNewCase(): void {
-    if (this.busy()) return;
-    ++this.transitionRequest;
-    const now = new Date().toISOString();
-    const candidate: CaseDocument = {
-      schemaVersion: 1,
-      case: {
-        id: crypto.randomUUID(),
-        title: "Nowa sprawa",
-        createdAt: now,
-        updatedAt: now,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        escape: {
-          occurredAt: { kind: "unknown", description: null },
-          escapePointId: null,
-          description: null,
-          directionOfTravel: null,
-          familiarWithLocation: null,
-        },
-      },
-      animal: null,
-      points: [],
-      areas: [],
-      assets: [],
-      mapView: {
-        center: { latitude: 52.1, longitude: 19.4 },
-        zoom: 6,
-        basemap: "osm",
-      },
-    };
-    this.root.update((s) => ({ ...s, ui: { ...s.ui, candidate, error: "" } }));
-  }
-
-  cancelReplacement(): void {
-    if (this.persistence().replacing) return;
-    ++this.transitionRequest;
-    this.root.update((s) => ({
-      ...s,
-      ui: { ...s.ui, error: "", candidate: null },
-    }));
-  }
-
-  async confirmReplacement(): Promise<void> {
-    const candidate = this.ui().candidate;
-    if (
-      !candidate ||
-      this.persistence().replacing ||
-      !this.persistence().initialized
-    )
-      return;
-    this.patchPersistence({ replacing: true });
-    try {
-      await this.writer.replace(candidate);
-      this.root.update((s) => ({
-        document: candidate,
-        editor: null,
-        ui: { error: "", candidate: null, reading: false, emptyBasemap: "osm" },
-        persistence: {
-          ...s.persistence,
-          generation: s.persistence.generation + 1,
-          revision: 0,
-          savedRevision: 0,
-          writing: false,
-          replacing: false,
-          error: "",
-          recovery: "",
-        },
-      }));
-    } catch {
-      this.patchPersistence({ replacing: false, writing: false });
-      this.root.update((s) => ({
-        ...s,
-        ui: {
-          ...s.ui,
-          error:
-            "Nie udało się zapisać nowej sprawy. Poprzednia sprawa i ostatni poprawny zapis zostały zachowane. Możesz ponowić lub anulować.",
-        },
-      }));
-    }
-  }
-
-  async retryRestore(): Promise<void> {
-    if (
-      this.document() ||
-      this.persistence().replacing ||
-      !this.persistence().initialized
-    )
-      return;
-    this.patchPersistence({ initialized: false, recovery: "" });
-    await this.restore();
-  }
-
-  reportFileError(): void {
-    this.root.update((s) => ({
-      ...s,
-      ui: {
-        ...s.ui,
-        error: "Nie udało się odczytać lub pobrać pliku. Spróbuj ponownie.",
-      },
-    }));
-  }
-
-  async importFile(file: File): Promise<void> {
-    if (this.busy()) return;
-    this.root.update((s) => ({
-      ...s,
-      ui: { ...s.ui, error: "", reading: true },
-    }));
-    try {
-      await this.prepareImport(await this.files.read(file));
-    } catch {
-      this.reportFileError();
-    } finally {
-      this.root.update((s) => ({ ...s, ui: { ...s.ui, reading: false } }));
-    }
-  }
-
-  async downloadExport(): Promise<void> {
-    const document = this.document();
-    if (!document) return;
-    try {
-      this.files.download(
-        await this.exportJson(),
-        `pawtrace-${document.case.id}.json`,
-      );
-    } catch {
-      this.reportFileError();
-    }
-  }
-
   private acknowledge(job: SnapshotJob): void {
     if (job.generation !== this.persistence().generation) return;
     this.patchPersistence({
@@ -385,7 +243,13 @@ export class AppState {
     });
   }
 
-  private patchPersistence(patch: Partial<PersistenceState>): void {
+  private patchUi(patch: Partial<WorkspaceState["ui"]>): void {
+    this.root.update((state) => ({ ...state, ui: { ...state.ui, ...patch } }));
+  }
+
+  private patchPersistence(
+    patch: Partial<WorkspaceState["persistence"]>,
+  ): void {
     this.root.update((s) => ({
       ...s,
       persistence: { ...s.persistence, ...patch },
