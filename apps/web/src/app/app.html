@@ -1,8 +1,15 @@
 <app-header [connection]="connection()" (reconnect)="checkConnection()" />
 <main>
   <section class="workspace" aria-label="Przestrzeń poszukiwań">
-    <pt-map [config]="mapConfig()" [viewport]="viewport()" />
+    <pt-map
+      [config]="mapConfig()"
+      [viewport]="viewport()"
+      [basemap]="state.basemap()"
+      (viewportChanged)="state.changeViewport($event)"
+      (basemapChanged)="state.changeBasemap($event)"
+    />
     <pt-address-search (resultSelected)="selectAddress($event)" />
+    <pt-case-controls />
     <div class="guide">
       <button
         class="guide-toggle"

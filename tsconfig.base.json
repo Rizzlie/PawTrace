@@ -18,7 +18,13 @@
       "@pawtrace/map-engine": ["./libs/web/map-engine/src/index.ts"],
       "@pawtrace/workspace": ["./libs/web/workspace/src/index.ts"],
       "@pawtrace/shared-ui": ["./libs/web/shared/ui/src/index.ts"],
-      "@pawtrace/case-domain": ["./libs/shared/case-domain/src/index.ts"]
+      "@pawtrace/case-domain": ["./libs/shared/case-domain/src/index.ts"],
+      "@pawtrace/browser-persistence": [
+        "./libs/web/browser-persistence/src/index.ts"
+      ],
+      "@pawtrace/case-domain/fixtures/*": [
+        "./libs/shared/case-domain/src/fixtures/*"
+      ]
     }
   },
   "exclude": ["node_modules", "tmp"]

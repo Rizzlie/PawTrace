@@ -62,7 +62,7 @@ button:disabled {
 .messages {
   position: absolute;
   z-index: 501;
-  top: 79px;
+  top: 124px;
   right: 16px;
   max-width: min(300px, calc(100% - 32px));
   max-height: calc(100% - 160px);
@@ -108,7 +108,7 @@ button:disabled {
     padding: 10px;
   }
   .messages {
-    top: 65px;
+    top: 115px;
     right: 12px;
     left: 12px;
     max-width: none;

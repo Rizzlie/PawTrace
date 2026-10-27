@@ -28,9 +28,16 @@
     <span aria-hidden="true">⌖</span> Moja lokalizacja
   </button>
 </div>
-@if (map.tileMessage() || map.locationMessage()) {
+@if (map.tileMessage() || map.locationMessage() || (basemap() === 'satellite' &&
+!map.satelliteAvailable())) {
 <aside class="messages" aria-label="Komunikaty mapy">
-  @if (map.tileMessage()) {
+  @if (basemap() === 'satellite' && !map.satelliteAvailable() &&
+  !map.tileMessage()) {
+  <p role="status">
+    Zapisano widok satelitarny, ale satelita jest niedostępna. Wyświetlono mapę
+    OSM.
+  </p>
+  } @if (map.tileMessage()) {
   <p role="status">{{ map.tileMessage() }}</p>
   <button type="button" (click)="map.retryTiles()">
     Ponów pobieranie mapy

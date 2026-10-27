@@ -1,7 +1,7 @@
 # F05 — Case lifecycle, autosave, and file transfer
 
-Status: planned
-Depends on: F02, F04
+Status: done
+Depends on: F02 implementation, F04. The user explicitly authorized F05 without waiting for F02's live Mapbox acceptance on 2026-10-27; F02 remains independently blocked.
 
 ## Goal
 
@@ -40,4 +40,20 @@ Implement the state owner in `libs/web/workspace` and storage/file adapters in `
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented on `feat/f05-case-persistence` on 2026-10-27. One private signals root in `AppState` owns the committed document, transient replacement UI, reserved editor slot, and persistence revisions/session generation. F06 and later tasks will add their explicit-confirmation form/geometry editors; F05 does not add those editors.
+
+`BrowserSnapshot` uses `idb` to store one full document transactionally. `SnapshotWriter` allows one in-flight write, coalesces pending updates, acknowledges captured revisions, stops draining on failure and retries on explicit request or the next committed change. Confirmed replacement blocks mutations, drains the active transaction, supersedes old pending snapshots, persists the candidate and only then activates a fresh session. Failed replacement preserves the old case, its latest in-memory changes and its last successful snapshot.
+
+`CaseControls` exposes creation, import, complete export, replacement summary/export/cancellation, storage retry and invalid-startup recovery. Validation errors include contract paths. Unreadable or invalid browser data is not overwritten automatically. File-only export metadata never changes document timestamps or revision acknowledgements. Future/unexposed fields and unavailable server-photo references survive complete round trips.
+
+Map center, zoom and requested basemap share the writer, without modifying case factual timestamps. Restoration suppresses map edit intents; provider fallback retains the saved satellite preference and leaves OSM usable. Explicit OSM selection changes the stored preference even when OSM was already the fallback. The contract is asynchronously loaded outside the initial map bundle.
+
+Validation:
+
+- `npm exec nx run-many -- -t typecheck lint test build e2e`: all tasks except `map-engine:test` passed on the first full-workspace run, including 25 browser scenarios. Four map assertions caught normalization changing an already-valid longitude's floating-point representation. Normalization now runs only outside the accepted longitude range; all 25 map unit tests then passed.
+- With `BASE_URL=http://127.0.0.1:4200`, `npm exec nx run-many -- -t typecheck lint test build e2e -p workspace browser-persistence map-engine web web-e2e --output-style=static`: all 18 selected/dependency tasks passed after corrections, including 14 AppState tests, 2 IndexedDB adapter tests and all 26 Chromium scenarios (7 for F05).
+- Browser acceptance aborts actual IndexedDB transactions, exercises failed replacement and explicit recovery, rejects malformed/unsupported files, preserves invalid startup data, compares complete fixture round trips including photo references, and closes/relaunches Chromium with the same persistent profile. Rendered tile coordinates are compared across reopening to verify actual viewport restoration. Tests use controlled provider responses, without consuming Mapbox quotas.
+- The review regression for selecting satellite before case creation failed before the state-ownership correction and passed afterwards. Both the empty workspace and an active case now expose the authoritative basemap from `AppState`. Replacement tests cover successful and failed old-session writes, obsolete pending snapshots and new-session revision acknowledgements. The barrier drains all old write callbacks before activating the candidate; an old-generation completion cannot subsequently arrive through the storage Promise seam.
+- Collaborative browser inspection verified the floating case panel and native replacement dialog. Production build passes with a roughly 551 kB initial bundle, retaining the existing 500 kB warning threshold and 1 MB error threshold; the contract is a separate lazy chunk. Existing map-e2e non-null-assertion lint warnings remain non-fatal.
+
+F02 live Mapbox acceptance remains blocked and was explicitly not part of this task. Browser storage remains local to one origin/profile, with no cross-tab lock or synchronization. Server photos are not bundled in JSON.

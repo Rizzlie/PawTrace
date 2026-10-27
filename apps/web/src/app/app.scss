@@ -35,6 +35,16 @@ pt-address-search {
   width: min(320px, calc(100% - 220px));
   max-height: calc(100% - 96px);
 }
+pt-case-controls {
+  position: absolute;
+  z-index: 501;
+  top: 98px;
+  left: 16px;
+  width: min(320px, calc(100% - 92px));
+  max-height: calc(100% - 200px);
+  overflow: auto;
+  border-radius: 16px;
+}
 .guide-toggle {
   display: flex;
   align-items: center;
