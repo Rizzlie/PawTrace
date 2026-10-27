@@ -80,6 +80,7 @@ test('creates by map click and drag, cancels a candidate, and collapses without 
   await expect(latitude).not.toHaveValue('');
   const before = await latitude.inputValue();
   const marker = page.locator('.leaflet-marker-icon[title="Położenie szkicu"]');
+  await expect(marker).toHaveText('1');
   const box = await markerBox(marker);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -317,3 +318,27 @@ for (const { width, inset } of [
     await expect(details).toContainText(completeFile.points[0].name);
   });
 }
+
+test('matches place-list numbers to markers and renumbers surviving places after removal', async ({
+  page,
+}) => {
+  await importCase(page, completeFile);
+  const places = page.getByRole('complementary', { name: 'Miejsca', exact: true });
+  const home = places.getByRole('button', { name: completeFile.points[0].name, exact: true });
+  const shed = places.getByRole('button', { name: completeFile.points[1].name, exact: true });
+  await expect(home.locator('.point-number')).toHaveText('1');
+  await expect(shed.locator('.point-number')).toHaveText('2');
+  await expect(page.locator('.leaflet-marker-icon[title="Dom"]')).toHaveText('1');
+  const shedMarker = page.locator('.leaflet-marker-icon[title="Szopa przy parku"]');
+  await expect(shedMarker).toHaveText('2');
+  await home.click();
+  await page.getByRole('button', { name: 'Usuń punkt', exact: true }).click();
+  await page.getByRole('button', { name: 'Potwierdź usunięcie', exact: true }).click();
+  await expect(shed.locator('.point-number')).toHaveText('1');
+  await expect(shedMarker).toHaveText('1');
+  expect((await exportCase(page)).points).toEqual(completeFile.points.slice(1));
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await page.reload();
+  await expect(shed.locator('.point-number')).toHaveText('1');
+  await expect(shedMarker).toHaveText('1');
+});

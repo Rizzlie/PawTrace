@@ -23,11 +23,13 @@ export interface MapCoordinates {
 }
 export interface MapPlace {
   id: string;
+  number: number;
   name: string;
   coordinates: MapCoordinates;
   selected: boolean;
 }
 export interface MapPointDraft {
+  number: number;
   sessionId: number;
   coordinates: MapCoordinates | null;
   pointId: string;

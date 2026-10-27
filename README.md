@@ -145,7 +145,7 @@ Temporary working files belong in `.scratch/`, which is ignored by Git. Durable 
 
 ## Map points
 
-Use **Dodaj punkt** in the right map toolbar beside **Moja lokalizacja**, click the map or submit an address search, and name the place. Drag the orange draft marker or correct its geographic coordinates, select zero or more predefined roles, and choose **Zapisz punkt** or **Anuluj punkt**. Address search outside point editing only moves the map. Saved points can be selected from markers or the collapsible **Miejsca** list; overlapping markers offer a choice of names. The phone list starts collapsed.
+Use **Dodaj punkt** in the right map toolbar beside **Moja lokalizacja**, click the map or submit an address search, and name the place. Drag the orange draft marker or correct its geographic coordinates, select zero or more predefined roles, and choose **Zapisz punkt** or **Anuluj punkt**. Address search outside point editing only moves the map. Saved points can be selected from markers or the collapsible **Miejsca** list; overlapping markers offer a choice of names. List rows and markers show matching numbers derived from the place order; deleting a place renumbers the remaining display labels without changing their IDs. The phone list starts collapsed.
 
 Edit a selected place to rename/reposition it without changing its ID or imported history/photos. **Miejsce ucieczki** updates the same single incident reference used by the profile. Switching dirty editors or replacing the case offers Save / Discard / Stay. Export includes committed data only.
 

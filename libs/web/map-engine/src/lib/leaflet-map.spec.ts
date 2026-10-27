@@ -114,11 +114,22 @@ describe('Reactive Leaflet integration', () => {
     map.fire('click', { latlng: { lat: 52, lng: 21 } });
     expect(pointPlaced).not.toHaveBeenCalled();
     places.set([
-      { id: 'home', name: 'Dom', coordinates: { latitude: 52, longitude: 21 }, selected: false },
+      {
+        id: 'home',
+        name: 'Dom',
+        number: 1,
+        coordinates: { latitude: 52, longitude: 21 },
+        selected: false,
+      },
     ]);
     TestBed.tick();
     const committed = captured.markers[0];
-    pointDraft.set({ sessionId: 7, pointId: 'home', coordinates: { latitude: 51, longitude: 20 } });
+    pointDraft.set({
+      sessionId: 7,
+      pointId: 'home',
+      number: 1,
+      coordinates: { latitude: 51, longitude: 20 },
+    });
     TestBed.tick();
     map.fire('click', { latlng: { lat: 52.5, lng: 381 } });
     expect(pointPlaced).toHaveBeenLastCalledWith({
@@ -143,9 +154,10 @@ describe('Reactive Leaflet integration', () => {
 
   it('offers the names of overlapping places without zooming', () => {
     places.set(
-      ['a', 'b'].map((id) => ({
+      ['a', 'b'].map((id, index) => ({
         id,
         name: id,
+        number: index + 1,
         coordinates: { latitude: 52, longitude: 21 },
         selected: false,
       })),
@@ -155,6 +167,30 @@ describe('Reactive Leaflet integration', () => {
     captured.markers[0].fire('click');
     expect(placesSelected).toHaveBeenLastCalledWith(['a', 'b']);
     expect(engine.getViewport().zoom).toBe(zoom);
+  });
+
+  it('renders place numbers and updates the surviving marker after renumbering', () => {
+    places.set(
+      ['a', 'b'].map((id, index) => ({
+        id,
+        name: id,
+        number: index + 1,
+        coordinates: { latitude: 52 + index, longitude: 21 },
+        selected: false,
+      })),
+    );
+    TestBed.tick();
+    const first = captured.markers[0];
+    const second = captured.markers[1];
+    expect(first.getElement()?.textContent).toBe('1');
+    expect(second.getElement()?.textContent).toBe('2');
+    places.update((current) =>
+      current.filter((place) => place.id === 'b').map((place) => ({ ...place, number: 1 })),
+    );
+    TestBed.tick();
+    expect(captured.maps[0].hasLayer(first)).toBe(false);
+    expect(captured.maps[0].hasLayer(second)).toBe(true);
+    expect(second.getElement()?.textContent).toBe('1');
   });
 
   it('starts over Poland and preserves view through both basemap switches', async () => {

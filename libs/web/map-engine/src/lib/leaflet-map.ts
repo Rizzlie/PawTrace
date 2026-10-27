@@ -117,7 +117,10 @@ export class LeafletMap implements OnDestroy {
   private locationLayers?: L.LayerGroup;
   private initialLocationRequested = false;
   private navigationRevision = 0;
-  private readonly markers = new Map<string, { marker: L.Marker; selected: boolean }>();
+  private readonly markers = new Map<
+    string,
+    { marker: L.Marker; selected: boolean; number: number }
+  >();
   private draftMarker?: { sessionId: number; marker: L.Marker };
 
   constructor() {
@@ -323,12 +326,15 @@ export class LeafletMap implements OnDestroy {
     layer.addTo(this.map);
   }
 
-  private pointIcon(selected: boolean, draft = false): L.DivIcon {
+  private pointIcon(number: number, selected: boolean, draft = false): L.DivIcon {
+    const badge = document.createElement('span');
+    badge.textContent = String(number);
+    badge.style.cssText = `display:grid;place-items:center;width:32px;height:32px;border:3px solid white;border-radius:50%;color:white;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;background:${draft ? '#c56c28' : selected ? '#233f1e' : '#5f7e45'};box-shadow:0 2px 8px #0006`;
     return L.divIcon({
       className: 'pt-place-marker',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-      html: `<span style="display:block;width:24px;height:24px;border:3px solid white;border-radius:50%;background:${draft ? '#c56c28' : selected ? '#233f1e' : '#5f7e45'};box-shadow:0 2px 8px #0006"></span>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      html: badge,
     });
   }
 
@@ -347,7 +353,7 @@ export class LeafletMap implements OnDestroy {
       if (!marker) {
         marker = L.marker([place.coordinates.latitude, place.coordinates.longitude], {
           title: place.name,
-          icon: this.pointIcon(place.selected),
+          icon: this.pointIcon(place.number, place.selected),
           bubblingMouseEvents: false,
         }).addTo(this.map);
         marker.on('click', () => {
@@ -373,19 +379,21 @@ export class LeafletMap implements OnDestroy {
               .map((item) => item.id),
           );
         });
-        this.markers.set(place.id, { marker, selected: place.selected });
+        this.markers.set(place.id, { marker, selected: place.selected, number: place.number });
       }
       marker.setOpacity(place.id === draft?.pointId ? 0 : 1);
       marker.setLatLng([place.coordinates.latitude, place.coordinates.longitude]);
-      if (entry && entry.selected !== place.selected) {
-        marker.setIcon(this.pointIcon(place.selected));
+      if (entry && (entry.selected !== place.selected || entry.number !== place.number)) {
+        marker.setIcon(this.pointIcon(place.number, place.selected));
         entry.selected = place.selected;
+        entry.number = place.number;
       }
       const element = marker.getElement();
       if (element) {
         element.style.pointerEvents = place.id === draft?.pointId ? 'none' : '';
         element.title = place.name;
         element.setAttribute('aria-label', place.name);
+        element.setAttribute('aria-description', `Punkt nr ${place.number}`);
       }
     }
     if (
@@ -401,7 +409,7 @@ export class LeafletMap implements OnDestroy {
       const sessionId = draft.sessionId;
       const marker = L.marker([latitude, longitude], {
         title: 'Położenie szkicu',
-        icon: this.pointIcon(false, true),
+        icon: this.pointIcon(draft.number, false, true),
         draggable: true,
       }).addTo(this.map);
       marker.on('dragend', () => this.emitPlacement(sessionId, marker.getLatLng()));

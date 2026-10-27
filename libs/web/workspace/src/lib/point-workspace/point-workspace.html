@@ -16,13 +16,15 @@
         <p>Utwórz sprawę, aby dodawać miejsca.</p>
       }
       <ul>
-        @for (point of state.document()?.points; track point.id) {
+        @for (point of state.mapPlaces(); track point.id) {
           <li>
             <button
               type="button"
               [attr.aria-pressed]="state.selectedPointId() === point.id"
               (click)="selectPoint(point.id)"
+              [attr.aria-description]="'Punkt nr ' + point.number"
             >
+              <span class="point-number" aria-hidden="true">{{ point.number }}</span>
               {{ point.name }}
             </button>
           </li>

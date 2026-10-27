@@ -104,8 +104,9 @@ export function withPointEditing() {
         ),
         mapPlaces: computed<MapPlace[]>(
           () =>
-            store.document()?.points.map((point) => ({
+            store.document()?.points.map((point, index) => ({
               id: point.id,
+              number: index + 1,
               name: point.name,
               coordinates: point.coordinates,
               selected: point.id === store.selectedPointId(),
@@ -115,6 +116,8 @@ export function withPointEditing() {
           const session = store.editor();
           if (session?.kind !== 'point') return null;
           const { latitude, longitude } = session.draft;
+          const points = store.document()?.points ?? [];
+          const index = points.findIndex((point) => point.id === session.pointId);
           const valid =
             latitude.trim() &&
             longitude.trim() &&
@@ -123,6 +126,7 @@ export function withPointEditing() {
             Math.abs(Number(latitude)) <= 90 &&
             Math.abs(Number(longitude)) <= 180;
           return {
+            number: index < 0 ? points.length + 1 : index + 1,
             sessionId: session.id,
             pointId: session.pointId,
             coordinates: valid
