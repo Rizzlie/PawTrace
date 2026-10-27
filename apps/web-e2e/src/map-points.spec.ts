@@ -15,6 +15,20 @@ async function savePoint(page: Page) {
   await expect(page.getByLabel('Nazwa punktu')).toBeHidden();
 }
 
+async function selectListedPoint(page: Page, name: string) {
+  const expand = page.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
+  if (await expand.isVisible()) await expand.click();
+  await page
+    .getByRole('complementary', { name: 'Miejsca', exact: true })
+    .getByRole('button', { name, exact: true })
+    .click();
+}
+
+async function collapsePlaces(page: Page) {
+  const collapse = page.getByRole('button', { name: 'Zwiń miejsca', exact: true });
+  if (await collapse.isVisible()) await collapse.click();
+}
+
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => {
     throw error;
@@ -43,6 +57,7 @@ async function exportCase(page: Page) {
 }
 
 async function importCase(page: Page, file: unknown) {
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
   await page.getByLabel('Importuj plik JSON').setInputFiles({
     name: 'points.json',
     mimeType: 'application/json',
@@ -90,7 +105,7 @@ test('creates by map click and drag, cancels a candidate, and collapses without 
   await page.getByLabel('Nazwa punktu').fill('Nie zapisuj');
   await page.getByRole('button', { name: 'Anuluj punkt', exact: true }).click();
   expect((await exportCase(page)).points).toEqual(saved.points);
-  await page.getByRole('button', { name: 'Zwiń miejsca', exact: true }).click();
+  await collapsePlaces(page);
   expect(await map.boundingBox()).toEqual(canvas);
   await page.getByRole('button', { name: 'Rozwiń miejsca', exact: true }).click();
   await page.reload();
@@ -221,8 +236,8 @@ test('protects a point draft during case replacement and switching point editors
   await expect(page.getByLabel('Nazwa punktu')).toHaveValue('Zachowaj szkic');
   expect((await exportCase(page)).points).toEqual(completeFile.points);
   await places.getByRole('button', { name: 'Dom', exact: true }).click();
-  await page.getByRole('button', { name: 'Edytuj punkt', exact: true }).click();
   await page.getByRole('button', { name: 'Odrzuć szkic' }).click();
+  await page.getByRole('button', { name: 'Edytuj punkt', exact: true }).click();
   await expect(page.getByLabel('Nazwa punktu')).toHaveValue('Dom');
   await page.screenshot({ path: resolve(__dirname, '../../../.scratch/f07-desktop.png') });
   await page.getByRole('button', { name: 'Anuluj punkt', exact: true }).click();
@@ -264,3 +279,41 @@ test('starts with a collapsed place list on a phone and keeps the canvas full si
     roles: [],
   });
 });
+
+for (const { width, inset } of [
+  { width: 1280, inset: 16 },
+  { width: 390, inset: 12 },
+]) {
+  test(`opens selected-place details independently at the bottom right at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload();
+    await importCase(page, completeFile);
+    const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
+    const canvas = await markerBox(map);
+    await selectListedPoint(page, completeFile.points[1].name);
+    const details = page.getByRole('complementary', { name: 'Szczegóły miejsca', exact: true });
+    await expect(details).toContainText(completeFile.points[1].name);
+    await expect(
+      page
+        .getByRole('complementary', { name: 'Miejsca', exact: true })
+        .getByRole('region', { name: 'Wybrane miejsce' }),
+    ).toHaveCount(0);
+    const panel = await markerBox(details);
+    expect(panel.x + panel.width).toBeCloseTo(canvas.x + canvas.width - inset, 0);
+    expect(panel.y + panel.height).toBeCloseTo(canvas.y + canvas.height - 80, 0);
+    await collapsePlaces(page);
+    await expect(details).toBeVisible();
+    const list = await markerBox(page.getByRole('complementary', { name: 'Miejsca', exact: true }));
+    expect(list.y + list.height).toBeLessThanOrEqual(panel.y);
+    expect(await map.boundingBox()).toEqual(canvas);
+    await page.screenshot({
+      path: resolve(__dirname, `../../../.scratch/f07-details-${width}.png`),
+    });
+    await details.getByRole('button', { name: 'Zamknij szczegóły miejsca' }).click();
+    await expect(details).toBeHidden();
+    await selectListedPoint(page, completeFile.points[0].name);
+    await expect(details).toContainText(completeFile.points[0].name);
+  });
+}

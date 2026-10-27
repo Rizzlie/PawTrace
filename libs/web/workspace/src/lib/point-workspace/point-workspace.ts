@@ -4,7 +4,7 @@ import {
   Component,
   ElementRef,
   inject,
-  signal,
+  linkedSignal,
   viewChild,
 } from '@angular/core';
 import { FormField } from '@angular/forms/signals';
@@ -24,7 +24,12 @@ import { pointRoles } from './point-draft';
 export class PointWorkspace {
   protected readonly state = inject(CaseStore);
   protected readonly roles = pointRoles;
-  protected readonly collapsed = signal(inject(BreakpointObserver).isMatched('(max-width: 700px)'));
+  private readonly phone = inject(BreakpointObserver).isMatched('(max-width: 700px)');
+  protected readonly collapsed = linkedSignal<string | null, boolean>({
+    source: () => this.state.selectedPointId(),
+    computation: (pointId, previous) =>
+      pointId && this.phone ? true : (previous?.value ?? this.phone),
+  });
   private readonly router = inject(Router);
   private readonly confirmation = viewChild<ElementRef<HTMLDialogElement>>('confirmation');
   constructor() {
@@ -36,6 +41,10 @@ export class PointWorkspace {
   protected async edit(id: string): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.editPoint(id);
+  }
+  protected async selectPoint(id: string): Promise<void> {
+    if (this.state.pointEditor() && !(await this.state.requestEditorExit())) return;
+    this.state.selectPoint(id);
   }
   protected cancelRemoval(event: Event): void {
     event.preventDefault();

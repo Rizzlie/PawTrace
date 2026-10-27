@@ -21,43 +21,57 @@
             <button
               type="button"
               [attr.aria-pressed]="state.selectedPointId() === point.id"
-              (click)="state.selectPoint(point.id)"
+              (click)="selectPoint(point.id)"
             >
               {{ point.name }}
             </button>
           </li>
         }
       </ul>
-      @if (state.selectedPoint(); as point) {
-        <section aria-label="Wybrane miejsce">
-          <h2>{{ point.name }}</h2>
-          @if (state.document()?.case?.escape?.escapePointId === point.id) {
-            <p>Miejsce ucieczki</p>
-          }
-          @for (role of roles; track role.key) {
-            @if (point.roles.includes(role.key)) {
-              <span class="role">{{ role.label }}</span>
-            }
-          }
-          <p>{{ point.description }}</p>
-          <p>Wpisy w historii: {{ point.entries.length }}</p>
-          <div class="actions">
-            <button type="button" [disabled]="state.busy()" (click)="edit(point.id)">
-              Edytuj punkt
-            </button>
-            <button
-              type="button"
-              [disabled]="state.busy() || !!state.editor() || !!state.candidate()"
-              (click)="state.requestPointRemoval(point.id)"
-            >
-              Usuń punkt
-            </button>
-          </div>
-        </section>
-      }
     </div>
   }
 </pt-floating-panel>
+@if (!state.editor()) {
+  @if (state.selectedPoint(); as point) {
+    <pt-floating-panel class="details" label="Szczegóły miejsca">
+      <div panel-heading class="heading">
+        <span class="eyebrow">Wybrane miejsce</span>
+        <button
+          type="button"
+          aria-label="Zamknij szczegóły miejsca"
+          (click)="state.selectPoint(null)"
+        >
+          ×
+        </button>
+      </div>
+      <section aria-label="Wybrane miejsce">
+        <h2>{{ point.name }}</h2>
+        @if (state.document()?.case?.escape?.escapePointId === point.id) {
+          <p>Miejsce ucieczki</p>
+        }
+        @for (role of roles; track role.key) {
+          @if (point.roles.includes(role.key)) {
+            <span class="role">{{ role.label }}</span>
+          }
+        }
+        <p>{{ point.description }}</p>
+        <p>Wpisy w historii: {{ point.entries.length }}</p>
+        <div class="actions">
+          <button type="button" [disabled]="state.busy()" (click)="edit(point.id)">
+            Edytuj punkt
+          </button>
+          <button
+            type="button"
+            [disabled]="state.busy() || !!state.editor() || !!state.candidate()"
+            (click)="state.requestPointRemoval(point.id)"
+          >
+            Usuń punkt
+          </button>
+        </div>
+      </section>
+    </pt-floating-panel>
+  }
+}
 @if (state.pointEditor(); as editor) {
   <pt-floating-panel class="editor" label="Edycja punktu">
     <h2 panel-heading>Edycja punktu</h2>

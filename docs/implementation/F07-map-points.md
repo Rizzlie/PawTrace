@@ -68,3 +68,9 @@ No missing/partial requirements, scope creep or incorrect F07 behavior identifie
 The point-creation button lives in the right map-actions toolbar with device location, independently of the collapsible place list. The application supplies availability and handles the creation intent, including routed profile exit. Mobile acceptance checks that Add point remains available while the list is collapsed and that ArrowDown moves focus from device location to point creation. Map messages and the editor sit below the expanded toolbar.
 
 Validation after toolbar placement: the selected Nx typecheck/lint/test/build/e2e run passed all 14 tasks (including dependencies), 35 workspace regressions, 30 map-engine tests and all 52 Chromium scenarios. The 390px screenshot confirms both actions remain visible above the point editor.
+
+### Selected-place panel
+
+Following `pawtrace-floating-prototype.html`, selected-place information is a separate floating panel anchored at the bottom right, with a close control and constrained scroll height. The left panel contains only the place list. Details remain visible when the list is collapsed; phone layout uses the available width above map controls and collapses the place list when a place is selected, as in the prototype. The panel is nonmodal so map navigation remains usable. During editing, details yield to the editor; selecting another place resolves Save / Discard / Stay before opening its details.
+
+Validation after selected-place panel refinement: all 11 selected Nx typecheck/lint/test/build/e2e tasks passed, including all 54 Chromium scenarios. New 1280px/390px checks verify bottom-right anchoring, an independent collapsible list, close/reopen behavior and unchanged map canvas dimensions. Both screenshots were visually inspected.
