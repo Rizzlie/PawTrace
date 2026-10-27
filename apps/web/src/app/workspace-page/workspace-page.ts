@@ -24,7 +24,7 @@ import {
   PointWorkspace,
   type AddressSearchResult,
 } from '@pawtrace/workspace';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { FloatingPanel } from '@pawtrace/shared-ui';
 
 @Component({
@@ -44,6 +44,12 @@ import { FloatingPanel } from '@pawtrace/shared-ui';
 })
 export class WorkspacePage {
   protected readonly state = inject(CaseStore);
+  private readonly router = inject(Router);
+
+  protected async addPoint(): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.editPoint();
+  }
   protected readonly initialLocation = computed<InitialLocation>(() =>
     !this.state.persistence().initialized ? 'off' : this.state.document() ? 'show' : 'center',
   );

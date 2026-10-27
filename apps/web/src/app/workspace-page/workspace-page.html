@@ -10,6 +10,8 @@
       [config]="mapConfig()"
       [places]="state.mapPlaces()"
       [pointDraft]="state.mapPointDraft()"
+      [pointCreationEnabled]="!!state.document() && !state.busy() && !state.candidate()"
+      (addPointRequested)="addPoint()"
       (pointPlaced)="state.placePoint($event)"
       (placeSelected)="state.selectPoint($event)"
       [initialLocation]="initialLocation()"

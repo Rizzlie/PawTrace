@@ -12,13 +12,6 @@
   </div>
   @if (!collapsed()) {
     <div id="place-list">
-      <button
-        type="button"
-        [disabled]="!state.document() || state.busy() || !!state.candidate()"
-        (click)="edit()"
-      >
-        Dodaj punkt
-      </button>
       @if (!state.document()) {
         <p>Utwórz sprawę, aby dodawać miejsca.</p>
       }

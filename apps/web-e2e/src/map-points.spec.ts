@@ -57,7 +57,9 @@ test('creates by map click and drag, cancels a candidate, and collapses without 
 }) => {
   const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
   const canvas = await map.boundingBox();
-  await page.getByRole('button', { name: 'Dodaj punkt', exact: true }).click();
+  const actions = page.getByRole('toolbar', { name: 'Działania na mapie' });
+  await expect(actions.getByRole('button', { name: 'Moja lokalizacja' })).toBeVisible();
+  await actions.getByRole('button', { name: 'Dodaj punkt', exact: true }).click();
   await map.click({ position: { x: 560, y: 300 } });
   const latitude = page.getByLabel('Szerokość geograficzna');
   await expect(latitude).not.toHaveValue('');
@@ -235,7 +237,18 @@ test('starts with a collapsed place list on a phone and keeps the canvas full si
   const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
   const before = await map.boundingBox();
   await expect(page.getByRole('button', { name: 'Rozwiń miejsca', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Dodaj punkt', exact: true })).toBeHidden();
+  const actions = page.getByRole('toolbar', { name: 'Działania na mapie' });
+  const add = actions.getByRole('button', { name: 'Dodaj punkt', exact: true });
+  await expect(add).toBeVisible();
+  await expect(actions.getByRole('button', { name: 'Moja lokalizacja' })).toBeVisible();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Miejsca', exact: true })
+      .getByRole('button', { name: 'Dodaj punkt', exact: true }),
+  ).toHaveCount(0);
+  await actions.getByRole('button', { name: 'Moja lokalizacja' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(add).toBeFocused();
   await page.getByRole('button', { name: 'Rozwiń miejsca', exact: true }).click();
   expect(await map.boundingBox()).toEqual(before);
   await page.getByRole('button', { name: 'Dodaj punkt', exact: true }).click();

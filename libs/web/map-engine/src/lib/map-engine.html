@@ -34,6 +34,14 @@
   >
     <span aria-hidden="true">⌖</span> Moja lokalizacja
   </button>
+  <button
+    ngToolbarWidget
+    type="button"
+    [disabled]="!pointCreationEnabled()"
+    (click)="addPointRequested.emit()"
+  >
+    <span aria-hidden="true">＋</span> Dodaj punkt
+  </button>
 </div>
 @if (
   map.tileMessage() ||

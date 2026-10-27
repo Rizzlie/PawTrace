@@ -33,7 +33,7 @@ export class PointWorkspace {
       if (dialog && !dialog.open) dialog.showModal();
     });
   }
-  protected async edit(id?: string): Promise<void> {
+  protected async edit(id: string): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.editPoint(id);
   }

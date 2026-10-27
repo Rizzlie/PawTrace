@@ -25,6 +25,8 @@ import type { Basemap, InitialLocation, MapConfig, MapViewport } from './map-typ
   styleUrl: './map-engine.scss',
 })
 export class MapEngine {
+  readonly pointCreationEnabled = input(false);
+  readonly addPointRequested = output<void>();
   readonly places = input<MapPlace[]>([]);
   readonly pointDraft = input<MapPointDraft | null>(null);
   readonly pointPlaced = output<PointPlacement>();
