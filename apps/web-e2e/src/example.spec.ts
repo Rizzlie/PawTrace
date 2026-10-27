@@ -1,27 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { test } from './fixtures';
+import { expect } from '@playwright/test';
 
-test("shell connects to the real API through the browser origin", async ({
-  page,
-  request,
-}) => {
-  await page.route("https://tile.openstreetmap.org/**", (route) =>
-    route.abort(),
-  );
-  const health = await request.get("/api/health");
-  expect(health.ok()).toBeTruthy();
-  expect(await health.json()).toEqual({ status: "ok" });
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "PawTrace", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("status", { name: "Połączenie z serwerem" }),
-  ).toHaveText("Połączono z serwerem");
+test('shell shows the brand without requesting API health', async ({ page }) => {
+  const healthRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/health') healthRequests.push(request.url());
+  });
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.abort());
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'PawTrace', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mapa poszukiwań' })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Połączenie z serwerem' })).toHaveCount(0);
   await expect
     .poll(() =>
-      page
-        .locator(".brand img")
-        .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      page.locator('.brand img').evaluate((image: HTMLImageElement) => image.naturalWidth),
     )
     .toBeGreaterThan(0);
+  expect(healthRequests).toEqual([]);
 });

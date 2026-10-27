@@ -1,5 +1,7 @@
 # Keep one application state with document-only persistence
 
+State ownership superseded by [ADR 0003](0003-separate-case-editor-and-file-workflows.md). Document-only persistence and replacement durability remain in force.
+
 Use one plain Angular signals service owning `AppState.document`, `ui`, `editor`, and `persistence`. The user chose one state owner and a direct service rather than separate feature stores or NgRx. Keeping unconfirmed edits in the editor section allows cancellation while saving/exporting only the committed document; readonly access does not itself prevent nested mutation, so Signal Forms and Leaflet work on draft data rather than committed object references.
 
 Persist the nested document snapshot with IndexedDB/`idb` and replace an imported case only after successful transaction completion. This favors retaining the existing active case on replacement failure over activating an imported but unstored candidate. The [frontend architecture](../architecture/frontend.md) defines the continuing design; the [technology research](../mvp/research/frontend-technology-feasibility.md) records the platform caveats.

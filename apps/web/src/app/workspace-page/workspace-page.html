@@ -1,0 +1,31 @@
+<app-header>
+  <pt-case-controls />
+  <button class="new-case" type="button" [disabled]="state.busy()" (click)="state.prepareNewCase()">
+    Nowa sprawa
+  </button>
+</app-header>
+<main>
+  <section class="workspace" aria-label="Przestrzeń poszukiwań">
+    <pt-map
+      [config]="mapConfig()"
+      [initialLocation]="initialLocation()"
+      [viewport]="viewport()"
+      [basemap]="state.basemap()"
+      (viewportChanged)="state.changeViewport($event)"
+      (basemapChanged)="state.changeBasemap($event)"
+    />
+    <pt-address-search (resultSelected)="selectAddress($event)" />
+
+    <router-outlet />
+
+    @if (configFailed()) {
+      <pt-floating-panel class="config-error" label="Konfiguracja mapy">
+        <div panel-heading class="eyebrow">Konfiguracja mapy</div>
+        <p role="status">
+          Nie udało się pobrać konfiguracji satelity. Mapa OSM działa niezależnie.
+        </p>
+        <button type="button" (click)="loadMapConfig()">Ponów konfigurację</button>
+      </pt-floating-panel>
+    }
+  </section>
+</main>

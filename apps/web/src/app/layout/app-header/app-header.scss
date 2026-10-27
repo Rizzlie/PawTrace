@@ -5,41 +5,12 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   min-height: 74px;
   padding: 14px 18px;
   background: var(--pt-surface);
   border-bottom: 1px solid var(--pt-border);
-}
-.connection {
-  text-align: right;
-}
-p {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--pt-muted);
-  font-size: 11px;
-}
-p::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--pt-warning);
-}
-.online::before {
-  background: var(--pt-primary);
-}
-.offline::before {
-  background: var(--pt-danger);
-}
-button {
-  margin-top: 6px;
-  font-size: 11px;
-  padding: 6px 9px;
 }
 @media (max-width: 480px) {
   header {
@@ -47,10 +18,86 @@ button {
     padding: 12px;
     gap: 10px;
   }
-  .connection {
-    max-width: 145px;
-  }
-  p {
-    font-size: 10px;
-  }
+}
+
+.help-button,
+.close-help {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.help-button {
+  border-radius: 50%;
+  color: var(--pt-primary);
+}
+.close-help {
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+}
+dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  padding: clamp(20px, 5vw, 30px);
+  overflow: auto;
+  color: var(--pt-foreground);
+  background: rgb(252 253 249 / 94%);
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgb(20 33 28 / 24%);
+  backdrop-filter: blur(12px);
+}
+dialog::backdrop {
+  background: rgb(20 33 28 / 26%);
+  backdrop-filter: blur(4px);
+}
+.help-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--pt-muted);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+h2 {
+  margin: 0 0 18px;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+p,
+li {
+  font-size: 14px;
+  line-height: 1.65;
+}
+p {
+  color: var(--pt-muted);
+}
+ol {
+  display: grid;
+  gap: 14px;
+  margin: 24px 0;
+  padding-left: 24px;
+}
+li {
+  padding-left: 6px;
+}
+li::marker {
+  color: var(--pt-primary);
+  font-weight: 700;
+}
+.help-hint {
+  font-size: 12px;
+}
+.start-button {
+  width: 100%;
+  margin-top: 12px;
 }

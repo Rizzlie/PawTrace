@@ -1,12 +1,12 @@
 # Frontend architecture
 
-Status: architecture decisions agreed; awaiting final plan confirmation. Implementation has not started.
+Status: implemented through F06; state composition refined in [ADR 0004](../adr/0004-compose-case-signal-store-with-events.md). Later map editing features remain planned.
 
 This document develops the frontend design requested after the F01–F15 task decomposition. Current discussion: [Frontend architecture, map integration, and case document lifecycle](../mvp/issues/15-frontend-architecture.md). Technical references: [frontend technology research](../mvp/research/frontend-technology-feasibility.md).
 
 ## Confirmed design constraints
 
-- One plain Angular signals service owns one `AppState` with `document`, `ui`, `editor`, and `persistence` sections. Writable state is private; components consume readonly/computed values and explicit methods. NgRx is not selected for this stage.
+- One `CaseStore` uses NgRx SignalStore with Events, composed from focused features for projections, persisted view, animal editing, files and persistence. Its state contains the single committed document and the separate transient draft/candidate/save metadata. Reducers own all changes; async handlers perform I/O. Store and dispatcher share the workspace route scope (ADR 0004).
 - A focused Leaflet module isolates the map instance, layers, markers, editing integration, and event subscriptions. Other modules exchange plain coordinates, geometry, identifiers, and user intents through its interface.
 - The committed case uses the same basic serializable nested model as JSON v1. Auxiliary indexes and map projections are derived, not competing canonical entity collections.
 - Framework-neutral shared Zod schemas define the document contract and inferred TypeScript types. Domain validation additionally checks cross-record relationships and geometric invariants.
@@ -14,19 +14,19 @@ This document develops the frontend design requested after the F01–F15 task de
 
 ## Root state and forms
 
-`document` contains the committed serializable case, including its agreed `mapView`. `ui` holds selection, filters, panels, and active tools; `editor` holds the current unconfirmed form/geometry draft; `persistence` holds save state and revision acknowledgements. There is one application-state owner rather than independent feature stores. Only `document` is exported.
+`CaseStore.document` contains the committed serializable case, including `mapView`. The same plain state has an isolated editor session, transfer candidates and persistence revisions. These are distinct lifecycles; only the committed document is persisted/exported. Focused `signalStoreFeature` modules contribute reducers, projections, handlers and result-returning commands to one store. They do not inject each other or synchronize separate state owners. Components retain local presentation state where appropriate.
 
 Use Signal Forms against the writable editor draft. They must not receive a committed nested document object by mutable reference. Select an Angular/Nx baseline supporting stable Signal Forms; do not substitute Reactive Forms without discussing the changed choice. Profile, history-entry, point, and area forms have explicit Save/Cancel. Save validates the draft and applies one committed document update; Cancel discards the draft. Editor-session transitions are specified below.
 
 ### Signal Forms binding
 
-The user accepted the writable editor projection identified by the [targeted Signal Forms research](../mvp/research/signal-forms-state-binding.md): keep one authoritative private root, derive a `linkedSignal` editor-model handle with a custom setter, and route every setter into an immutable update of the current root's editor path. This adds a derived writable handle, not a second canonical draft. Keep it private inside the state-owner boundary. Do not substitute section-signal storage or whole-root form binding without revisiting this decision.
+The user accepted the writable editor projection identified by the [targeted Signal Forms research](../mvp/research/signal-forms-state-binding.md): keep one authoritative editor draft, derive a `linkedSignal` editor-model handle with a custom setter, and route every setter into an immutable update of the current session. This adds a derived writable handle, not a second canonical draft. Keep it private inside the state-owner boundary. ADR 0004 composes the shared state through focused features; the form has one authoritative draft and no effect-based mirroring.
 
-Verify the selected published Angular package declarations contain the custom setter; the general `linkedSignal` stability marker alone does not prove availability. Before implementation acceptance, verify form typing, nested writes, root-driven draft replacement, unrelated root changes, Save/Cancel isolation, and stale-session writes. Use initialized plain form payloads; map them to domain variants on confirmation. Do not implement custom signal internals or effect-based draft mirroring. The research establishes feasibility, not a tested PawTrace integration.
+Verify the selected published Angular package declarations contain the custom setter; the general `linkedSignal` stability marker alone does not prove availability. Before implementation acceptance, verify form typing, nested writes, root-driven draft replacement, unrelated root changes, Save/Cancel isolation, and stale-session writes. Use initialized plain form payloads; map them to domain variants on confirmation. Do not implement custom signal internals or effect-based draft mirroring. F06 command and browser regressions verify this integration.
 
 ## Map module and application flow
 
-The Angular workspace derives plain-data scene projections from the state and passes them into the Leaflet module. The module owns its map instance, layer registry, plugin modes, temporary layers, and event cleanup. It emits application-facing intents such as point selection, changed draft geometry, and a changed viewport; it does not own a second case or mutate the committed document.
+There is no separate `MapState`. The screen derives plain-data scene projections from the state and passes them into the Leaflet module. The module owns its map instance, layer registry, plugin modes, temporary layers, and event cleanup. It contains no business rules (roles, filtering policy, validation or Save/Cancel decisions). It emits technical intents such as item selection, changed draft geometry, and a changed viewport; it does not own a second case or mutate the committed document.
 
 Layer reconciliation uses stable domain IDs to update existing markers/shapes and remove obsolete ones. Keep active editing separate from committed rendering so an unrelated state update does not reset the user's working geometry. Only the application confirmation command publishes draft geometry into the document. Programmatic scene/view restoration must not be misreported as a new user edit.
 
@@ -50,7 +50,7 @@ Export captures the complete committed document, unaffected by active filters, a
 
 Use IndexedDB through a small `idb` adapter to retain one complete plain-object document snapshot in one transaction. Acknowledge persistence only after transaction completion. Local storage representation remains JSON-compatible and restoration must validate it; IndexedDB storage itself does not establish contract validity.
 
-A supported imported file passes syntax, strict Zod validation and domain checks before replacement confirmation. Its candidate snapshot must then be stored successfully before activating it in `AppState.document`. Failed replacement leaves the existing case active and its successful snapshot intact.
+A supported imported file passes syntax, strict Zod validation and domain checks before replacement confirmation. Its candidate snapshot must then be stored successfully before activating it in `CaseStore.document`. Failed replacement leaves the existing case active and its successful snapshot intact.
 
 The confirmation presents case/animal information and counts of points, entries, areas, and photos, with replace/export/cancel actions. Errors identify affected paths/IDs. Parsing, validation, and confirmation happen outside an IndexedDB transaction.
 
@@ -74,16 +74,19 @@ On autosave failure, preserve current memory and the previous successful stored 
 
 These are interface responsibilities, not implemented signatures:
 
-| Boundary | Input | Output / responsibility |
-| --- | --- | --- |
-| Shared document parser | File text | Syntax/version/strict schema/domain result, with paths and record IDs; no state or storage writes |
-| AppState commands | User intent and validated plain values | Immutable root updates, editor transitions, committed revision changes, save requests |
-| Map host | Plain scene, viewport, current geometry draft, session identifier | Selection, geometry-draft, and viewport intents; no root-store injection |
-| Snapshot adapter | Captured document snapshot | Transaction-completion acknowledgement or storage error; no active-case selection |
-| Save coordinator | Snapshot, revision, session generation; replacement requests | Serialized writes, newest pending snapshot, correct acknowledgement and replacement barrier |
-| File adapter | File selection / serialized export | Text input / download; no domain decision or case replacement |
+| Boundary               | Input                                                             | Output / responsibility                                                                           |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Shared document parser | File text                                                         | Syntax/version/strict schema/domain result, with paths and record IDs; no state or storage writes |
+| withCaseView           | Plain viewport/basemap intents                                    | Committed view updates and revisions                                                              |
+| withAnimalEditing      | Form edits and close decisions                                    | Isolated session, atomic validated Save, cancellable Save / Discard / Stay                        |
+| withCaseFiles          | File input, export and replacement decisions                      | Correlated candidates, editor-close coordination and replacement intent                           |
+| withCasePersistence    | Revisions and persistence intents                                 | Restore, ordered snapshots, acknowledgements and durable replacement                              |
+| Map host               | Plain scene, viewport, current geometry draft, session identifier | Selection, geometry-draft, and viewport intents; no root-store injection                          |
+| Snapshot adapter       | Captured document snapshot                                        | Transaction-completion acknowledgement or storage error; no active-case selection                 |
+| Save coordinator       | Snapshot, revision, session generation; replacement requests      | Serialized writes, newest pending snapshot, correct acknowledgement and replacement barrier       |
+| File adapter           | File selection / serialized export                                | Text input / download; no domain decision or case replacement                                     |
 
-The state service owns orchestration. Pure domain validation and scene derivation remain separately testable functions; adapter instances do not become alternative state owners. Commands cover opening/saving/cancelling editors, selecting/filtering, applying viewport changes, requesting export/import/replacement, and retrying saving. Expose narrow readonly projections rather than the root writable handle. Signal Forms controls may write only through their scoped editor binding.
+Each feature owns its lifecycle. File preparation coordinates the editor decision; confirmation dispatches a replacement request that synchronously blocks mutations. The persistence handler drains the writer and activates the candidate only after successful storage. Pure domain validation and scene derivation remain separately testable functions; adapter instances do not become alternative state owners. Commands cover opening/saving/cancelling editors, selecting/filtering, applying viewport changes, requesting export/import/replacement, and retrying saving. Expose narrow readonly projections rather than the root writable handle. Signal Forms controls may write only through their scoped editor binding.
 
 Use an editor-session identifier for form and geometry intents so delayed writes from a destroyed editor cannot affect its successor. Selecting an existing point opens contextual history; beginning another dirty editor follows Save / Discard / Stay. The map adapter cleans up its listeners, temporary layers, and plugin modes on session end and destruction. Restore committed geometry on Cancel without depending on paid plugin cancellation APIs. Circles retain center/radius explicitly rather than relying on GeoJSON to preserve radius.
 
@@ -108,8 +111,8 @@ Store only the document snapshot locally; export metadata is generated for each 
 
 Adapter tests use controlled failures and event ordering; pure parser tests require no Angular/Leaflet runtime. The full F15 acceptance scenario validates these seams together. Research and document review are not substitutes for these implementation checks.
 
-The [F-task execution guide](../implementation/README.md) and task-specific architecture notes carry this design into implementation. All tasks remain planned until explicitly requested.
+The [F-task execution guide](../implementation/README.md) and task-specific architecture notes carry this design into implementation. See individual task completion notes for current implementation status.
 
 ## Existing product behavior retained
 
-The [JSON contract](../mvp/issues/06-json-contract.md), [case lifecycle](../mvp/issues/01-case-files.md), and [interface decisions](../mvp/issues/05-map-workflow.md) remain authoritative for behavior. One application state does not change the agreed file contents, cancel behavior, or protection against failed saving. No application code or commits are part of this design session.
+The [JSON contract](../mvp/issues/06-json-contract.md), [case lifecycle](../mvp/issues/01-case-files.md), and [interface decisions](../mvp/issues/05-map-workflow.md) remain authoritative for behavior. One committed document owner does not change the agreed file contents, cancel behavior, or protection against failed saving. Implementation changes remain uncommitted for manual review.

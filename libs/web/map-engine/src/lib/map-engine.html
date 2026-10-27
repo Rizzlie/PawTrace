@@ -5,49 +5,58 @@
   role="region"
   aria-label="Mapa poszukiwań"
 ></div>
-<div class="map-tools" role="group" aria-label="Narzędzia mapy">
-  <div class="basemaps" ngToolbar aria-label="Podkład mapy">
-    <button
-      ngToolbarWidget
-      type="button"
-      [attr.aria-pressed]="map.basemap() === 'osm'"
-      (click)="map.selectBasemap('osm')"
-    >
-      Mapa OSM
-    </button>
-    <button
-      ngToolbarWidget
-      type="button"
-      [attr.aria-pressed]="map.basemap() === 'satellite'"
-      (click)="map.selectBasemap('satellite')"
-    >
-      Satelita
-    </button>
-  </div>
-  <button type="button" [disabled]="map.locating()" (click)="map.locate()">
+<div class="basemaps" ngToolbar aria-label="Podkład mapy">
+  <button
+    ngToolbarWidget
+    type="button"
+    [attr.aria-pressed]="map.basemap() === 'osm'"
+    (click)="map.selectBasemap('osm')"
+  >
+    Mapa OSM
+  </button>
+  <button
+    ngToolbarWidget
+    type="button"
+    [attr.aria-pressed]="map.basemap() === 'satellite'"
+    (click)="map.selectBasemap('satellite')"
+  >
+    Satelita
+  </button>
+</div>
+<div class="map-actions" ngToolbar orientation="vertical" aria-label="Działania na mapie">
+  <button
+    ngToolbarWidget
+    type="button"
+    [disabled]="map.locating()"
+    [matTooltip]="map.locationHint()"
+    matTooltipPosition="left"
+    (click)="map.locate()"
+  >
     <span aria-hidden="true">⌖</span> Moja lokalizacja
   </button>
 </div>
-@if (map.tileMessage() || map.locationMessage() || (basemap() === 'satellite' &&
-!map.satelliteAvailable())) {
-<aside class="messages" aria-label="Komunikaty mapy">
-  @if (basemap() === 'satellite' && !map.satelliteAvailable() &&
-  !map.tileMessage()) {
-  <p role="status">
-    Zapisano widok satelitarny, ale satelita jest niedostępna. Wyświetlono mapę
-    OSM.
-  </p>
-  } @if (map.tileMessage()) {
-  <p role="status">{{ map.tileMessage() }}</p>
-  <button type="button" (click)="map.retryTiles()">
-    Ponów pobieranie mapy
-  </button>
-  } @if (map.locationMessage()) {
-  <p role="status">{{ map.locationMessage() }}</p>
-  }
-</aside>
-} @if (map.showMapboxLogo()) {
-<a class="mapbox-logo" href="https://www.mapbox.com/" aria-label="Mapbox"
-  ><img src="assets/mapbox-logo.svg" alt="Mapbox" width="88" height="20"
-/></a>
+@if (
+  map.tileMessage() ||
+  map.locationMessage() ||
+  (basemap() === 'satellite' && !map.satelliteAvailable())
+) {
+  <aside class="messages" aria-label="Komunikaty mapy">
+    @if (basemap() === 'satellite' && !map.satelliteAvailable() && !map.tileMessage()) {
+      <p role="status">
+        Zapisano widok satelitarny, ale satelita jest niedostępna. Wyświetlono mapę OSM.
+      </p>
+    }
+    @if (map.tileMessage()) {
+      <p role="status">{{ map.tileMessage() }}</p>
+      <button type="button" (click)="map.retryTiles()">Ponów pobieranie mapy</button>
+    }
+    @if (map.locationMessage()) {
+      <p role="status">{{ map.locationMessage() }}</p>
+    }
+  </aside>
+}
+@if (map.showMapboxLogo()) {
+  <a class="mapbox-logo" href="https://www.mapbox.com/" aria-label="Mapbox"
+    ><img src="assets/mapbox-logo.svg" alt="Mapbox" width="88" height="20"
+  /></a>
 }

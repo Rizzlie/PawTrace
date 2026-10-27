@@ -1,135 +1,186 @@
-<section class="case-panel" aria-label="Sprawa">
-  <div class="eyebrow">Twoja sprawa</div>
-  <h2>{{ state.document()?.case?.title ?? 'Zacznij poszukiwania' }}</h2>
-  <p
-    role="status"
-    aria-label="Stan zapisu"
-    [class.warning]="state.saveStatus() === 'error' || state.saveStatus() === 'unsaved'"
-  >
-    @switch (state.saveStatus()) { @case ('loading') { Odczytywanie sprawy… }
-    @case ('saved') { Zapisano w przeglądarce } @case ('saving') { Zapisywanie
-    zmian… } @case ('replacing') { Zapisywanie nowej sprawy… } @case ('unsaved')
-    { Niezapisane zmiany — ponów zapis lub wyeksportuj JSON. } @case ('error') {
-    {{ state.persistence().error }} } @case ('empty') { Utwórz sprawę lub
-    wczytaj plik JSON. } }
-  </p>
-  @if (state.persistence().recovery) {
-  <p class="warning" role="alert">{{ state.persistence().recovery }}</p>
+<section class="case-controls" aria-label="Sprawa">
+  <div class="case-identity">
+    <strong
+      class="animal-name"
+      [title]="
+        state.document()?.animal?.name || state.document()?.case?.title || 'Brak aktywnej sprawy'
+      "
+      >{{
+        state.document()?.animal?.name || state.document()?.case?.title || 'Brak aktywnej sprawy'
+      }}</strong
+    >
+    <p
+      role="status"
+      aria-label="Stan zapisu"
+      [class.warning]="state.saveStatus() === 'error' || state.saveStatus() === 'unsaved'"
+    >
+      @switch (state.saveStatus()) {
+        @case ('loading') {
+          Odczytywanie sprawy…
+        }
+        @case ('saved') {
+          Zapisano w przeglądarce
+        }
+        @case ('saving') {
+          Zapisywanie zmian…
+        }
+        @case ('replacing') {
+          Zapisywanie nowej sprawy…
+        }
+        @case ('unsaved') {
+          Niezapisane zmiany — ponów zapis lub wyeksportuj JSON.
+        }
+        @case ('error') {
+          {{ state.persistence().error }}
+        }
+        @case ('empty') {
+          Utwórz sprawę lub wczytaj JSON.
+        }
+      }
+    </p>
+  </div>
   <button
     type="button"
-    [disabled]="state.busy()"
-    (click)="state.retryRestore()"
+    class="edit-profile"
+    [disabled]="state.busy() || !state.document() || !!state.profileEditor()"
+    routerLink="/profile"
   >
-    Ponów odczyt
+    Edytuj profil
   </button>
-  }
-  <div class="actions">
-    <button
-      type="button"
-      [disabled]="state.busy()"
-      (click)="state.prepareNewCase()"
-    >
-      Nowa sprawa
-    </button>
-    <button type="button" [disabled]="state.busy()" (click)="fileInput.click()">
-      Importuj JSON
-    </button>
-    <input
-      #fileInput
-      class="file-input"
-      type="file"
-      accept=".json,application/json"
-      aria-label="Importuj plik JSON"
-      [disabled]="state.busy()"
-      (change)="importFile($event)"
-    />
-    <button
-      type="button"
-      [disabled]="!state.document()"
-      (click)="state.downloadExport()"
-    >
-      Eksportuj JSON
-    </button>
-    @if (state.saveStatus() === 'error' || state.saveStatus() === 'unsaved') {
-    <button type="button" [disabled]="state.busy()" (click)="state.retrySave()">
-      Ponów zapis
-    </button>
-    }
-  </div>
-  @if (state.ui().reading) {
-  <p role="status">Odczytywanie pliku…</p>
-  } @if (state.ui().error && !state.ui().candidate) {
-  <p role="alert" class="error">{{ state.ui().error }}</p>
+  <button type="button" [cdkMenuTriggerFor]="fileMenu" aria-label="Plik JSON">
+    JSON <span aria-hidden="true">▾</span>
+  </button>
+  <ng-template #fileMenu>
+    <div class="file-menu" cdkMenu aria-label="Plik sprawy">
+      <button
+        type="button"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="state.busy()"
+        (cdkMenuItemTriggered)="fileInput.click()"
+      >
+        Importuj JSON
+      </button>
+      <button
+        type="button"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="!state.document()"
+        (cdkMenuItemTriggered)="state.downloadExport()"
+      >
+        Eksportuj JSON
+      </button>
+    </div>
+  </ng-template>
+  <input
+    #fileInput
+    class="file-input"
+    type="file"
+    accept=".json,application/json"
+    aria-label="Importuj plik JSON"
+    [disabled]="state.busy()"
+    (change)="importFile($event)"
+  />
+  @if (
+    state.persistence().recovery ||
+    state.saveStatus() === 'error' ||
+    state.saveStatus() === 'unsaved' ||
+    state.editorDirty() ||
+    state.reading() ||
+    (state.fileError() && !state.candidate())
+  ) {
+    <div class="notices">
+      @if (state.persistence().recovery) {
+        <p class="warning" role="alert">{{ state.persistence().recovery }}</p>
+        <button type="button" [disabled]="state.busy()" (click)="state.retryRestore()">
+          Ponów odczyt
+        </button>
+      }
+      @if (state.saveStatus() === 'error' || state.saveStatus() === 'unsaved') {
+        <button type="button" [disabled]="state.busy()" (click)="state.retrySave()">
+          Ponów zapis
+        </button>
+      }
+      @if (state.editorDirty()) {
+        <p class="warning" role="status">
+          Niezatwierdzony profil — eksport obejmuje poprzednie dane.
+        </p>
+      }
+      @if (state.reading()) {
+        <p role="status">Odczytywanie pliku…</p>
+      }
+      @if (state.fileError() && !state.candidate()) {
+        <p role="alert" class="error">{{ state.fileError() }}</p>
+      }
+    </div>
   }
 </section>
 
-@if (state.replacementSummary(); as summary) {
-<dialog
-  #confirmation
-  aria-labelledby="replacement-title"
-  (cancel)="cancel($event)"
->
-  <h2 id="replacement-title">Zastąpienie sprawy</h2>
-  <p>Nowa sprawa: <strong>{{ summary.title }}</strong></p>
-  <p>Zwierzę: {{ summary.animal }}</p>
-  <dl>
-    <div>
-      <dt>Punkty</dt>
-      <dd>{{ summary.points }}</dd>
+@if (state.closeRequested()) {
+  <dialog #confirmation aria-labelledby="draft-title" (cancel)="stay($event)">
+    <h2 id="draft-title">Niezatwierdzony profil</h2>
+    <p>Zapisz zmiany, odrzuć szkic lub zostań przy edycji.</p>
+    @if (state.editorError()) {
+      <p role="alert" class="error">{{ state.editorError() }}</p>
+    }
+    <div class="actions">
+      <button type="button" (click)="resolveTransition('save')">Zapisz i kontynuuj</button>
+      <button type="button" (click)="resolveTransition('discard')">Odrzuć szkic</button>
+      <button type="button" (click)="resolveTransition('stay')" autofocus>
+        Zostań przy edycji
+      </button>
     </div>
-    <div>
-      <dt>Wpisy i kontrole</dt>
-      <dd>{{ summary.entries }}</dd>
+  </dialog>
+} @else if (state.replacementSummary(); as summary) {
+  <dialog #confirmation aria-labelledby="replacement-title" (cancel)="cancel($event)">
+    <h2 id="replacement-title">Zastąpienie sprawy</h2>
+    <p>
+      Nowa sprawa: <strong>{{ summary.title }}</strong>
+    </p>
+    <p>Zwierzę: {{ summary.animal }}</p>
+    <dl>
+      <div>
+        <dt>Punkty</dt>
+        <dd>{{ summary.points }}</dd>
+      </div>
+      <div>
+        <dt>Wpisy i kontrole</dt>
+        <dd>{{ summary.entries }}</dd>
+      </div>
+      <div>
+        <dt>Obszary</dt>
+        <dd>{{ summary.areas }}</dd>
+      </div>
+      <div>
+        <dt>Zdjęcia</dt>
+        <dd>{{ summary.photos }}</dd>
+      </div>
+    </dl>
+    @if (state.document()) {
+      <p>
+        Ta operacja zastąpi całą obecną sprawę:
+        <strong>{{ state.document()!.case.title }}</strong
+        >. Sprawy nie zostaną połączone. Przed zastąpieniem możesz wyeksportować aktualne dane.
+      </p>
+      <button type="button" (click)="state.downloadExport()">Eksportuj obecną sprawę</button>
+    } @else if (state.persistence().recovery) {
+      <p class="warning">
+        {{ state.persistence().recovery }} Potwierdzenie zastąpi zachowany zapis.
+      </p>
+    }
+    <p>
+      Eksport obejmuje wszystkie zatwierdzone dane, bez niezatwierdzonych formularzy i szkiców.
+      Zdjęcia pozostają na serwerze — plik zawiera ich nazwy.
+    </p>
+    @if (state.fileError()) {
+      <p role="alert" class="error">{{ state.fileError() }}</p>
+    }
+    @if (state.persistence().replacing) {
+      <p role="status">Zapisywanie nowej sprawy…</p>
+    }
+    <div class="actions">
+      <button type="button" [disabled]="state.busy()" (click)="replaceCase()">Zastąp sprawę</button>
+      <button type="button" [disabled]="state.busy()" (click)="cancelReplacement()" autofocus>
+        Anuluj
+      </button>
     </div>
-    <div>
-      <dt>Obszary</dt>
-      <dd>{{ summary.areas }}</dd>
-    </div>
-    <div>
-      <dt>Zdjęcia</dt>
-      <dd>{{ summary.photos }}</dd>
-    </div>
-  </dl>
-  @if (state.document()) {
-  <p>
-    Ta operacja zastąpi całą obecną sprawę:
-    <strong>{{ state.document()!.case.title }}</strong>. Sprawy nie zostaną
-    połączone. Przed zastąpieniem możesz wyeksportować aktualne dane.
-  </p>
-  <button type="button" (click)="state.downloadExport()">
-    Eksportuj obecną sprawę
-  </button>
-  } @else if (state.persistence().recovery) {
-  <p class="warning">
-    {{ state.persistence().recovery }} Potwierdzenie zastąpi zachowany zapis.
-  </p>
-  }
-  <p>
-    Eksport obejmuje wszystkie zatwierdzone dane, bez niezatwierdzonych
-    formularzy i szkiców. Zdjęcia pozostają na serwerze — plik zawiera ich
-    nazwy.
-  </p>
-  @if (state.ui().error) {
-  <p role="alert" class="error">{{ state.ui().error }}</p>
-  } @if (state.persistence().replacing) {
-  <p role="status">Zapisywanie nowej sprawy…</p>
-  }
-  <div class="actions">
-    <button
-      type="button"
-      [disabled]="state.busy()"
-      (click)="state.confirmReplacement()"
-    >
-      Zastąp sprawę
-    </button>
-    <button
-      type="button"
-      [disabled]="state.busy()"
-      (click)="state.cancelReplacement()"
-      autofocus
-    >
-      Anuluj
-    </button>
-  </div>
-</dialog>
+  </dialog>
 }

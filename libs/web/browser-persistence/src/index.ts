@@ -1,2 +1,3 @@
-export { BrowserSnapshot, type SnapshotStorage } from "./lib/browser-snapshot";
-export { BrowserFiles } from "./lib/browser-files";
+export { BrowserSnapshot, type SnapshotStorage } from './lib/browser-snapshot';
+export { BrowserFiles } from './lib/browser-files';
+export { hasSeenMapHelp, rememberMapHelp } from './lib/map-help-preference';

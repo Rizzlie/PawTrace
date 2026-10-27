@@ -12,4 +12,7 @@ export interface MapViewport {
   longitude: number;
   zoom: number;
 }
-export type Basemap = "osm" | "satellite";
+export type Basemap = 'osm' | 'satellite';
+
+/** Technical startup positioning mode, selected by the application. */
+export type InitialLocation = 'off' | 'show' | 'center';
