@@ -10,6 +10,12 @@ export const profileEvents = eventGroup({
   events: {
     opened: type<ProfileSession>(),
     changed: type<{ id: number; draft: ProfileDraft }>(),
+  },
+});
+
+export const editorEvents = eventGroup({
+  source: 'Case editor',
+  events: {
     discarded: type<{ id: number }>(),
     validationFailed: type<{ id: number; version: number; error: string }>(),
     committed: type<{

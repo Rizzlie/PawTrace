@@ -119,3 +119,19 @@ button:disabled {
     max-height: calc(100% - 345px);
   }
 }
+
+.overlap {
+  position: absolute;
+  z-index: 505;
+  left: 50%;
+  top: 35%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  max-height: 50%;
+  overflow: auto;
+  border-radius: 16px;
+  background: var(--pt-panel);
+  box-shadow: var(--pt-shadow);
+}

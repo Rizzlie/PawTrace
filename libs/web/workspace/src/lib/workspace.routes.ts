@@ -1,21 +1,39 @@
 import { inject } from '@angular/core';
-import { Router, type CanActivateFn, type CanDeactivateFn, type Routes } from '@angular/router';
+import {
+  Router,
+  type CanActivateFn,
+  type CanDeactivateFn,
+  type Routes,
+  type UrlTree,
+} from '@angular/router';
 import { CaseStore } from './case-store/case-store';
 import { Observable } from 'rxjs';
 
-const openProfile: CanActivateFn = async () => {
+const openProfile: CanActivateFn = () => {
   const state = inject(CaseStore);
   const router = inject(Router);
-  await state.initialize();
-  if (!state.document()) return router.parseUrl('/');
-  return !state.busy() && state.candidate() === null;
+  return new Observable<boolean | UrlTree>((subscriber) => {
+    const cancellation = new AbortController();
+    void state.initialize().then(async () => {
+      if (cancellation.signal.aborted) return;
+      const result = !state.document()
+        ? router.parseUrl('/')
+        : !state.busy() &&
+          state.candidate() === null &&
+          (state.editor()?.kind !== 'point' ||
+            (await state.requestEditorExit(cancellation.signal)));
+      subscriber.next(result);
+      subscriber.complete();
+    });
+    return () => cancellation.abort();
+  });
 };
 
 const leaveProfile: CanDeactivateFn<unknown> = () => {
   const state = inject(CaseStore);
   return new Observable<boolean>((subscriber) => {
     const cancellation = new AbortController();
-    void state.requestProfileExit(cancellation.signal).then((leave) => {
+    void state.requestEditorExit(cancellation.signal).then((leave) => {
       subscriber.next(leave);
       subscriber.complete();
     });

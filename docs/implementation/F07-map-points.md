@@ -1,6 +1,6 @@
 # F07 — Named map points and place roles
 
-Status: planned
+Status: done
 Depends on: F02, F03, F04, F05, F06
 
 ## Goal
@@ -41,4 +41,24 @@ Coordinate form and draggable marker through one editor session. Address lookup 
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented named point creation by map click/address selection, draft dragging, coordinate correction, zero/multiple predefined roles and explicit Save/Cancel. A collapsible place list and named overlap chooser retain the full map canvas; phone lists start collapsed. Editing retains IDs and imported history/photos. Escape assignment uses the existing single incident reference.
+
+Removal confirmation shows the history count. Removing a point removes its entries and clears escape/observation references, retaining unrelated records and all assets. A linked check whose observation is deleted becomes `other_or_inconclusive`; its description preserves the sighting and removed observation ID. This maintains the existing strict JSON v1 invariant without dangling references or deleting checks.
+
+Shared `withEditorLifecycle` / `EditorTransition` owns transitions and aborts delayed Saves. Focused animal/point features own draft conversion and validation. Signal Forms and map placement share one session-scoped draft. Scene/UI data are computed; side effects stay in form/navigation/storage/Leaflet adapters. Profile activation tears down pending decisions on superseding navigation. Address-search help keeps a stable layout while results are selectable.
+
+TDD: the first point-state test failed before implementation, map placement/overlap tests failed before integration, deletion validation caught the linked-check result invariant, and two delayed point-Save cancellation regressions failed before the shared lifecycle fix. All focused regressions now pass.
+
+Independent Standards and Spec reviews against task-start `ba199bb` found cancellation, guard teardown and mobile-default issues in round 1; round 2 confirmed them corrected, with no remaining documented-standard or spec findings. One nonblocking design suggestion notes similar validation sequences in the focused editors; no speculative helper was introduced.
+
+Validation: command-scoped `BASE_URL=http://127.0.0.1:4200` with `npm exec nx run-many -- -t typecheck lint test build e2e --output-style=static` passed all 25 tasks across eight projects, including both builds, 35 workspace regressions, 30 map-engine tests, and all 52 Chromium scenarios. Six new browser scenarios cover click/drag/address placement, cancellation, roles, preservation/reload/JSON transfer, overlap selection, escape reassignment/removal, deletion cancellation, dirty transitions and phone collapse. Screenshots at 1280px and 390px were inspected. `git diff --check` passed.
+
+The first full run passed 51/52 browser scenarios; the new creation test exported before asynchronous Save completed. Waiting for the editor to close corrected test synchronization; the final full run passed 52/52. The export behavior was correct throughout: unconfirmed drafts are excluded. F02 live Mapbox acceptance remains separately blocked and was explicitly waived for F07 by the user. No paid service or server photo operation was used.
+
+### Standards review
+
+No documented-standard breaches remain after round 2. One low-priority judgment call notes duplicated validation sequences in profile and point Save; this is not a blocker.
+
+### Spec review
+
+No missing/partial requirements, scope creep or incorrect F07 behavior identified after round 2. The initial cancellation and mobile-default findings are resolved.

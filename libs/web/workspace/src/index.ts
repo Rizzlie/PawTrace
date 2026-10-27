@@ -5,3 +5,5 @@ export { CaseStore } from './lib/case-store/case-store';
 export * from './lib/case-controls/case-controls';
 
 export { workspaceRoutes } from './lib/workspace.routes';
+
+export * from './lib/point-workspace/point-workspace';

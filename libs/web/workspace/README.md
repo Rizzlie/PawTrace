@@ -8,7 +8,9 @@ The composition has focused features:
 
 - `withCaseProjections`: readonly derived values, including dirty/save status and replacement summary.
 - `withCaseView`: immutable persisted viewport/basemap changes; no Leaflet rendering or separate MapState.
-- `withAnimalEditing`: draft/session/version checks, validated atomic Save, Cancel and cancellable Save / Discard / Stay. `ProfileResources` owns only form and navigation resource lifecycle.
+- `withEditorResources` / `withEditorLifecycle`: one discriminated active editor session, shared atomic commit/closure/revision reducers and cancellable Save / Discard / Stay. `EditorForm<T>` owns the session-scoped Signal Forms binding; `EditorTransition` owns the pending decision and aborts delayed Save.
+- `withAnimalEditing`: profile draft conversion, form projection and validated Save.
+- `withPointEditing`: point draft/scene projections, geographic placement, validated Save, selection and confirmed reference-safe removal.
 - `withCaseFiles`: file parsing/export, request-correlated candidates, editor-close coordination and explicit replacement intent.
 - `withCasePersistence`: restoration, synchronous revision observation, retries, write acknowledgements and durable replacement through `SnapshotWriter`.
 
@@ -35,3 +37,7 @@ Run `npm exec nx run workspace:typecheck`, `npm exec nx run workspace:test` and 
 `map-engine` is the Angular-to-Leaflet adapter, with no case store injection or business rules. The screen derives rendering inputs and sends them through template bindings; outputs call store commands. Leaflet lifecycle, layers, restoration feedback suppression and eventual layer reconciliation belong inside the adapter. No separate `MapState` or speculative point/area APIs are introduced by this refactor.
 
 The lazy workspace page projects CaseControls into AppHeader beside the logo, with a separate New Case button directly before Help. Case identity uses the committed animal name or case title. JSON actions use CDK Menu (keyboard navigation, Escape and focus restoration); live save/error/recovery feedback and confirmation dialogs remain owned by CaseControls. The header and map share the route-scoped store; AppHeader itself has no workspace/store dependency. The previous floating case panel is removed.
+
+`PointWorkspace` composes the floating place list, point form and removal confirmation. A point session contains its initial and working drafts; only one profile or point session can exist. Map/address placement writes the same Signal Forms draft with a session ID. Leaflet receives computed `mapPlaces` / `mapPointDraft`, emits coordinates/selection, and never injects CaseStore. New points use UUIDs; edits retain IDs, photos and entries. Escape assignment lives only in `case.escape.escapePointId`. Point removal retains unrelated records/assets and unlinks deleted observations, preserving their sighting in the check description while changing its result to `other_or_inconclusive`.
+
+Both profile guards tear down pending decisions when navigation is superseded. Point/profile/import transitions share the same lifecycle, including cancellation of lazy validation. Phone list collapse is initialized from the CDK breakpoint; user toggles remain presentation state. Address-search help stays visible for a nonempty query so focus changes cannot move a result during a mouse click.

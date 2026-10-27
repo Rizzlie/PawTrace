@@ -60,3 +60,13 @@
     ><img src="assets/mapbox-logo.svg" alt="Mapbox" width="88" height="20"
   /></a>
 }
+
+@if (overlapping().length > 1) {
+  <section class="overlap" aria-label="Nakładające się punkty">
+    <strong>Wybierz miejsce</strong>
+    @for (place of overlapping(); track place.id) {
+      <button type="button" (click)="choosePlace(place.id)">{{ place.name }}</button>
+    }
+    <button type="button" (click)="dismissOverlap()">Zamknij wybór</button>
+  </section>
+}

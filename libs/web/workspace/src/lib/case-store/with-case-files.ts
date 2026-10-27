@@ -23,13 +23,13 @@ import {
 import { createCaseDocument } from '../case-document';
 import { caseBusy, editorDirty, type CaseState } from './case-state';
 import { fileEvents } from './case-events';
-import type { AnimalCommands } from './with-animal-editing';
+import type { EditorCommands } from './with-editor-lifecycle';
 
 const fileError = 'Nie udało się odczytać lub pobrać pliku. Spróbuj ponownie.';
 
 export function withCaseFiles() {
   return signalStoreFeature(
-    { state: type<CaseState>(), methods: type<AnimalCommands>() },
+    { state: type<CaseState>(), methods: type<EditorCommands>() },
     withReducer(
       on(fileEvents.importStarted, ({ payload }, state) =>
         caseBusy(state)
@@ -144,7 +144,7 @@ export function withCaseFiles() {
           store._fileClosing.current?.abort();
           const cancellation = new AbortController();
           store._fileClosing.current = cancellation;
-          void store.requestProfileExit(cancellation.signal).then((leave) => {
+          void store.requestEditorExit(cancellation.signal).then((leave) => {
             if (store._fileClosing.current !== cancellation) return;
             store._fileClosing.current = null;
             if (!leave) dispatch.cancelled({ request: store.transfer().request + 1 });
