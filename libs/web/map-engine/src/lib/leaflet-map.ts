@@ -163,7 +163,7 @@ export class LeafletMap implements OnDestroy {
     this.map = L.map(container, {
       zoomControl: false,
       minZoom: 3,
-      maxZoom: 19,
+      maxZoom: 22,
       trackResize: false,
     });
     L.control
@@ -298,7 +298,8 @@ export class LeafletMap implements OnDestroy {
     this.loadingState.set(false);
     const layer = L.tileLayer(url, {
       ...(basemap === 'satellite' ? { tileSize: 512, zoomOffset: -1, minZoom: 1 } : {}),
-      maxZoom: 19,
+      maxZoom: 22,
+      maxNativeZoom: 19,
       attribution,
       updateWhenIdle: true,
       keepBuffer: 0,

@@ -213,6 +213,21 @@ describe('Reactive Leaflet integration', () => {
     expect(viewportChanged).toHaveBeenCalledTimes(1);
   });
 
+  it('allows closer placement at zoom 22 while scaling supported tiles rather than requesting unavailable zooms', async () => {
+    restoreViewport({ latitude: 52.23, longitude: 21.01, zoom: 22 });
+    await vi.advanceTimersByTimeAsync(20);
+    expect(engine.getViewport().zoom).toBe(22);
+    const osm = captured.layers.at(-1);
+    expect(osm?.options.maxNativeZoom).toBe(19);
+    expect(osm?.options.maxZoom).toBe(22);
+    configure({ mapboxToken: 'pk.controlled-test' });
+    selectBasemap('satellite');
+    expect(engine.getViewport().zoom).toBe(22);
+    expect(captured.layers.at(-1)?.options.maxNativeZoom).toBe(19);
+    selectBasemap('osm');
+    expect(engine.getViewport().zoom).toBe(22);
+  });
+
   it('emits completed user navigation but suppresses restore and resize', async () => {
     restoreViewport({ latitude: 52, longitude: 20, zoom: 10 });
     await vi.advanceTimersByTimeAsync(20);

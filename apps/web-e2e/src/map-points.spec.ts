@@ -342,3 +342,38 @@ test('matches place-list numbers to markers and renumbers surviving places after
   await expect(shed.locator('.point-number')).toHaveText('1');
   await expect(shedMarker).toHaveText('1');
 });
+
+test('zooms closer to 22, reuses supported tiles and restores the view after reload', async ({
+  page,
+}) => {
+  const levels: number[] = [];
+  await page.route('https://tile.openstreetmap.org/**', (route) => {
+    levels.push(Number(new URL(route.request().url()).pathname.split('/')[1]));
+    return route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
+    });
+  });
+  const file = structuredClone(completeFile);
+  file.mapView = { center: { latitude: 52.23, longitude: 21.01 }, zoom: 19, basemap: 'osm' };
+  await importCase(page, file);
+  await expect(page.locator('img.leaflet-tile-loaded[src*="/19/"]').first()).toBeVisible();
+  const scale = page.locator('.leaflet-control-scale-line');
+  for (const level of [20, 21, 22]) {
+    const previous = await scale.textContent();
+    await page.getByRole('button', { name: 'Przybliż', exact: true }).click();
+    await expect(scale).not.toHaveText(previous ?? '');
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+    expect((await exportCase(page)).mapView.zoom).toBe(level);
+  }
+  await expect(page.getByRole('button', { name: 'Przybliż', exact: true })).toHaveClass(
+    /leaflet-disabled/,
+  );
+  expect(levels.length).toBeGreaterThan(0);
+  expect(Math.max(...levels)).toBeLessThanOrEqual(19);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Przybliż', exact: true })).toHaveClass(
+    /leaflet-disabled/,
+  );
+  expect((await exportCase(page)).mapView.zoom).toBe(22);
+});

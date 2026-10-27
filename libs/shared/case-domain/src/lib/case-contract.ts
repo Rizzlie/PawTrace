@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { animalProfileSchema } from "./animal-profile";
+import { z } from 'zod';
+import { animalProfileSchema } from './animal-profile';
 import {
   coordinatesSchema,
   eventTimeSchema,
@@ -11,23 +11,16 @@ import {
   timestampSchema,
   timeZoneSchema,
   validateUniqueValues,
-} from "./case-values";
-import { areaCheckSchema, historyEntrySchema } from "./history-entry";
-import { validateCaseInvariants } from "./case-invariants";
+} from './case-values';
+import { areaCheckSchema, historyEntrySchema } from './history-entry';
+import { validateCaseInvariants } from './case-invariants';
 
 const pointSchema = z.strictObject({
   id: textSchema,
   name: textSchema,
   coordinates: coordinatesSchema,
   roles: z
-    .array(
-      z.enum([
-        "potential_hiding_place",
-        "feeding_location",
-        "trail_camera",
-        "other",
-      ]),
-    )
+    .array(z.enum(['potential_hiding_place', 'feeding_location', 'trail_camera', 'other']))
     .superRefine(validateUniqueValues),
   description: textSchema.nullable(),
   photos: photosSchema,
@@ -56,7 +49,7 @@ const assetSchema = z.strictObject({
 });
 const documentShape = {
   schemaVersion: z.literal(1, {
-    error: "Unsupported schemaVersion; expected version 1.",
+    error: 'Unsupported schemaVersion; expected version 1.',
   }),
   case: z.strictObject({
     id: textSchema,
@@ -77,16 +70,14 @@ const documentShape = {
   assets: z.array(assetSchema),
   mapView: z.strictObject({
     center: coordinatesSchema,
-    zoom: z.number().min(3).max(19),
-    basemap: z.enum(["osm", "satellite"]),
+    zoom: z.number().min(3).max(22),
+    basemap: z.enum(['osm', 'satellite']),
   }),
 };
 
 const documentBaseSchema = z.strictObject(documentShape);
 export type CaseDocument = z.infer<typeof documentBaseSchema>;
-export const caseDocumentSchema = documentBaseSchema.superRefine(
-  validateCaseInvariants,
-);
+export const caseDocumentSchema = documentBaseSchema.superRefine(validateCaseInvariants);
 export const caseFileSchema = z
   .strictObject({ ...documentShape, exportedAt: timestampSchema })
   .superRefine(validateCaseInvariants);
@@ -100,44 +91,33 @@ export interface CaseValidationIssue {
   message: string;
 }
 export type CaseValidationResult<T> =
-  | { success: true; data: T }
-  | { success: false; issues: CaseValidationIssue[] };
+  { success: true; data: T } | { success: false; issues: CaseValidationIssue[] };
 
-function validationResult<T>(
-  result: z.ZodSafeParseResult<T>,
-): CaseValidationResult<T> {
+function validationResult<T>(result: z.ZodSafeParseResult<T>): CaseValidationResult<T> {
   if (result.success) return { success: true, data: result.data };
   return {
     success: false,
     issues: result.error.issues.map((issue) => ({
-      path: issue.path.map((part) =>
-        typeof part === "number" ? part : String(part),
-      ),
+      path: issue.path.map((part) => (typeof part === 'number' ? part : String(part))),
       code: issue.code,
       message: issue.message,
     })),
   };
 }
 
-export function validateCaseDocument(
-  input: unknown,
-): CaseValidationResult<CaseDocument> {
+export function validateCaseDocument(input: unknown): CaseValidationResult<CaseDocument> {
   return validationResult(caseDocumentSchema.safeParse(input));
 }
 
 /** Consumes file metadata; only the committed document belongs in application state. */
-export function parseCaseFile(
-  text: string,
-): CaseValidationResult<CaseDocument> {
+export function parseCaseFile(text: string): CaseValidationResult<CaseDocument> {
   let input: unknown;
   try {
     input = JSON.parse(text);
   } catch {
     return {
       success: false,
-      issues: [
-        { path: [], code: "invalid_json", message: "Invalid JSON syntax." },
-      ],
+      issues: [{ path: [], code: 'invalid_json', message: 'Invalid JSON syntax.' }],
     };
   }
   const result = validationResult(caseFileSchema.safeParse(input));
@@ -148,10 +128,7 @@ export function parseCaseFile(
 }
 
 /** Export time is supplied by the file adapter; validation and export have no side effects. */
-export function serializeCaseFile(
-  document: CaseDocument,
-  exportedAt: string,
-): string {
+export function serializeCaseFile(document: CaseDocument, exportedAt: string): string {
   const snapshot = caseDocumentSchema.parse(document);
   const file: CaseFile = {
     ...snapshot,
