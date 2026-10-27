@@ -16,3 +16,25 @@ export type Basemap = 'osm' | 'satellite';
 
 /** Technical startup positioning mode, selected by the application. */
 export type InitialLocation = 'off' | 'show' | 'center';
+
+export interface MapCoordinates {
+  latitude: number;
+  longitude: number;
+}
+export interface MapPlace {
+  id: string;
+  number: number;
+  name: string;
+  coordinates: MapCoordinates;
+  selected: boolean;
+}
+export interface MapPointDraft {
+  number: number;
+  sessionId: number;
+  coordinates: MapCoordinates | null;
+  pointId: string;
+}
+export interface PointPlacement {
+  sessionId: number;
+  coordinates: MapCoordinates;
+}

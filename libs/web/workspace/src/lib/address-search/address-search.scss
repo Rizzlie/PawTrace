@@ -74,7 +74,8 @@ p {
   color: var(--pt-muted, #62755f);
   font-size: 10px;
 }
-section:focus-within #search-help {
+section:focus-within #search-help,
+section.has-query #search-help {
   display: block;
 }
 ul {
@@ -106,6 +107,6 @@ a {
   color: var(--pt-primary, #2c654c);
   margin: 4px 7px 7px;
 }
-[role="alert"] {
+[role='alert'] {
   color: var(--pt-danger, #a74e38);
 }

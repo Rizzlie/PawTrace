@@ -1,5 +1,5 @@
-import type { CaseDocument } from "@pawtrace/case-domain";
-import type { MapViewport } from "@pawtrace/map-engine";
+import type { CaseDocument } from '@pawtrace/case-domain';
+import type { MapViewport } from '@pawtrace/map-engine';
 
 export function createCaseDocument(): CaseDocument {
   const now = new Date().toISOString();
@@ -7,12 +7,12 @@ export function createCaseDocument(): CaseDocument {
     schemaVersion: 1,
     case: {
       id: crypto.randomUUID(),
-      title: "Nowa sprawa",
+      title: 'Nowa sprawa',
       createdAt: now,
       updatedAt: now,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       escape: {
-        occurredAt: { kind: "unknown", description: null },
+        occurredAt: { kind: 'unknown', description: null },
         escapePointId: null,
         description: null,
         directionOfTravel: null,
@@ -26,7 +26,7 @@ export function createCaseDocument(): CaseDocument {
     mapView: {
       center: { latitude: 52.1, longitude: 19.4 },
       zoom: 6,
-      basemap: "osm",
+      basemap: 'osm',
     },
   };
 }
@@ -44,7 +44,7 @@ export function summarizeCase(document: CaseDocument | null) {
   ]);
   return {
     title: metadata.title,
-    animal: animal?.name ?? "Brak profilu zwierzęcia",
+    animal: animal?.name ?? 'Brak profilu zwierzęcia',
     points: points.length,
     entries:
       points.reduce((count, point) => count + point.entries.length, 0) +
@@ -65,13 +65,13 @@ export function isValidViewport(view: MapViewport): boolean {
     Math.abs(view.latitude) <= 90 &&
     Math.abs(view.longitude) <= 180 &&
     view.zoom >= 3 &&
-    view.zoom <= 19
+    view.zoom <= 22
   );
 }
 
 export function sameMapView(
-  previous: CaseDocument["mapView"],
-  next: CaseDocument["mapView"],
+  previous: CaseDocument['mapView'],
+  next: CaseDocument['mapView'],
 ): boolean {
   return (
     previous.center.latitude === next.center.latitude &&

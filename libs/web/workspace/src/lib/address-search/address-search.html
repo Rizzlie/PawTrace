@@ -1,4 +1,7 @@
-<section aria-label="Wyszukiwanie adresu">
+<section
+  aria-label="Wyszukiwanie adresu"
+  [class.has-query]="searchForm.query().value().trim().length > 0"
+>
   <form role="search" (submit)="search($event)">
     <label for="address-query">Adres w Polsce</label>
     <div class="search-row">
@@ -14,41 +17,39 @@
       <button type="submit" [disabled]="!canSearch()">Szukaj</button>
     </div>
     <p id="search-help">
-      Wyszukiwanie dopiero po Enter lub „Szukaj”. Wpisuj wyłącznie adres, bez
-      danych sprawy.
+      Wyszukiwanie dopiero po Enter lub „Szukaj”. Wpisuj wyłącznie adres, bez danych sprawy.
     </p>
   </form>
   @if (loading()) {
-  <p role="status">Wyszukiwanie adresu…</p>
-  } @let state = visibleState(); @if (state.status === 'error') {
-  <p role="alert">
-    Nie udało się wyszukać adresu. Spróbuj później lub przesuń mapę ręcznie.
-  </p>
-  } @if (state.status === 'success') { @if (state.selected; as selected) {
-  <p role="status" aria-label="Wybrane miejsce">
-    Wybrano: {{ selected.label }}
-  </p>
-  } @else {
-  <p role="status">
-    {{ state.response.results.length ? 'Wybierz miejsce, aby przesunąć mapę.' :
-    'Nie znaleziono adresu w Polsce. Zmień zapytanie lub przesuń mapę ręcznie.'
-    }}
-  </p>
-  <ul aria-label="Wyniki wyszukiwania">
-    @for (result of state.response.results; track $index) {
-    <li>
-      <button type="button" class="result" (click)="select(result)">
-        {{ result.label }}
-      </button>
-    </li>
-    }
-  </ul>
+    <p role="status">Wyszukiwanie adresu…</p>
   }
-  <a
-    [href]="state.response.attribution.url"
-    target="_blank"
-    rel="noopener noreferrer"
-    >{{ state.response.attribution.label }}</a
-  >
+  @let state = visibleState();
+  @if (state.status === 'error') {
+    <p role="alert">Nie udało się wyszukać adresu. Spróbuj później lub przesuń mapę ręcznie.</p>
+  }
+  @if (state.status === 'success') {
+    @if (state.selected; as selected) {
+      <p role="status" aria-label="Wybrane miejsce">Wybrano: {{ selected.label }}</p>
+    } @else {
+      <p role="status">
+        {{
+          state.response.results.length
+            ? 'Wybierz miejsce, aby przesunąć mapę.'
+            : 'Nie znaleziono adresu w Polsce. Zmień zapytanie lub przesuń mapę ręcznie.'
+        }}
+      </p>
+      <ul aria-label="Wyniki wyszukiwania">
+        @for (result of state.response.results; track $index) {
+          <li>
+            <button type="button" class="result" (click)="select(result)">
+              {{ result.label }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    <a [href]="state.response.attribution.url" target="_blank" rel="noopener noreferrer">{{
+      state.response.attribution.label
+    }}</a>
   }
 </section>

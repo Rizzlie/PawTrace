@@ -13,9 +13,14 @@ import {
 } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import type { Basemap, InitialLocation, MapConfig, MapViewport } from './map-types';
+import type { MapPlace, MapPointDraft, PointPlacement } from './map-types';
 import { defaultMapSources } from './map-config';
 
 interface MapBindings {
+  places?: Signal<MapPlace[]>;
+  pointDraft?: Signal<MapPointDraft | null>;
+  pointPlaced?: (placement: PointPlacement) => void;
+  placesSelected?: (ids: string[]) => void;
   config: Signal<MapConfig>;
   initialLocation?: Signal<InitialLocation>;
   viewport?: Signal<MapViewport | undefined>;
@@ -112,8 +117,21 @@ export class LeafletMap implements OnDestroy {
   private locationLayers?: L.LayerGroup;
   private initialLocationRequested = false;
   private navigationRevision = 0;
+  private readonly markers = new Map<
+    string,
+    { marker: L.Marker; selected: boolean; number: number }
+  >();
+  private draftMarker?: { sessionId: number; marker: L.Marker };
 
   constructor() {
+    afterRenderEffect({
+      mixedReadWrite: () => {
+        const bindings = this.bindings();
+        const places = bindings?.places?.() ?? [];
+        const draft = bindings?.pointDraft?.() ?? null;
+        if (bindings && !this.destroyed) untracked(() => this.renderPoints(places, draft));
+      },
+    });
     afterRenderEffect({
       mixedReadWrite: () => {
         if (!this.bindings() || this.destroyed) return;
@@ -145,7 +163,7 @@ export class LeafletMap implements OnDestroy {
     this.map = L.map(container, {
       zoomControl: false,
       minZoom: 3,
-      maxZoom: 19,
+      maxZoom: 22,
       trackResize: false,
     });
     L.control
@@ -167,6 +185,7 @@ export class LeafletMap implements OnDestroy {
     this.map.on('movestart', this.onMoveStart);
     this.map.on('zoomstart', this.onZoomStart);
     this.map.on('zoomend', this.onZoomEnd);
+    this.map.on('click', this.onMapClick);
     this.resizeObserver = new ResizeObserver(() => {
       if (this.destroyed) return;
       const wasRestoring = this.restoring;
@@ -261,6 +280,10 @@ export class LeafletMap implements OnDestroy {
     this.pendingViewport = undefined;
     this.resizeObserver?.disconnect();
     this.removeLayer();
+    this.map?.off('click', this.onMapClick);
+    for (const { marker } of this.markers.values()) marker.off().remove();
+    this.markers.clear();
+    this.draftMarker?.marker.off().remove();
     this.map?.off('moveend', this.onMoveEnd);
     this.map?.off('movestart', this.onMoveStart);
     this.map?.off('zoomstart', this.onZoomStart);
@@ -275,7 +298,8 @@ export class LeafletMap implements OnDestroy {
     this.loadingState.set(false);
     const layer = L.tileLayer(url, {
       ...(basemap === 'satellite' ? { tileSize: 512, zoomOffset: -1, minZoom: 1 } : {}),
-      maxZoom: 19,
+      maxZoom: 22,
+      maxNativeZoom: 19,
       attribution,
       updateWhenIdle: true,
       keepBuffer: 0,
@@ -302,6 +326,112 @@ export class LeafletMap implements OnDestroy {
     });
     layer.addTo(this.map);
   }
+
+  private pointIcon(number: number, selected: boolean, draft = false): L.DivIcon {
+    const badge = document.createElement('span');
+    badge.textContent = String(number);
+    badge.style.cssText = `display:grid;place-items:center;width:32px;height:32px;border:3px solid white;border-radius:50%;color:white;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;background:${draft ? '#c56c28' : selected ? '#233f1e' : '#5f7e45'};box-shadow:0 2px 8px #0006`;
+    return L.divIcon({
+      className: 'pt-place-marker',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      html: badge,
+    });
+  }
+
+  private renderPoints(places: MapPlace[], draft: MapPointDraft | null): void {
+    const visible = places;
+    const ids = new Set(visible.map((place) => place.id));
+    for (const [id, { marker }] of this.markers) {
+      if (!ids.has(id)) {
+        marker.off().remove();
+        this.markers.delete(id);
+      }
+    }
+    for (const place of visible) {
+      const entry = this.markers.get(place.id);
+      let marker = entry?.marker;
+      if (!marker) {
+        marker = L.marker([place.coordinates.latitude, place.coordinates.longitude], {
+          title: place.name,
+          icon: this.pointIcon(place.number, place.selected),
+          bubblingMouseEvents: false,
+        }).addTo(this.map);
+        marker.on('click', () => {
+          if (this.destroyed || this.bindings()?.pointDraft?.()) return;
+          const current = this.bindings()?.places?.() ?? [];
+          const origin = current.find((item) => item.id === place.id);
+          if (!origin) return;
+          const pixel = this.map.latLngToContainerPoint([
+            origin.coordinates.latitude,
+            origin.coordinates.longitude,
+          ]);
+          this.bindings()?.placesSelected?.(
+            current
+              .filter(
+                (item) =>
+                  pixel.distanceTo(
+                    this.map.latLngToContainerPoint([
+                      item.coordinates.latitude,
+                      item.coordinates.longitude,
+                    ]),
+                  ) <= 28,
+              )
+              .map((item) => item.id),
+          );
+        });
+        this.markers.set(place.id, { marker, selected: place.selected, number: place.number });
+      }
+      marker.setOpacity(place.id === draft?.pointId ? 0 : 1);
+      marker.setLatLng([place.coordinates.latitude, place.coordinates.longitude]);
+      if (entry && (entry.selected !== place.selected || entry.number !== place.number)) {
+        marker.setIcon(this.pointIcon(place.number, place.selected));
+        entry.selected = place.selected;
+        entry.number = place.number;
+      }
+      const element = marker.getElement();
+      if (element) {
+        element.style.pointerEvents = place.id === draft?.pointId ? 'none' : '';
+        element.title = place.name;
+        element.setAttribute('aria-label', place.name);
+        element.setAttribute('aria-description', `Punkt nr ${place.number}`);
+      }
+    }
+    if (
+      this.draftMarker &&
+      (this.draftMarker.sessionId !== draft?.sessionId || !draft.coordinates)
+    ) {
+      this.draftMarker.marker.off().remove();
+      this.draftMarker = undefined;
+    }
+    if (!draft?.coordinates) return;
+    const { latitude, longitude } = draft.coordinates;
+    if (!this.draftMarker) {
+      const sessionId = draft.sessionId;
+      const marker = L.marker([latitude, longitude], {
+        title: 'Położenie szkicu',
+        icon: this.pointIcon(draft.number, false, true),
+        draggable: true,
+      }).addTo(this.map);
+      marker.on('dragend', () => this.emitPlacement(sessionId, marker.getLatLng()));
+      this.draftMarker = { marker, sessionId };
+    } else if (!this.draftMarker.marker.getLatLng().equals([latitude, longitude])) {
+      this.draftMarker.marker.setLatLng([latitude, longitude]);
+    }
+  }
+
+  private emitPlacement(sessionId: number, location: { lat: number; lng: number }): void {
+    if (this.destroyed || this.bindings()?.pointDraft?.()?.sessionId !== sessionId) return;
+    const wrapped = L.latLng(location.lat, location.lng).wrap();
+    this.bindings()?.pointPlaced?.({
+      sessionId,
+      coordinates: { latitude: wrapped.lat, longitude: wrapped.lng },
+    });
+  }
+  private readonly onMapClick = (event: L.LeafletMouseEvent): void => {
+    const draft = this.bindings()?.pointDraft?.();
+    if (draft) this.emitPlacement(draft.sessionId, event.latlng);
+  };
 
   private restoreViewport(view: MapViewport): void {
     ++this.navigationRevision;

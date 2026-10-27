@@ -21,20 +21,35 @@ import {
   AddressSearch,
   CaseStore,
   CaseControls,
+  PointWorkspace,
   type AddressSearchResult,
 } from '@pawtrace/workspace';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { FloatingPanel } from '@pawtrace/shared-ui';
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [AppHeader, RouterOutlet, MapEngine, AddressSearch, CaseControls, FloatingPanel],
+  imports: [
+    AppHeader,
+    RouterOutlet,
+    MapEngine,
+    AddressSearch,
+    CaseControls,
+    FloatingPanel,
+    PointWorkspace,
+  ],
   templateUrl: './workspace-page.html',
   styleUrl: './workspace-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspacePage {
   protected readonly state = inject(CaseStore);
+  private readonly router = inject(Router);
+
+  protected async addPoint(): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.editPoint();
+  }
   protected readonly initialLocation = computed<InitialLocation>(() =>
     !this.state.persistence().initialized ? 'off' : this.state.document() ? 'show' : 'center',
   );
@@ -50,6 +65,12 @@ export class WorkspacePage {
       longitude: result.longitude,
       zoom: 15,
     };
+    const draft = this.state.mapPointDraft();
+    if (draft)
+      this.state.placePoint({
+        sessionId: draft.sessionId,
+        coordinates: { latitude: result.latitude, longitude: result.longitude },
+      });
     if (this.state.document()) this.state.changeViewport(view);
     else this.addressViewport.set(view);
   }

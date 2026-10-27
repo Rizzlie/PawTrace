@@ -8,6 +8,12 @@
   <section class="workspace" aria-label="Przestrzeń poszukiwań">
     <pt-map
       [config]="mapConfig()"
+      [places]="state.mapPlaces()"
+      [pointDraft]="state.mapPointDraft()"
+      [pointCreationEnabled]="!!state.document() && !state.busy() && !state.candidate()"
+      (addPointRequested)="addPoint()"
+      (pointPlaced)="state.placePoint($event)"
+      (placeSelected)="state.selectPoint($event)"
       [initialLocation]="initialLocation()"
       [viewport]="viewport()"
       [basemap]="state.basemap()"
@@ -16,6 +22,7 @@
     />
     <pt-address-search (resultSelected)="selectAddress($event)" />
 
+    <pt-point-workspace />
     <router-outlet />
 
     @if (configFailed()) {

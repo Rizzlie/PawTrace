@@ -1,0 +1,134 @@
+<pt-floating-panel class="places" label="Miejsca">
+  <div panel-heading class="heading">
+    <strong>Miejsca ({{ state.document()?.points?.length ?? 0 }})</strong>
+    <button
+      type="button"
+      [attr.aria-expanded]="!collapsed()"
+      aria-controls="place-list"
+      (click)="collapsed.set(!collapsed())"
+    >
+      {{ collapsed() ? 'Rozwiń miejsca' : 'Zwiń miejsca' }}
+    </button>
+  </div>
+  @if (!collapsed()) {
+    <div id="place-list">
+      @if (!state.document()) {
+        <p>Utwórz sprawę, aby dodawać miejsca.</p>
+      }
+      <ul>
+        @for (point of state.mapPlaces(); track point.id) {
+          <li>
+            <button
+              type="button"
+              [attr.aria-pressed]="state.selectedPointId() === point.id"
+              (click)="selectPoint(point.id)"
+              [attr.aria-description]="'Punkt nr ' + point.number"
+            >
+              <span class="point-number" aria-hidden="true">{{ point.number }}</span>
+              {{ point.name }}
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</pt-floating-panel>
+@if (!state.editor()) {
+  @if (state.selectedPoint(); as point) {
+    <pt-floating-panel class="details" label="Szczegóły miejsca">
+      <div panel-heading class="heading">
+        <span class="eyebrow">Wybrane miejsce</span>
+        <button
+          type="button"
+          aria-label="Zamknij szczegóły miejsca"
+          (click)="state.selectPoint(null)"
+        >
+          ×
+        </button>
+      </div>
+      <section aria-label="Wybrane miejsce">
+        <h2>{{ point.name }}</h2>
+        @if (state.document()?.case?.escape?.escapePointId === point.id) {
+          <p>Miejsce ucieczki</p>
+        }
+        @for (role of roles; track role.key) {
+          @if (point.roles.includes(role.key)) {
+            <span class="role">{{ role.label }}</span>
+          }
+        }
+        <p>{{ point.description }}</p>
+        <p>Wpisy w historii: {{ point.entries.length }}</p>
+        <div class="actions">
+          <button type="button" [disabled]="state.busy()" (click)="edit(point.id)">
+            Edytuj punkt
+          </button>
+          <button
+            type="button"
+            [disabled]="state.busy() || !!state.editor() || !!state.candidate()"
+            (click)="state.requestPointRemoval(point.id)"
+          >
+            Usuń punkt
+          </button>
+        </div>
+      </section>
+    </pt-floating-panel>
+  }
+}
+@if (state.pointEditor(); as editor) {
+  <pt-floating-panel class="editor" label="Edycja punktu">
+    <h2 panel-heading>Edycja punktu</h2>
+    <p>
+      Kliknij mapę lub wybierz wynik wyszukiwania adresu. Przeciągnij pomarańczowy znacznik, aby
+      poprawić położenie.
+    </p>
+    <form (submit)="$event.preventDefault(); state.savePoint(editor.id)">
+      <fieldset [disabled]="state.editorBusy()">
+        <label>Nazwa punktu <input [formField]="editor.fields.name" /></label>
+        <label>Opis miejsca <textarea [formField]="editor.fields.description"></textarea></label>
+        <div class="coordinates">
+          <label
+            >Szerokość geograficzna <input inputmode="decimal" [formField]="editor.fields.latitude"
+          /></label>
+          <label
+            >Długość geograficzna <input inputmode="decimal" [formField]="editor.fields.longitude"
+          /></label>
+        </div>
+        <label class="check"
+          ><input type="checkbox" [formField]="editor.fields.escape" />Miejsce ucieczki</label
+        >
+        <p>
+          W sprawie może być jedno miejsce ucieczki. Zaznaczenie zastąpi poprzednie przypisanie.
+        </p>
+        @for (role of roles; track role.key) {
+          <label class="check"
+            ><input type="checkbox" [formField]="editor.fields.roles[role.key]" />{{
+              role.label
+            }}</label
+          >
+        }
+        @if (state.editorError()) {
+          <p role="alert">{{ state.editorError() }}</p>
+        }
+        <div class="actions">
+          <button type="submit">Zapisz punkt</button>
+          <button type="button" (click)="state.discardEditor(editor.id)">Anuluj punkt</button>
+        </div>
+      </fieldset>
+    </form>
+  </pt-floating-panel>
+}
+@if (state.deletingPoint(); as point) {
+  <dialog #confirmation aria-labelledby="remove-title" (cancel)="cancelRemoval($event)">
+    <h2 id="remove-title">Usunąć punkt „{{ point.name }}”?</h2>
+    <p>Usunięte zostaną miejsce i wpisy w jego historii: {{ point.entries.length }}.</p>
+    <p>
+      Miejsce ucieczki zostanie odłączone, jeśli wskazuje ten punkt. Kontrole odwołujące się do
+      usuwanych obserwacji pozostaną z wynikiem „inny/niejednoznaczny” i adnotacją w opisie. Pliki
+      zdjęć pozostaną na serwerze.
+    </p>
+    <div class="actions">
+      <button type="button" (click)="state.confirmPointRemoval()">Potwierdź usunięcie</button>
+      <button type="button" (click)="state.cancelPointRemoval()" autofocus>Anuluj usunięcie</button>
+    </div>
+  </dialog>
+}

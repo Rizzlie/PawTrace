@@ -56,6 +56,121 @@ async function setup(storage = new Storage()) {
   };
 }
 
+it('keeps point placement and Signal Forms isolated until confirmation, preserving imported history', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state).points[0]);
+  await state.editPoint(original.id);
+  const editor = state.pointEditor();
+  if (!editor) throw new Error('Expected point editor');
+  editor.fields.name().value.set('Nowa nazwa');
+  state.placePoint({ sessionId: editor.id, coordinates: { latitude: 51.5, longitude: 20.5 } });
+  expect(activeDocument(state).points[0]).toEqual(original);
+  state.changeViewport({ latitude: 52, longitude: 21, zoom: 12 });
+  expect(editor.fields.latitude().value()).toBe('51.5');
+  expect(editor.fields.name().value()).toBe('Nowa nazwa');
+  expect(await state.savePoint(editor.id)).toBe(true);
+  expect(activeDocument(state).points[0]).toEqual({
+    ...original,
+    name: 'Nowa nazwa',
+    coordinates: { latitude: 51.5, longitude: 20.5 },
+  });
+});
+
+it.each(['stay', 'abort'] as const)('cancels a pending point Save on %s', async (choice) => {
+  const { state } = await setup();
+  await state.editPoint('point-home');
+  const editor = state.pointEditor();
+  if (!editor) throw new Error('Expected editor');
+  const original = structuredClone(activeDocument(state));
+  editor.fields.name().value.set('Delayed point');
+  const cancellation = new AbortController();
+  const exit = state.requestEditorExit(cancellation.signal);
+  const saving = state.resolveEditorTransition('save');
+  if (choice === 'stay') await state.resolveEditorTransition('stay');
+  else cancellation.abort();
+  await saving;
+  expect(await exit).toBe(false);
+  expect(activeDocument(state)).toEqual(original);
+  expect(state.pointEditor()?.id).toBe(editor.id);
+});
+
+it('validates new points, cancels geometry and ignores stale placement and field writes', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editPoint();
+  const first = state.pointEditor();
+  if (!first) throw new Error('Expected editor');
+  expect(await state.savePoint(first.id)).toBe(false);
+  first.fields.name().value.set('Szkic');
+  state.placePoint({ sessionId: first.id, coordinates: { latitude: 50, longitude: 19 } });
+  state.discardEditor(first.id);
+  await state.editPoint();
+  const next = state.pointEditor();
+  if (!next) throw new Error('Expected editor');
+  first.fields.name().value.set('Spóźniona zmiana');
+  state.placePoint({ sessionId: first.id, coordinates: { latitude: 51, longitude: 20 } });
+  expect(next.fields.name().value()).toBe('');
+  expect(next.fields.latitude().value()).toBe('');
+  state.discardEditor(next.id);
+  expect(activeDocument(state)).toEqual(original);
+});
+
+it('protects dirty point transitions with Stay, validation, Save and Discard', async () => {
+  const { state } = await setup();
+  await state.editPoint();
+  const editor = state.pointEditor();
+  if (!editor) throw new Error('Expected editor');
+  editor.fields.name().value.set('Karmienie');
+  const stay = state.editPoint('point-home');
+  await state.resolveEditorTransition('stay');
+  await stay;
+  expect(state.pointEditor()?.id).toBe(editor.id);
+  const save = state.editPoint('point-home');
+  await state.resolveEditorTransition('save');
+  expect(state.closeRequested()).toBe(true);
+  state.placePoint({ sessionId: editor.id, coordinates: { latitude: 51, longitude: 20 } });
+  editor.fields.roles.feeding_location().value.set(true);
+  editor.fields.escape().value.set(true);
+  await state.resolveEditorTransition('save');
+  await save;
+  const committed = activeDocument(state).points.at(-1);
+  expect(committed).toMatchObject({
+    name: 'Karmienie',
+    roles: ['feeding_location'],
+    coordinates: { latitude: 51, longitude: 20 },
+  });
+  expect(activeDocument(state).case.escape.escapePointId).toBe(committed?.id);
+  const current = state.pointEditor();
+  if (!current) throw new Error('Expected next editor');
+  current.fields.name().value.set('Odrzuć mnie');
+  const leave = state.requestEditorExit();
+  await state.resolveEditorTransition('discard');
+  expect(await leave).toBe(true);
+  expect(activeDocument(state).points[0].name).not.toBe('Odrzuć mnie');
+});
+
+it('deletes a place only after confirmation and unlinks its observations without removing assets or other records', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  state.requestPointRemoval('point-shed');
+  expect(state.deletingPoint()?.entries).toHaveLength(7);
+  state.cancelPointRemoval();
+  expect(activeDocument(state)).toEqual(original);
+  state.requestPointRemoval('point-shed');
+  state.confirmPointRemoval();
+  const exported = parseCaseFile(await state.exportJson());
+  expect(exported.success).toBe(true);
+  expect(activeDocument(state).points.map((point) => point.id)).toEqual(['point-home']);
+  expect(activeDocument(state).areas[0].checks[0].observationEntryId).toBeNull();
+  expect(activeDocument(state).areas.map((area) => area.id)).toEqual(
+    original.areas.map((area) => area.id),
+  );
+  expect(activeDocument(state).assets).toEqual(original.assets);
+  state.requestPointRemoval('point-home');
+  state.confirmPointRemoval();
+  expect(activeDocument(state).case.escape.escapePointId).toBeNull();
+});
+
 it('isolates nested Signal Forms edits, preserves them across map changes, and commits once', async () => {
   const { state } = await setup();
   const original = structuredClone(activeDocument(state));
@@ -127,11 +242,11 @@ it('waits for Save / Discard / Stay before allowing route exit', async () => {
   const editor = state.profileEditor();
   if (!editor) throw new Error('Expected editor');
   editor.fields.animal.name().value.set('Route draft');
-  const stayed = state.requestProfileExit();
+  const stayed = state.requestEditorExit();
   await state.resolveEditorTransition('stay');
   expect(await stayed).toBe(false);
   expect(state.profileEditor()?.id).toBe(editor.id);
-  const discarded = state.requestProfileExit();
+  const discarded = state.requestEditorExit();
   await state.resolveEditorTransition('discard');
   expect(await discarded).toBe(true);
   expect(state.profileEditor()).toBeNull();
@@ -144,7 +259,7 @@ it('cancels a superseded route exit without discarding the draft', async () => {
   if (!editor) throw new Error('Expected editor');
   editor.fields.animal.name().value.set('Keep me');
   const cancellation = new AbortController();
-  const decision = state.requestProfileExit(cancellation.signal);
+  const decision = state.requestEditorExit(cancellation.signal);
   cancellation.abort();
   expect(await decision).toBe(false);
   expect(state.closeRequested()).toBe(false);
@@ -159,7 +274,7 @@ it('cancels pending replacement when route exit supersedes its dirty-editor deci
   if (!editor) throw new Error('Expected editor');
   editor.fields.animal.name().value.set('Keep this draft');
   state.prepareNewCase();
-  const leaving = state.requestProfileExit();
+  const leaving = state.requestEditorExit();
   await state.resolveEditorTransition('stay');
   expect(await leaving).toBe(false);
   expect(state.candidate()).toBeNull();
@@ -456,7 +571,7 @@ it('aborts an in-flight transition Save when navigation is cancelled', async () 
   if (!session) throw new Error('Expected editor');
   session.fields.animal.name().value.set('Keep editing');
   const cancellation = new AbortController();
-  const leaving = state.requestProfileExit(cancellation.signal);
+  const leaving = state.requestEditorExit(cancellation.signal);
   const saving = state.resolveEditorTransition('save');
   cancellation.abort();
   await saving;

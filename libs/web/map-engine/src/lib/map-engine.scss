@@ -66,7 +66,7 @@ button:disabled {
 .messages {
   position: absolute;
   z-index: 501;
-  top: 80px;
+  top: 130px;
   right: 16px;
   max-width: min(300px, calc(100% - 32px));
   max-height: calc(100% - 160px);
@@ -112,10 +112,26 @@ button:disabled {
     padding: 10px;
   }
   .messages {
-    top: 72px;
+    top: 116px;
     right: 12px;
     left: 12px;
     max-width: none;
     max-height: calc(100% - 345px);
   }
+}
+
+.overlap {
+  position: absolute;
+  z-index: 505;
+  left: 50%;
+  top: 35%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  max-height: 50%;
+  overflow: auto;
+  border-radius: 16px;
+  background: var(--pt-panel);
+  box-shadow: var(--pt-shadow);
 }
