@@ -37,7 +37,7 @@ The worker selects the HEIF primary image by leaving page selection implicit, ap
 
 Admission is one derivative at a time; Sharp's operation cache is disabled and native thread concurrency is one. Each child has a 128 MiB V8 old-space budget, which **does not cap native allocation or total RSS**. `IMAGE_PROCESSING_TIMEOUT_MS` defaults to 60000 and accepts 1–600000 ms per derivative, including child startup; expiry kills that child and publishes a retryable processing failure. Sharp's default pixel/decoder safeguards remain enabled. These are processing constraints, not upload MB/count limits.
 
-The worker shares the container's memory cgroup with the HTTP process. A separate Node process contains ordinary exceptions/native process exits; it cannot guarantee that the OS will spare the HTTP process during cgroup or host OOM. Use measured deployment memory and preserve the asset mount across recovery.
+The worker shares the container's memory cgroup with the HTTP process. A separate Node process contains ordinary exceptions/native process exits; it cannot guarantee that the OS will spare the HTTP process during cgroup or host OOM. In the actual 192 MiB tests, one run spared HTTP while killing decoders; the final run killed the entire API container. Both recovered originals and processing after replacement with normal resources. The 48 MP fixture used about 304000 KiB peak worker RSS. Use measured deployment memory and preserve the asset mount across recovery.
 
 ## Verification
 
