@@ -41,13 +41,13 @@ export class LeafletAreas {
     const ids = new Set(visible.map((area) => area.id));
     for (const [id, entry] of this.plans)
       if (!ids.has(id)) {
-        entry.layer.off().remove();
+        entry.layer.remove().off();
         this.plans.delete(id);
       }
     for (const area of visible) {
       const existing = this.plans.get(area.id);
       if (!existing || existing.geometry.type !== area.geometry.type) {
-        existing?.layer.off().remove();
+        existing?.layer.remove().off();
         const layer = this.shape(area.geometry, true);
         layer.bindTooltip(label(area.name));
         layer.on('click', (event: L.LeafletMouseEvent) => {
@@ -147,7 +147,7 @@ export class LeafletAreas {
     this.working.eachLayer((layer) => layer.off());
     this.working.clearLayers();
     this.working.remove();
-    for (const entry of this.plans.values()) entry.layer.off().remove();
+    for (const entry of this.plans.values()) entry.layer.remove().off();
     this.plans.clear();
     this.draft = null;
     this.measurement = null;

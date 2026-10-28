@@ -63,7 +63,12 @@ test('draws a circle from the shared toolbar, preserves a cancelled correction a
   const saved = await exportCase(page);
   expect(saved.areas[0].plannedGeometry).toMatchObject({ type: 'circle', radiusMeters: 100 });
   await page.getByRole('button', { name: 'Las', exact: true }).click();
-  await page.getByRole('button', { name: 'Edytuj obszar', exact: true }).click();
+  await page.getByRole('button', { name: 'Edytuj obszar', exact: true }).focus();
+  await page.locator('.leaflet-overlay-pane path.leaflet-interactive').hover();
+  await expect(page.locator('.leaflet-tooltip').filter({ hasText: 'Las' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Nazwa obszaru', { exact: true })).toBeVisible();
+  await expect(page.locator('.leaflet-tooltip').filter({ hasText: 'Las' })).toHaveCount(0);
   const before = await page.locator('.pt-geometry-handle[title="Środek koła"]').boundingBox();
   await dragHandle(page, 'Środek koła', 35, 25);
   expect(await page.locator('.pt-geometry-handle[title="Środek koła"]').boundingBox()).not.toEqual(

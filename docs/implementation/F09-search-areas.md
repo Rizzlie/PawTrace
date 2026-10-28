@@ -59,4 +59,10 @@ Verification on 2026-10-28:
 - Desktop and 390px screenshots were inspected. The toolbar stays visible, geometry handles are separate from saved shapes, and panels scroll without shrinking the map canvas. A phone test initially clicked a location-denial overlay; using exposed map positions and initializing the phone viewport before restoration corrected the scenario. Keyboard coverage enters the toolbar through its first widget and follows ArrowDown through the new actions.
 - `git diff --check` passed. Tests use controlled tiles; no external provider quota, paid editor, asset operation or schema-version change was introduced.
 
-Independent Standards and Spec reviews against user-confirmed base `492cde6` are pending.
+### Standards review
+
+Independent review against user-confirmed base `492cde6` found no documented-standard violations. One low-priority possible duplication judgment notes the feature-owned Save cancellation/validation/commit sequence shared in shape with existing editors. It remains a future deepening opportunity; no speculative editor abstraction was added.
+
+### Spec review
+
+Independent review against the same base found one medium-severity cleanup defect: removing listeners before a saved shape prevented Leaflet's own bound-tooltip cleanup. All three saved-plan removal paths now remove the layer before clearing its listeners. A browser regression leaves the pointer over a plan, opens editing by keyboard and asserts that the open label is removed; it failed with one orphaned tooltip before the correction. No other missing requirements, incorrect behavior or scope creep was identified. After correction, all 12 selected frontend typecheck/lint/test/build targets passed, and the complete 63-scenario browser suite passed with `npm exec nx run web-e2e:e2e -- --workers=2 --output-style=static`. An earlier four-worker post-review run passed all F09 scenarios but hit an application-start timeout in an existing profile scenario and a pre-collapse layout read in an existing point-panel scenario. The collapse helper now explicitly waits for the list to be hidden before measuring layout; no timeout or product assertion was relaxed.

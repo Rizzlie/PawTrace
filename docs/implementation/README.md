@@ -21,11 +21,11 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 
 1. [F01 — Nx workspace and local Docker runtime](F01-workspace-and-docker.md) — done. Dependencies: none.
 2. [F02 — Leaflet map and basemap switching](F02-map-and-basemaps.md) — done; live Mapbox operation confirmed by the user on 2026-10-28. Dependencies: F01.
-3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM while F02's satellite-token check remains pending.
+3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM before F02's live Mapbox acceptance.
 4. [F04 — Case domain model and JSON contract](F04-domain-and-json-contract.md) — done. Dependencies: F01.
 5. [F05 — Case lifecycle, autosave, and file transfer](F05-case-persistence.md) — done. Dependencies: F02 implementation, F04; the user waived waiting for F02 live Mapbox acceptance.
 6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — done. Dependencies: F04, F05.
-7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM while F02 live Mapbox acceptance remains pending. Dependencies: F02, F03, F04, F05, F06.
+7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM before F02's live Mapbox acceptance. Dependencies: F02, F03, F04, F05, F06.
 8. [F08 — Point history and animal identification](F08-point-history.md) — done. Dependencies: F07.
 9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — in_progress; implementation verified, independent review pending. Dependencies: F07, F08.
 10. [F10 — Actual searches and area-check history](F10-search-checks.md) — planned. Dependencies: F09.

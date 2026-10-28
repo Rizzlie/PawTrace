@@ -27,6 +27,7 @@ async function selectListedPoint(page: Page, name: string) {
 async function collapsePlaces(page: Page) {
   const collapse = page.getByRole('button', { name: 'Zwiń miejsca', exact: true });
   if (await collapse.isVisible()) await collapse.click();
+  await expect(page.locator('#place-list')).toBeHidden();
 }
 
 test.beforeEach(async ({ page }) => {
