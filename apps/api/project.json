@@ -5,6 +5,13 @@
   "projectType": "application",
   "tags": ["platform:api", "scope:app", "type:app"],
   "targets": {
+    "verify-assets": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node tools/verify-original-assets.mjs"
+      }
+    },
     "prune-lockfile": {
       "dependsOn": ["build"],
       "cache": true,

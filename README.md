@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01 provides the Angular/NestJS foundation and Linux Docker runtime. F02 adds a full-workspace Leaflet map, OSM/Mapbox basemap switching, location on demand, and visible recovery from provider failures. F03 adds submitted Polish address search through the local API and map navigation to the selected result. F04 adds the framework-neutral case model, strict JSON v1 validation and pure parse/export functions. F05 adds case creation, IndexedDB autosave/restoration, safe JSON import/export and saved/unsaved feedback. F06 adds the animal profile and escape circumstances. F07 adds named map points with roles, isolated map/Signal Forms editing, canonical escape assignment, overlap selection and safe removal. Live Mapbox acceptance is pending a configured public token; history and area editing interfaces remain planned.
+F01–F10 provide the Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas, actual-search snapshots and Material UI. Live Mapbox operation was confirmed on 2026-10-28. F11 adds persistent original-photo upload/download and asset metadata; image processing and photo controls follow in F12–F13.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -162,3 +162,17 @@ An observation has its own source, optional location-uncertainty radius and iden
 Event time can be exact, approximate, a range with either endpoint unknown, date only or unknown. Keep the original verbal description. Local date/time inputs use the case's time zone; repeated daylight-saving hours require an explicit occurrence, and nonexistent hours are rejected. History sorts newest local calendar days first, using the known instant (range start, otherwise end) within a day; date-only entries follow timed entries for that day. Creation time and then stable ID break ties, including in the separate **Nieznany czas** section. This is display ordering, not invented event precision.
 
 Food placement/refill details and food-status checks remain independent records in the place's history. Missing food does not assert the target animal's presence. Recording **Zwierzę odnalezione i zabezpieczone** keeps the case editable and exportable. JSON transfer and browser autosave include all committed history; photo upload/viewing comes in F13.
+
+## Original-photo storage
+
+The API can store JPEG, PNG, WebP and HEIC originals independently of case data. Photo controls arrive in F13; thumbnails, HEIC previews and processing retries arrive in F12. Format recognition uses file content; it does not promise that every recognizable file can be decoded.
+
+- `POST /api/assets`: send one multipart file named `file`; HTTP 201 returns its unique `filename`, original metadata and derivative states. Send additional photos as independent requests. Only successful original filenames should enter case `photos` lists. The response's `processing` field belongs to the asset interface, not the exported case JSON schema.
+- `GET /api/assets/:filename/metadata`: fetch metadata and current derivative states without caching them.
+- `GET /api/assets/:filename`: stream the unchanged original as an attachment. Missing files return 404. Failed original writes return a retryable HTTP 507 error without a successful filename; malformed multipart requests return 400 and unsupported content 415.
+
+`ASSET_DIRECTORY` defaults to `./data/assets` for Node development. Compose already binds the host directory to `/app/data/assets`. Each server-generated UUID reserves one directory containing the original and `metadata.json`; incomplete writes have no final metadata marker and cannot be retrieved. Do not expose this directory with a separate static-file server. Unlinking a case photo never removes server files. To back up or transfer a case with its photos, copy its JSON **and the complete asset directory**, including metadata, while uploads are stopped. JSON alone does not copy images.
+
+There is no product photo-count or MB cap. Actual disk/inode availability, permissions, network failure, parser header limits and Node's 300-second request/60-second header timeouts still apply. The Compose route has no buffering reverse proxy; uploads stream to disk and originals stream back. Successfully saved originals survive derivative failures. Hard kills can leave unpublished partial directories; automatic cleanup and guarantees against host power loss are outside this slice.
+
+With Docker running, `npm exec nx run api:verify-assets` builds the production image and checks original hashes, container-replacement persistence, read-only storage, real disk-full failures and recovery. It uses isolated temporary containers and preserves the ordinary Compose deployment.

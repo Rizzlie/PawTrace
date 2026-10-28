@@ -1,15 +1,18 @@
-import { Module, type DynamicModule } from "@nestjs/common";
-import { CacheModule } from "@nestjs/cache-manager";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { createKeyv } from "@keyv/redis";
-import { validateEnvironment, type Environment } from "./environment";
-import { AppController } from "./app.controller";
-import { MapConfigController } from "./map-config.controller";
-import { AddressSearch, AddressSearchController } from "./address-search";
+import { Module, type DynamicModule } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { createKeyv } from '@keyv/redis';
+import { validateEnvironment, type Environment } from './environment';
+import { AppController } from './app.controller';
+import { MapConfigController } from './map-config.controller';
+import { AddressSearch, AddressSearchController } from './address-search';
+import { AssetsController } from './assets/assets.controller';
+import { AssetUploads } from './assets/asset-uploads';
+import { OriginalAssets } from './assets/original-assets';
 
 @Module({
-  controllers: [AppController, MapConfigController, AddressSearchController],
-  providers: [AddressSearch],
+  controllers: [AppController, MapConfigController, AddressSearchController, AssetsController],
+  providers: [AddressSearch, AssetUploads, OriginalAssets],
 })
 export class AppModule {
   static async configure(
@@ -33,7 +36,7 @@ export class AppModule {
             stores: [
               createKeyv(
                 {
-                  url: settings.get("REDIS_URL", { infer: true }),
+                  url: settings.get('REDIS_URL', { infer: true }),
                   commandOptions: { timeout: 1000 },
                   socket: {
                     connectTimeout: 1000,
@@ -42,7 +45,7 @@ export class AppModule {
                   },
                 },
                 {
-                  namespace: "pawtrace",
+                  namespace: 'pawtrace',
                   connectionTimeout: 1000,
                   throwOnConnectError: true,
                   throwOnErrors: true,

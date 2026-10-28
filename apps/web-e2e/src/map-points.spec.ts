@@ -18,6 +18,7 @@ async function savePoint(page: Page) {
 async function expandPlaces(page: Page) {
   const expand = page.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
   if (await expand.isVisible()) await expand.click();
+  await expect(page.locator('#place-list')).toBeVisible();
 }
 
 async function selectListedPoint(page: Page, name: string) {
