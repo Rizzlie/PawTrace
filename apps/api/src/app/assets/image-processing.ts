@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpException,
   Injectable,
   Logger,
@@ -89,8 +90,16 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
   }
 
   async retry(filename: string): Promise<AssetMetadata> {
-    if (this.active === filename || this.retrying.has(filename))
-      return this.originals.metadata(filename);
+    if (this.active === filename) {
+      const metadata = await this.originals.metadata(filename);
+      if (kinds.some((kind) => metadata.processing[kind].status === 'failed')) {
+        throw new ConflictException(
+          'Przetwarzanie zdjęcia trwa. Ponów nieudane podglądy po jego zakończeniu.',
+        );
+      }
+      return metadata;
+    }
+    if (this.retrying.has(filename)) return this.originals.metadata(filename);
     this.retrying.add(filename);
     try {
       const metadata = await this.originals.metadata(filename);

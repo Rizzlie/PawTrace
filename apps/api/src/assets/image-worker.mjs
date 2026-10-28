@@ -13,7 +13,11 @@ process.once('message', async ({ input, output, kind }) => {
     if (kind === 'thumbnail') {
       image.resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true });
     }
-    await image.toColourspace('srgb').png().toFile(output);
+    await image
+      .withIccProfile('srgb', { attach: false })
+      .toColourspace('srgb')
+      .png()
+      .toFile(output);
     process.send?.({
       ok: true,
       width: dimensions.width,

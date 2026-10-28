@@ -15,7 +15,7 @@ The external seam is HTTP: upload one original, read metadata, download the orig
 - `GET /api/assets/:filename`: downloads the exact received original bytes.
 - `GET /api/assets/:filename/thumbnail`: streams an inline PNG, fitted inside 480 × 480 pixels without enlargement, retaining alpha.
 - `GET /api/assets/:filename/preview`: streams an inline, full-resolution PNG for HEIC, without resizing. Other formats use `not_required` and their original for full viewing.
-- `POST /api/assets/:filename/retry`: returns metadata and queues failed derivatives against the same original. Pending/active and ready outputs are retained. Concurrent retries are idempotent within the supported single application instance.
+- `POST /api/assets/:filename/retry`: returns metadata and queues failed derivatives against the same original. Pending and ready outputs are retained. If a derivative has failed while another is still active, return an explicit 409 busy response; retry after that processing attempt ends. Concurrent retries are idempotent within the supported single application instance.
 
 Derivative names in metadata are relative to their original's UUID directory, e.g. `thumbnail.png` / `preview.png`; fetch them through the original's HTTP routes above. Pending, failed, not-required and missing derivatives return 404; inspect metadata to distinguish their states. Unknown/unsafe original names return 404. Metadata/storage-read failure and retry-write failure return 503. The existing original-write 507 contract is unchanged.
 
@@ -33,7 +33,7 @@ This is a single application-instance filesystem queue. Do not run multiple PawT
 
 The Linux image builds Sharp **0.35.5** against libvips **8.18.7**, libheif **1.23.7**, and libde265 **1.1.3**, on Node **24.16.0** / Debian bookworm. Native release archives are SHA-256 pinned in the Dockerfile. libde265 is linked into libheif rather than discovered as an optional runtime plugin. No HEVC encoder or WASM replacement is used. Custom library/tool licences are included under `/opt/codecs/licenses`.
 
-The worker selects the HEIF primary image by leaving page selection implicit, applies orientation, converts derivatives to sRGB and outputs PNG. Original bytes remain the fidelity guarantee. PNG previews are compatible SDR views, not a promise of original bit depth, embedded metadata, wide-gamut/HDR identity or gain-map rendering. One still primary image suffices for compound/animated input.
+The worker selects the HEIF primary image by leaving page selection implicit, applies orientation, explicitly transforms embedded ICC profiles to sRGB and outputs PNG. The conversion includes an output ICC transform: changing libvips' colourspace alone does not correctly transform 10-bit P3 working pixels. Original bytes remain the fidelity guarantee. PNG previews are compatible SDR views, not a promise of original bit depth, embedded metadata, wide-gamut/HDR identity or gain-map rendering. One still primary image suffices for compound/animated input.
 
 Admission is one derivative at a time; Sharp's operation cache is disabled and native thread concurrency is one. Each child has a 128 MiB V8 old-space budget, which **does not cap native allocation or total RSS**. `IMAGE_PROCESSING_TIMEOUT_MS` defaults to 60000 and accepts 1–600000 ms per derivative, including child startup; expiry kills that child and publishes a retryable processing failure. Sharp's default pixel/decoder safeguards remain enabled. These are processing constraints, not upload MB/count limits.
 

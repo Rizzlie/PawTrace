@@ -8,6 +8,8 @@ import { promisify } from 'node:util';
 import sharp from 'sharp';
 
 const exec = promisify(execFile);
+const fetch = (input, options = {}) =>
+  globalThis.fetch(input, { signal: AbortSignal.timeout(10_000), ...options });
 const docker = async (...args) =>
   (await exec('docker', args, { maxBuffer: 16 * 1024 * 1024 })).stdout.trim();
 const image = process.env.ASSET_TEST_IMAGE ?? 'pawtrace:image-processing-check';
@@ -108,7 +110,7 @@ async function retry(runtime, asset) {
   );
 }
 
-async function freezeNextWorker(runtime) {
+async function freezeNextWorker(runtime, afterThumbnailFailure) {
   // Observe the real process tree, never replace the decoder with a test implementation.
   return docker(
     'exec',
@@ -119,11 +121,19 @@ async function freezeNextWorker(runtime) {
     '-e',
     `
     const fs=require('fs');const deadline=Date.now()+15000;
+    const watched=${JSON.stringify(afterThumbnailFailure ?? null)};
     const timer=setInterval(()=>{
+      if(Date.now()>deadline)process.exit(3);
+      if(watched){
+        const metadata=JSON.parse(fs.readFileSync('/app/data/assets/'+watched.slice(0,36)+'/metadata.json','utf8'));
+        if(metadata.processing.thumbnail.status!=='failed')return;
+      }
       const pids=fs.readFileSync('/proc/1/task/1/children','utf8').trim().split(/\\s+/).filter(Boolean);
       if(pids.length>1)process.exit(2);
-      if(pids[0]){process.kill(Number(pids[0]),'SIGSTOP');console.log(pids[0]);clearInterval(timer);}
-      else if(Date.now()>deadline)process.exit(3);
+      // Wait until exec completes: stopping a pre-exec child can block its parent's spawn syscall.
+      if(pids[0] && fs.readFileSync('/proc/'+pids[0]+'/cmdline','utf8').includes('image-worker.mjs')){
+        process.kill(Number(pids[0]),'SIGSTOP');console.log(pids[0]);clearInterval(timer);
+      }
     },5);
   `,
   );
@@ -150,6 +160,38 @@ try {
   assert.match(heifVersion, /1\.23\.7/u);
   console.log(`LIBHEIF ${heifVersion}`);
   console.log(await docker('exec', runtime.name, '/opt/codecs/bin/heif-dec', '--list-decoders'));
+
+  const busyBytes = await readFile(`${fixtures}/heic/basic-8bit-srgb.heic`);
+  const busy = await upload(runtime, busyBytes);
+  const busyObstruction = join(directory, busy.filename.slice(0, 36), 'thumbnail.png');
+  await mkdir(busyObstruction);
+  const busyPid = await freezeNextWorker(runtime, busy.filename);
+  assert.equal((await metadata(runtime, busy)).processing.thumbnail.status, 'failed');
+  await rm(busyObstruction, { recursive: true });
+  const busyRetry = await fetch(`${runtime.base}/assets/${busy.filename}/retry`, {
+    method: 'POST',
+  });
+  assert.equal(
+    busyRetry.status,
+    409,
+    'An active preview must not silently accept retry of its failed thumbnail',
+  );
+  await docker(
+    'exec',
+    '--user',
+    'root',
+    runtime.name,
+    'node',
+    '-e',
+    `process.kill(${Number(busyPid)}, 'SIGKILL')`,
+  );
+  await settled(runtime, busy);
+  await retry(runtime, busy);
+  assert.equal((await settled(runtime, busy)).processing.thumbnail.status, 'ready');
+  await original(runtime, busy, busyBytes);
+  console.log(
+    'PASS retry during active processing: explicit busy response; retry after completion recovers the same original.',
+  );
 
   const retained = [];
   for (const extension of ['jpg', 'webp', 'heic']) {
@@ -196,6 +238,20 @@ try {
     assert.equal(complete.heightPixels, expected.height, name);
     const preview = await derivative(runtime, asset, 'preview');
     const dimensions = await sharp(preview).metadata();
+    if (name === 'display-p3-10bit.heic') {
+      // The CC0 chart's left red patch represents sRGB maximum red in P3 encoding.
+      const pixel = await sharp(preview)
+        .extract({ left: 500, top: 740, width: 1, height: 1 })
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+      for (const [index, expectedChannel] of [255, 0, 0].entries()) {
+        assert.ok(
+          Math.abs(pixel[index] - expectedChannel) <= 3,
+          `P3 to sRGB red patch: ${[...pixel]}`,
+        );
+      }
+    }
     assert.equal(dimensions.width, expected.width, name);
     assert.equal(dimensions.height, expected.height, name);
     const thumbnail = await sharp(await derivative(runtime, asset, 'thumbnail')).metadata();
