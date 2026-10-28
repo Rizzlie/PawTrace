@@ -40,3 +40,22 @@ export interface PointPlacement {
   sessionId: number;
   coordinates: MapCoordinates;
 }
+
+export interface MapArea {
+  id: string;
+  name: string;
+  geometry: import('@pawtrace/case-domain').SearchGeometry;
+  selected: boolean;
+}
+export interface MapAreaDraft {
+  sessionId: number;
+  areaId: string;
+  type: 'circle' | 'polygon';
+  vertices: MapCoordinates[];
+  radiusMeters: number;
+}
+export interface AreaGeometryChange {
+  sessionId: number;
+  vertices: MapCoordinates[];
+  radiusMeters: number;
+}

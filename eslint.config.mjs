@@ -13,7 +13,10 @@ export default [
         {
           enforceBuildableLibDependency: true,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
-          checkDynamicDependenciesExceptions: ['@pawtrace/case-domain/history'],
+          checkDynamicDependenciesExceptions: [
+            '@pawtrace/case-domain/history',
+            '@pawtrace/case-domain/geometry',
+          ],
           depConstraints: [
             {
               sourceTag: 'platform:web',

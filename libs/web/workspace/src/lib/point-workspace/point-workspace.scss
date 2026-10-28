@@ -31,8 +31,8 @@ pt-floating-panel {
   font-size: 18px;
 }
 .editor {
-  top: 124px;
-  right: 16px;
+  top: 110px;
+  right: 76px;
   z-index: 2;
 }
 .heading,
@@ -172,7 +172,8 @@ dialog::backdrop {
     z-index: 4;
     top: 110px;
     max-height: calc(100% - 160px);
-    right: 12px;
+    right: 72px;
+    width: calc(100% - 116px);
   }
 }
 

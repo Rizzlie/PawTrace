@@ -29,20 +29,82 @@
     type="button"
     [disabled]="map.locating()"
     [matTooltip]="map.locationHint()"
+    aria-label="Moja lokalizacja"
     matTooltipPosition="left"
     (click)="map.locate()"
   >
-    <span aria-hidden="true">⌖</span> Moja lokalizacja
+    <span aria-hidden="true">⌖</span>
   </button>
   <button
     ngToolbarWidget
     type="button"
     [disabled]="!pointCreationEnabled()"
+    aria-label="Dodaj punkt"
+    matTooltip="Dodaj punkt"
+    matTooltipPosition="left"
     (click)="addPointRequested.emit()"
   >
-    <span aria-hidden="true">＋</span> Dodaj punkt
+    <span aria-hidden="true">＋</span>
+  </button>
+  <button
+    ngToolbarWidget
+    type="button"
+    aria-label="Rysuj koło"
+    matTooltip="Rysuj koło"
+    matTooltipPosition="left"
+    [disabled]="!pointCreationEnabled()"
+    [attr.aria-pressed]="areaDraft()?.type === 'circle'"
+    (click)="addAreaRequested.emit('circle')"
+  >
+    <span aria-hidden="true">◯</span>
+  </button>
+  <button
+    ngToolbarWidget
+    type="button"
+    aria-label="Rysuj wielokąt"
+    matTooltip="Rysuj wielokąt"
+    matTooltipPosition="left"
+    [disabled]="!pointCreationEnabled()"
+    [attr.aria-pressed]="areaDraft()?.type === 'polygon'"
+    (click)="addAreaRequested.emit('polygon')"
+  >
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M4 6 18 3 21 16 9 21Z" fill="none" stroke="currentColor" stroke-width="2" />
+    </svg>
+  </button>
+  <button
+    ngToolbarWidget
+    type="button"
+    aria-label="Zmierz odległość"
+    matTooltip="Zmierz odległość"
+    matTooltipPosition="left"
+    [attr.aria-pressed]="measuring()"
+    (click)="measurementRequested.emit()"
+  >
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        d="m3 16 13-13 5 5-13 13Z M8 11l2 2 M12 7l2 2 M16 3l2 2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      />
+    </svg>
   </button>
 </div>
+@if (measurement() !== null) {
+  <section class="measurement" aria-label="Pomiar odległości">
+    <strong>Odległość w linii prostej</strong>
+    <p role="status">{{ distance() }}</p>
+    <p>
+      Przeciągnij uchwyty, aby poprawić pozycje. Kolejne kliknięcie po dwóch pozycjach rozpoczyna
+      nowy pomiar.
+    </p>
+    <button type="button" [disabled]="!measurement()?.length" (click)="undoMeasurement()">
+      Cofnij pomiar
+    </button>
+    <button type="button" (click)="measurementClosed.emit()">Zakończ pomiar</button>
+  </section>
+}
 @if (
   map.tileMessage() ||
   map.locationMessage() ||

@@ -30,6 +30,20 @@
           </li>
         }
       </ul>
+      <strong>Obszary poszukiwań ({{ state.mapAreas().length }})</strong>
+      <ul>
+        @for (area of state.mapAreas(); track area.id) {
+          <li>
+            <button
+              type="button"
+              [attr.aria-pressed]="state.selectedAreaId() === area.id"
+              (click)="selectArea(area.id)"
+            >
+              {{ area.name }}
+            </button>
+          </li>
+        }
+      </ul>
     </div>
   }
 </pt-floating-panel>

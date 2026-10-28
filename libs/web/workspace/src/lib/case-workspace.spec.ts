@@ -62,6 +62,88 @@ async function setup(storage = new Storage()) {
   };
 }
 
+it('keeps area drafts isolated, undoes geometry and preserves check footprints when a plan is removed', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editArea('circle');
+  const editor = state.areaEditor();
+  if (!editor) throw new Error('Expected area editor');
+  editor.fields.name().value.set('Las');
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 52, longitude: 21 }],
+    radiusMeters: 100,
+  });
+  expect(activeDocument(state)).toEqual(original);
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 53, longitude: 22 }],
+    radiusMeters: 200,
+  });
+  state.undoAreaGeometry(editor.id);
+  expect(state.mapAreaDraft()?.vertices).toEqual([{ latitude: 52, longitude: 21 }]);
+  expect(await state.saveArea(editor.id)).toBe(true);
+  expect(
+    activeDocument(state).areas[activeDocument(state).areas.length - 1]?.plannedGeometry,
+  ).toEqual({ type: 'circle', center: { latitude: 52, longitude: 21 }, radiusMeters: 100 });
+  const area = original.areas.find((area) => area.checks.length);
+  if (!area) throw new Error('Expected historical check');
+  state.requestAreaRemoval(area.id);
+  state.confirmAreaRemoval();
+  expect(activeDocument(state).areas.find((item) => item.id === area.id)).toEqual({
+    ...area,
+    plannedGeometry: null,
+  });
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('validates polygons and protects dirty area transitions, cancelled saves and stale form writes', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editArea('polygon');
+  const editor = state.areaEditor();
+  if (!editor) throw new Error('Expected area editor');
+  editor.fields.name().value.set('Zagajnik');
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [
+      { latitude: 52, longitude: 21 },
+      { latitude: 53, longitude: 22 },
+      { latitude: 54, longitude: 23 },
+    ],
+    radiusMeters: 0,
+  });
+  expect(await state.saveArea(editor.id)).toBe(false);
+  const pending = state.editPoint();
+  await state.resolveEditorTransition('stay');
+  await pending;
+  expect(state.areaEditor()?.id).toBe(editor.id);
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [
+      { latitude: 52, longitude: 21 },
+      { latitude: 52, longitude: 22 },
+      { latitude: 53, longitude: 22 },
+    ],
+    radiusMeters: 0,
+  });
+  const saving = state.saveArea(editor.id);
+  state.discardEditor(editor.id);
+  expect(await saving).toBe(false);
+  expect(activeDocument(state)).toEqual(original);
+  await state.editArea('circle');
+  const current = state.areaEditor();
+  if (!current) throw new Error('Expected new area editor');
+  editor.fields.name().value.set('Stare dane');
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 1, longitude: 2 }],
+    radiusMeters: 20,
+  });
+  expect(current.fields.name().value()).toBe('');
+  expect(state.mapAreaDraft()?.vertices).toEqual([]);
+});
+
 it('edits an observation through isolated Signal Forms, validates rejection separately and derives counts', async () => {
   const { state } = await setup();
   const original = structuredClone(activeDocument(state));

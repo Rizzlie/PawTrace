@@ -1,7 +1,14 @@
 import { LeafletMap } from './leaflet-map';
 import { TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import type { Basemap, MapConfig, MapViewport, MapPlace, MapPointDraft } from './map-types';
+import type {
+  Basemap,
+  MapConfig,
+  MapViewport,
+  MapPlace,
+  MapPointDraft,
+  MapAreaDraft,
+} from './map-types';
 
 const captured = vi.hoisted(() => ({
   layers: [] as import('leaflet').TileLayer[],
@@ -37,6 +44,8 @@ describe('Reactive Leaflet integration', () => {
   let viewport: WritableSignal<MapViewport | undefined>;
   let places: WritableSignal<MapPlace[]>;
   let pointDraft: WritableSignal<MapPointDraft | null>;
+  let areaDraft: WritableSignal<MapAreaDraft | null>;
+  const areaChanged = vi.fn();
   const pointPlaced = vi.fn();
   const placesSelected = vi.fn();
   const viewportChanged = vi.fn();
@@ -68,6 +77,8 @@ describe('Reactive Leaflet integration', () => {
       places,
       pointDraft,
       pointPlaced,
+      areaDraft,
+      areaChanged,
       placesSelected,
     });
     TestBed.tick();
@@ -80,6 +91,7 @@ describe('Reactive Leaflet integration', () => {
     captured.markers.length = 0;
     places = signal<MapPlace[]>([]);
     pointDraft = signal<MapPointDraft | null>(null);
+    areaDraft = signal<MapAreaDraft | null>(null);
     config = signal<MapConfig>({ mapboxToken: '' });
     viewport = signal<MapViewport | undefined>(undefined);
     vi.stubGlobal(
@@ -439,5 +451,31 @@ describe('Reactive Leaflet integration', () => {
     expect(removed).toHaveBeenCalledOnce();
     initialize();
     expect(container.querySelectorAll('.leaflet-map-pane')).toHaveLength(1);
+  });
+  it('emits geographic circle edits only in the active mode and cleans up its handles', () => {
+    areaDraft.set({ sessionId: 71, areaId: 'new', type: 'circle', vertices: [], radiusMeters: 0 });
+    TestBed.tick();
+    captured.maps[0].fire('click', { latlng: { lat: 52, lng: 21 } });
+    expect(areaChanged).toHaveBeenLastCalledWith({
+      sessionId: 71,
+      vertices: [{ latitude: 52, longitude: 21 }],
+      radiusMeters: 0,
+    });
+    areaDraft.set({
+      sessionId: 71,
+      areaId: 'new',
+      type: 'circle',
+      vertices: [{ latitude: 52, longitude: 21 }],
+      radiusMeters: 0,
+    });
+    TestBed.tick();
+    captured.maps[0].fire('click', { latlng: { lat: 52.001, lng: 21 } });
+    expect(areaChanged.mock.lastCall?.[0].radiusMeters).toBeCloseTo(111.195, 1);
+    areaDraft.set(null);
+    TestBed.tick();
+    expect(container.querySelectorAll('.pt-geometry-handle')).toHaveLength(0);
+    areaChanged.mockClear();
+    captured.maps[0].fire('click', { latlng: { lat: 53, lng: 22 } });
+    expect(areaChanged).not.toHaveBeenCalled();
   });
 });

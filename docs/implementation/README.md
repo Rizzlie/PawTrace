@@ -2,7 +2,7 @@
 
 Use this index when the user asks to implement an identifier such as `F01`. Open the matching task file, read this execution guide, and follow that task's specification pointers. These are implementation tasks; the numbered decision tickets under `docs/mvp/issues/` remain the product specification.
 
-F01, F03, F04, F05, F06, F07 and F08 are implemented and verified. F02 is implemented with deterministic checks passing, but remains `blocked` on live Mapbox account/token acceptance. The user explicitly authorized F05 and F07 without waiting for that external F02 check. F09–F15 remain `planned`; task documents alone do not implement application features.
+F01–F08 are implemented and verified. The user confirmed live Mapbox operation on 2026-10-28, closing F02's remaining external acceptance blocker. F09–F15 remain `planned`; task documents alone do not implement application features.
 
 ## Execution guide
 
@@ -20,14 +20,14 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 ## Implementation order
 
 1. [F01 — Nx workspace and local Docker runtime](F01-workspace-and-docker.md) — done. Dependencies: none.
-2. [F02 — Leaflet map and basemap switching](F02-map-and-basemaps.md) — blocked: implementation ready; live Mapbox tile verification requires a configured public token. Dependencies: F01.
-3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM while F02's satellite-token check remains pending.
+2. [F02 — Leaflet map and basemap switching](F02-map-and-basemaps.md) — done; live Mapbox operation confirmed by the user on 2026-10-28. Dependencies: F01.
+3. [F03 — Address search through the local API](F03-address-search.md) — done. Dependencies: F01, F02; verified with OSM before F02's live Mapbox acceptance.
 4. [F04 — Case domain model and JSON contract](F04-domain-and-json-contract.md) — done. Dependencies: F01.
 5. [F05 — Case lifecycle, autosave, and file transfer](F05-case-persistence.md) — done. Dependencies: F02 implementation, F04; the user waived waiting for F02 live Mapbox acceptance.
 6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — done. Dependencies: F04, F05.
-7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM while F02 live Mapbox acceptance remains pending. Dependencies: F02, F03, F04, F05, F06.
+7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM before F02's live Mapbox acceptance. Dependencies: F02, F03, F04, F05, F06.
 8. [F08 — Point history and animal identification](F08-point-history.md) — done. Dependencies: F07.
-9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — planned. Dependencies: F07, F08.
+9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — in_progress; implementation verified, independent review pending. Dependencies: F07, F08.
 10. [F10 — Actual searches and area-check history](F10-search-checks.md) — planned. Dependencies: F09.
 11. [F11 — Persistent original-photo storage](F11-photo-storage.md) — planned. Dependencies: F01, F04, F10.
 12. [F12 — Image processing and HEIC previews](F12-image-processing.md) — planned. Dependencies: F11.

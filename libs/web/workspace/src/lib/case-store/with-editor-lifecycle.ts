@@ -1,3 +1,4 @@
+import type { AreaDraft } from '../area-workspace/area-draft';
 import type { EntryDraft } from '../history/entry-draft';
 import { EnvironmentInjector, inject } from '@angular/core';
 import {
@@ -27,16 +28,19 @@ export function withEditorResources() {
       const profile = new EditorForm<ProfileDraft>(parent);
       const point = new EditorForm<PointDraft>(parent);
       const entry = new EditorForm<EntryDraft>(parent);
+      const area = new EditorForm<AreaDraft>(parent);
       let sequence = 0;
       return {
         _nextEditorId: () => ++sequence,
         _profileResources: profile,
         _pointResources: point,
         _entryResources: entry,
+        _areaResources: area,
         _editorTransition: new EditorTransition(() => {
           profile.saving?.abort();
           point.saving?.abort();
           entry.saving?.abort();
+          area.saving?.abort();
         }),
       };
     }),
@@ -46,6 +50,7 @@ export function withEditorResources() {
         store._profileResources.destroy();
         store._pointResources.destroy();
         store._entryResources.destroy();
+        store._areaResources.destroy();
       },
     }),
   );
@@ -58,6 +63,7 @@ export function withEditorLifecycle() {
         _profileResources: EditorForm<ProfileDraft>;
         _pointResources: EditorForm<PointDraft>;
         _entryResources: EditorForm<EntryDraft>;
+        _areaResources: EditorForm<AreaDraft>;
         _editorTransition: EditorTransition;
       }>(),
       methods: type<{
@@ -67,6 +73,9 @@ export function withEditorLifecycle() {
         saveEntry(id: number): Promise<boolean>;
         savePoint(id: number): Promise<boolean>;
         saveProfile(id: number): Promise<boolean>;
+        _openArea(type: 'circle' | 'polygon', id?: string): void;
+        _selectArea(id: string | null): void;
+        saveArea(id: number): Promise<boolean>;
       }>(),
     },
     withReducer(
@@ -113,10 +122,18 @@ export function withEditorLifecycle() {
         store._profileResources.destroyBinding();
         store._pointResources.destroyBinding();
         store._entryResources.destroyBinding();
+        store._areaResources.destroyBinding();
         dispatch.discarded({ id });
         store._editorTransition.finishClose(true);
       };
       return {
+        async editArea(type: 'circle' | 'polygon', id?: string): Promise<void> {
+          if (await this.requestEditorExit()) store._openArea(type, id);
+        },
+        async selectArea(id: string | null): Promise<void> {
+          if (store.editor() && !(await this.requestEditorExit())) return;
+          store._selectArea(id);
+        },
         async selectPoint(id: string | null): Promise<void> {
           if (store.editor() && !(await this.requestEditorExit())) return;
           store._selectPoint(id);
@@ -153,7 +170,8 @@ export function withEditorLifecycle() {
           } else if (choice === 'save') {
             if (session.kind === 'point') {
               await store.savePoint(session.id);
-            } else if (session.kind === 'entry') await store.saveEntry(session.id);
+            } else if (session.kind === 'area') await store.saveArea(session.id);
+            else if (session.kind === 'entry') await store.saveEntry(session.id);
             else await store.saveProfile(session.id);
           } else discardEditor(session.id);
         },
@@ -161,6 +179,8 @@ export function withEditorLifecycle() {
         selectPoint(id: string | null): Promise<void>;
         editPoint(id?: string): Promise<void>;
         editEntry(pointId: string, entryId?: string): Promise<void>;
+        editArea(type: 'circle' | 'polygon', id?: string): Promise<void>;
+        selectArea(id: string | null): Promise<void>;
       };
     }),
   );

@@ -9,6 +9,14 @@
     <pt-map
       [config]="mapConfig()"
       [places]="state.mapPlaces()"
+      [areas]="state.mapAreas()"
+      [areaDraft]="state.mapAreaDraft()"
+      (areaChanged)="state.changeAreaGeometry($event)"
+      (areaSelected)="selectArea($event)"
+      (addAreaRequested)="addArea($event)"
+      [measuring]="measuring()"
+      (measurementRequested)="measure()"
+      (measurementClosed)="measurementMode.set(false)"
       [pointDraft]="state.mapPointDraft()"
       [pointCreationEnabled]="!!state.document() && !state.busy() && !state.candidate()"
       (addPointRequested)="addPoint()"
@@ -23,6 +31,7 @@
     <pt-address-search (resultSelected)="selectAddress($event)" />
 
     <pt-point-workspace />
+    <pt-area-workspace />
     <router-outlet />
 
     @if (configFailed()) {

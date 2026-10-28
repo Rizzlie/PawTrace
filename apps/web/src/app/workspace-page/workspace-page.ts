@@ -6,6 +6,7 @@ import {
   computed,
   DestroyRef,
   inject,
+  linkedSignal,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,6 +23,7 @@ import {
   CaseStore,
   CaseControls,
   PointWorkspace,
+  AreaWorkspace,
   type AddressSearchResult,
 } from '@pawtrace/workspace';
 import { Router, RouterOutlet } from '@angular/router';
@@ -37,12 +39,37 @@ import { FloatingPanel } from '@pawtrace/shared-ui';
     CaseControls,
     FloatingPanel,
     PointWorkspace,
+    AreaWorkspace,
   ],
   templateUrl: './workspace-page.html',
   styleUrl: './workspace-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspacePage {
+  protected readonly measurementMode = linkedSignal({
+    source: () => this.state.persistence().generation,
+    computation: () => false,
+  });
+  protected readonly measuring = computed(() => this.measurementMode() && !this.state.editor());
+  protected async addArea(type: 'circle' | 'polygon'): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/'))) {
+      await this.state.editArea(type);
+      if (this.state.editor()?.kind === 'area') this.measurementMode.set(false);
+    }
+  }
+  protected async selectArea(id: string): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.selectArea(id);
+  }
+  protected async measure(): Promise<void> {
+    if (
+      (this.router.url === '/' || (await this.router.navigateByUrl('/'))) &&
+      (await this.state.requestEditorExit())
+    ) {
+      await this.state.selectArea(null);
+      this.measurementMode.set(true);
+    }
+  }
   protected readonly state = inject(CaseStore);
   private readonly router = inject(Router);
 
@@ -54,6 +81,7 @@ export class WorkspacePage {
   protected async addPoint(): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.editPoint();
+    if (this.state.editor()?.kind === 'point') this.measurementMode.set(false);
   }
   protected readonly initialLocation = computed<InitialLocation>(() =>
     !this.state.persistence().initialized ? 'off' : this.state.document() ? 'show' : 'center',
