@@ -1,6 +1,6 @@
 export * from './lib/case-contract';
 export {
-  pointHistory,
+  chronologicalHistory,
   observationCounts,
   removeHistoryEntry,
   unlinkRemovedObservations,

@@ -1,8 +1,8 @@
-<header>
+<mat-toolbar role="banner">
   <pt-brand />
   <ng-content />
   <button
-    #helpButton
+    mat-icon-button
     class="help-button"
     type="button"
     aria-label="Jak korzystać z mapy"
@@ -12,38 +12,39 @@
   >
     <mat-icon svgIcon="map-help" />
   </button>
-</header>
+</mat-toolbar>
 
-<dialog
-  #helpDialog
-  closedby="any"
-  aria-labelledby="map-help-title"
-  aria-describedby="map-help-description"
-  (close)="restoreHelpFocus()"
->
-  <div class="help-heading">
-    <div>
-      <p class="eyebrow">Każdy ślad ma znaczenie</p>
-      <h2 id="map-help-title">Jak korzystać z mapy</h2>
-    </div>
-    <button
-      class="close-help"
-      type="button"
-      aria-label="Zamknij pomoc"
-      (click)="closeHelp()"
-      autofocus
-    >
-      ×
-    </button>
-  </div>
-  <p id="map-help-description">
-    Zacznij od miejsca. Rozejrzyj się po okolicy i poznaj teren poszukiwań.
-  </p>
-  <ol>
-    <li>Przesuwaj mapę i przybliżaj teren.</li>
-    <li>Wybierz mapę uliczną lub satelitę.</li>
-    <li>Użyj swojej lokalizacji, aby wrócić w pobliże.</li>
-  </ol>
-  <p class="help-hint">Do tej instrukcji możesz wrócić przyciskiem pomocy w górnym pasku.</p>
-  <button class="start-button" type="button" (click)="closeHelp()">Przejdź do mapy</button>
-</dialog>
+@if (helpOpen()) {
+  <ng-template #helpDialog
+    ><div class="pt-dialog-content">
+      <div class="help-heading">
+        <div>
+          <p class="eyebrow">Każdy ślad ma znaczenie</p>
+          <h2 id="map-help-title">Jak korzystać z mapy</h2>
+        </div>
+        <button
+          mat-icon-button
+          class="close-help"
+          type="button"
+          aria-label="Zamknij pomoc"
+          (click)="closeHelp()"
+          cdkFocusInitial
+        >
+          ×
+        </button>
+      </div>
+      <p id="map-help-description">
+        Zacznij od miejsca. Rozejrzyj się po okolicy i poznaj teren poszukiwań.
+      </p>
+      <ol>
+        <li>Przesuwaj mapę i przybliżaj teren.</li>
+        <li>Wybierz mapę uliczną lub satelitę.</li>
+        <li>Użyj swojej lokalizacji, aby wrócić w pobliże.</li>
+      </ol>
+      <p class="help-hint">Do tej instrukcji możesz wrócić przyciskiem pomocy w górnym pasku.</p>
+      <button matButton="filled" class="start-button" type="button" (click)="closeHelp()">
+        Przejdź do mapy
+      </button>
+    </div></ng-template
+  >
+}

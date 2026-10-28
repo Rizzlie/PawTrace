@@ -898,3 +898,150 @@ it('ignores stale form writes without cancelling the current session Save', asyn
   expect(state.persistence().revision).toBe(1);
   expect(state.profileEditor()).toBeNull();
 });
+
+it('records repeated whole and partial searches without changing the plan or duplicating observations', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  const area = original.areas.find((item) => item.plannedGeometry?.type === 'circle');
+  if (!area?.plannedGeometry || area.plannedGeometry.type !== 'circle')
+    throw new Error('Expected circle');
+  await state.editAreaCheck(area.id);
+  const editor = state.areaCheckEditor();
+  if (!editor) throw new Error('Expected check editor');
+  editor.fields.result().value.set('no_animal_or_signs');
+  editor.fields.method().value.set('Obejście z latarką');
+  expect(activeDocument(state)).toEqual(original);
+  expect(await state.saveAreaCheck(editor.id)).toBe(true);
+  const first = activeDocument(state)
+    .areas.find((item) => item.id === area.id)
+    ?.checks.at(-1);
+  expect(first?.actualGeometry).toEqual(area.plannedGeometry);
+  await state.editAreaCheck(area.id);
+  const partial = state.areaCheckEditor();
+  if (!partial) throw new Error('Expected partial editor');
+  partial.fields.footprint().value.set('custom');
+  partial.fields.radiusMeters().value.set('25');
+  partial.fields.result().value.set('animal_seen');
+  partial.fields.observationEntryId().value.set('observation-target');
+  partial.fields.time.kind().value.set('date');
+  partial.fields.time.date().value.set('2026-10-27');
+  expect(await state.saveAreaCheck(partial.id)).toBe(true);
+  const saved = activeDocument(state).areas.find((item) => item.id === area.id);
+  expect(saved?.plannedGeometry).toEqual(area.plannedGeometry);
+  expect(saved?.checks.at(-1)?.actualGeometry).toEqual({
+    ...area.plannedGeometry,
+    radiusMeters: 25,
+  });
+  expect(saved?.checks.at(-1)?.observationEntryId).toBe('observation-target');
+  expect(activeDocument(state).points).toEqual(original.points);
+  expect(saved?.checks.length).toBe(area.checks.length + 2);
+  state.requestAreaRemoval(area.id);
+  state.confirmAreaRemoval();
+  expect(activeDocument(state).areas.find((item) => item.id === area.id)?.checks).toEqual(
+    saved?.checks,
+  );
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('cancels and validates unplanned search drafts, including delayed and stale geometry/form writes', async () => {
+  const { state } = await setup();
+  const original = structuredClone(activeDocument(state));
+  await state.editAreaCheck(undefined, undefined, 'circle');
+  const editor = state.areaCheckEditor();
+  if (!editor) throw new Error('Expected unplanned editor');
+  editor.fields.name().value.set('Nocny obchód');
+  expect(await state.saveAreaCheck(editor.id)).toBe(false);
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 52, longitude: 21 }],
+    radiusMeters: 30,
+  });
+  expect(state.mapAreaDraft()?.radiusMeters).toBe(30);
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 52, longitude: 21 }],
+    radiusMeters: 60,
+  });
+  state.undoAreaGeometry(editor.id);
+  expect(state.mapAreaDraft()?.radiusMeters).toBe(30);
+  editor.fields.radiusMeters().value.set('45');
+  state.undoAreaGeometry(editor.id);
+  expect(state.mapAreaDraft()?.radiusMeters).toBe(30);
+  const pending = state.editPoint();
+  await state.resolveEditorTransition('stay');
+  await pending;
+  expect(state.areaCheckEditor()?.id).toBe(editor.id);
+  const saving = state.saveAreaCheck(editor.id);
+  state.discardEditor(editor.id);
+  expect(await saving).toBe(false);
+  expect(activeDocument(state)).toEqual(original);
+  await state.editAreaCheck(undefined, undefined, 'circle');
+  const current = state.areaCheckEditor();
+  if (!current) throw new Error('Expected current editor');
+  editor.fields.name().value.set('Spóźniony zapis');
+  state.changeAreaGeometry({
+    sessionId: editor.id,
+    vertices: [{ latitude: 1, longitude: 2 }],
+    radiusMeters: 90,
+  });
+  expect(current.fields.name().value()).toBe('');
+  expect(state.mapAreaDraft()?.vertices).toEqual([]);
+  current.fields.name().value.set('Nocny obchód');
+  current.fields.result().value.set('animal_secured');
+  current.fields.method().value.set('Latarka');
+  state.changeAreaGeometry({
+    sessionId: current.id,
+    vertices: [{ latitude: 52, longitude: 21 }],
+    radiusMeters: 30,
+  });
+  const revision = state.persistence().revision;
+  expect(await state.saveAreaCheck(current.id)).toBe(true);
+  expect(state.persistence().revision).toBe(revision + 1);
+  expect(activeDocument(state).areas.at(-1)).toMatchObject({
+    name: 'Nocny obchód',
+    plannedGeometry: null,
+    checks: [
+      {
+        result: 'animal_secured',
+        method: 'Latarka',
+        actualGeometry: { type: 'circle', radiusMeters: 30 },
+      },
+    ],
+  });
+  await state.editEntry('point-shed');
+  expect(state.entryEditor()).not.toBeNull();
+});
+
+it('edits historical geometry after plan removal, retains photo/time metadata and repairs a deleted observation link', async () => {
+  const { state } = await setup();
+  const area = activeDocument(state).areas.find((item) => item.id === 'area-park');
+  if (!area) throw new Error('Expected Park');
+  const check = area.checks[0];
+  state.requestAreaRemoval(area.id);
+  state.confirmAreaRemoval();
+  await state.editAreaCheck(area.id, check.id);
+  const editor = state.areaCheckEditor();
+  if (!editor) throw new Error('Expected historical editor');
+  editor.fields.method().value.set('Ponowna korekta opisu');
+  editor.fields.result().value.set('animal_seen');
+  editor.fields.observationEntryId().value.set('missing');
+  expect(await state.saveAreaCheck(editor.id)).toBe(false);
+  editor.fields.observationEntryId().value.set('observation-target');
+  expect(await state.saveAreaCheck(editor.id)).toBe(true);
+  const saved = activeDocument(state).areas.find((item) => item.id === area.id)?.checks[0];
+  expect(saved).toMatchObject({
+    id: check.id,
+    createdAt: check.createdAt,
+    photos: check.photos,
+    occurredAt: check.occurredAt,
+    actualGeometry: check.actualGeometry,
+  });
+  state.requestEntryRemoval('point-shed', 'observation-target');
+  state.confirmEntryRemoval();
+  const unlinked = activeDocument(state).areas.find((item) => item.id === area.id)?.checks[0];
+  expect(unlinked?.observationEntryId).toBeNull();
+  expect(unlinked?.result).toBe('other_or_inconclusive');
+  expect(unlinked?.description).toContain('observation-target');
+  expect(unlinked?.actualGeometry).toEqual(check.actualGeometry);
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});

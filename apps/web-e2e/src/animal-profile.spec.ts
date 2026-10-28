@@ -439,7 +439,7 @@ for (const width of [390, 1280]) {
     await expect(header.getByText('Albert', { exact: true })).toBeVisible();
     const menu = header.getByRole('button', { name: 'Plik JSON', exact: true });
     await menu.focus();
-    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
     await expect(page.getByRole('menuitem', { name: 'Importuj JSON', exact: true })).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('menuitem', { name: 'Eksportuj JSON', exact: true })).toBeFocused();

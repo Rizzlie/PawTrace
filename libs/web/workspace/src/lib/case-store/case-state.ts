@@ -1,3 +1,4 @@
+import type { AreaCheckSession } from '../area-workspace/check-draft';
 import type { EntrySession } from '../history/entry-draft';
 import { createProfileDraft, type ProfileDraft } from '../animal-profile/profile-draft';
 import type { CaseDocument } from '@pawtrace/case-domain';
@@ -17,7 +18,7 @@ export interface ProfileSession {
 export interface CaseState {
   document: CaseDocument | null;
   emptyBasemap: Basemap;
-  editor: ProfileSession | PointSession | EntrySession | AreaSession | null;
+  editor: ProfileSession | PointSession | EntrySession | AreaSession | AreaCheckSession | null;
   selectedAreaId: string | null;
   deletingAreaId: string | null;
   selectedPointId: string | null;

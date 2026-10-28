@@ -1,32 +1,50 @@
+import { presentMaterialDialog } from '@pawtrace/shared-ui';
+import { MatButtonModule } from '@angular/material/button';
 import {
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
+  computed,
   inject,
   viewChild,
+  TemplateRef,
 } from '@angular/core';
-import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
+import { MatMenuModule } from '@angular/material/menu';
 import { CaseStore } from '../case-store/case-store';
 import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'pt-case-controls',
-  imports: [RouterLink, CdkMenu, CdkMenuItem, CdkMenuTrigger],
+  imports: [MatButtonModule, RouterLink, MatMenuModule],
   templateUrl: './case-controls.html',
   styleUrl: './case-controls.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CaseControls {
   protected readonly state = inject(CaseStore);
+  protected readonly draftLabel = computed(() => {
+    const kind = this.state.editor()?.kind;
+    return kind
+      ? {
+          profile: 'Niezatwierdzony profil',
+          point: 'Niezatwierdzony punkt',
+          entry: 'Niezatwierdzony wpis',
+          area: 'Niezatwierdzony obszar',
+          'area-check': 'Niezatwierdzone przeszukanie',
+        }[kind]
+      : '';
+  });
   private readonly router = inject(Router);
-  private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('confirmation');
+  private readonly dialog = viewChild<TemplateRef<unknown>>('confirmation');
 
   constructor() {
-    afterRenderEffect(() => {
-      const dialog = this.dialog()?.nativeElement;
-      if (dialog && !dialog.open) dialog.showModal();
-    });
+    presentMaterialDialog(
+      this.dialog,
+      () => {
+        if (this.state.closeRequested()) void this.state.resolveEditorTransition('stay');
+        else this.cancelReplacement();
+      },
+      () => (this.state.closeRequested() ? 'draft-title' : 'replacement-title'),
+    );
   }
 
   protected importFile(event: Event): void {
@@ -37,18 +55,9 @@ export class CaseControls {
     if (file) void this.state.importFile(file);
   }
 
-  protected cancel(event: Event): void {
-    event.preventDefault();
-    this.cancelReplacement();
-  }
-
   protected cancelReplacement(): void {
     this.state.cancelReplacement();
     if (!this.state.profileEditor()) void this.router.navigateByUrl('/');
-  }
-  protected stay(event: Event): void {
-    event.preventDefault();
-    void this.state.resolveEditorTransition('stay');
   }
 
   protected async resolveTransition(choice: 'save' | 'discard' | 'stay'): Promise<void> {

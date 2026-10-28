@@ -1,29 +1,38 @@
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatButtonModule } from '@angular/material/button';
 import {
   afterNextRender,
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   inject,
   viewChild,
+  TemplateRef,
+  signal,
 } from '@angular/core';
 import { MatIcon, MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
-import { Brand } from '@pawtrace/shared-ui';
+import { Brand, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { hasSeenMapHelp, rememberMapHelp } from '@pawtrace/browser-persistence';
 import { helpOutlineIcon } from './help-icon';
 
 @Component({
   selector: 'app-header',
-  imports: [Brand, MatIcon],
+  imports: [MatToolbarModule, MatButtonModule, Brand, MatIcon],
   templateUrl: './app-header.html',
   styleUrl: './app-header.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppHeader {
-  private readonly helpDialog = viewChild<ElementRef<HTMLDialogElement>>('helpDialog');
-  private readonly helpButton = viewChild<ElementRef<HTMLButtonElement>>('helpButton');
+  private readonly helpDialog = viewChild<TemplateRef<unknown>>('helpDialog');
+  protected readonly helpOpen = signal(false);
 
   constructor() {
+    presentMaterialDialog(
+      this.helpDialog,
+      () => this.closeHelp(),
+      () => 'map-help-title',
+      '.help-button',
+    );
     inject(MatIconRegistry).addSvgIconLiteral(
       'map-help',
       inject(DomSanitizer).bypassSecurityTrustHtml(helpOutlineIcon),
@@ -34,17 +43,11 @@ export class AppHeader {
   }
 
   protected showHelp(): void {
-    const dialog = this.helpDialog()?.nativeElement;
-    if (!dialog || dialog.open) return;
-    dialog.showModal();
+    this.helpOpen.set(true);
     rememberMapHelp();
   }
 
   protected closeHelp(): void {
-    this.helpDialog()?.nativeElement.close();
-  }
-
-  protected restoreHelpFocus(): void {
-    this.helpButton()?.nativeElement.focus();
+    this.helpOpen.set(false);
   }
 }

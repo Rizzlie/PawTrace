@@ -1,6 +1,6 @@
 /** Lightweight projections: no runtime dependency on the Zod document validator. */
 export {
-  pointHistory,
+  chronologicalHistory,
   observationCounts,
   removeHistoryEntry,
   unlinkRemovedObservations,

@@ -1,0 +1,50 @@
+@let time = fields();
+<fieldset>
+  <legend>Czas zdarzenia</legend>
+  <p>Strefa: {{ timeZone() }}. Nieznana godzina nie wymaga uzupełnienia.</p>
+  <mat-form-field
+    ><mat-label>Dokładność czasu</mat-label>
+    <select matNativeControl [formField]="time.kind">
+      <option value="unknown">Nie wiadomo / tylko opis</option>
+      <option value="exact">Dokładna chwila</option>
+      <option value="approximate">Przybliżona chwila</option>
+      <option value="range">Przedział czasu</option>
+      <option value="date">Tylko data</option>
+    </select>
+  </mat-form-field>
+  @for (moment of moments(); track moment.key) {
+    <mat-form-field
+      ><mat-label>{{ moment.label }}</mat-label>
+      <input matInput type="datetime-local" step="0.001" [formField]="moment.field" />
+    </mat-form-field>
+    @if (moment.field().value() && moment.options.length === 0) {
+      <p role="alert">Ta godzina nie istnieje w strefie sprawy.</p>
+    }
+    @if (moment.options.length > 1) {
+      <mat-form-field
+        ><mat-label>{{ moment.label }} — wystąpienie godziny</mat-label>
+        <select matNativeControl [formField]="moment.choice">
+          <option value="">Wybierz wystąpienie godziny</option>
+          @for (option of moment.options; track option.value) {
+            <option [value]="option.value">
+              {{ $first ? 'Pierwsze' : 'Drugie' }} ({{ option.label }})
+            </option>
+          }
+        </select>
+      </mat-form-field>
+    }
+  }
+  @if (time.kind().value() === 'date') {
+    <mat-form-field
+      ><mat-label>Data zdarzenia</mat-label>
+      <input matInput type="date" [formField]="time.date" />
+    </mat-form-field>
+  }
+  @if (time.kind().value() === 'range') {
+    <p>Możesz podać tylko jedną granicę przedziału.</p>
+  }
+  <mat-form-field
+    ><mat-label>Oryginalny opis czasu</mat-label>
+    <textarea matInput [formField]="time.description"></textarea>
+  </mat-form-field>
+</fieldset>

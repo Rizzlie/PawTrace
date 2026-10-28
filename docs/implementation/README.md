@@ -28,7 +28,7 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM before F02's live Mapbox acceptance. Dependencies: F02, F03, F04, F05, F06.
 8. [F08 — Point history and animal identification](F08-point-history.md) — done. Dependencies: F07.
 9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — in_progress; implementation verified, independent review pending. Dependencies: F07, F08.
-10. [F10 — Actual searches and area-check history](F10-search-checks.md) — planned. Dependencies: F09.
+10. [F10 — Actual searches and area-check history](F10-search-checks.md) — done. Dependencies: F09.
 11. [F11 — Persistent original-photo storage](F11-photo-storage.md) — planned. Dependencies: F01, F04, F10.
 12. [F12 — Image processing and HEIC previews](F12-image-processing.md) — planned. Dependencies: F11.
 13. [F13 — Photo attachments and viewing](F13-photo-interface.md) — planned. Dependencies: F06, F08, F10, F11, F12.

@@ -15,7 +15,7 @@ export interface AreaSession {
   areaId: string;
   draft: AreaDraft;
   initial: AreaDraft;
-  undo: Pick<AreaDraft, 'vertices' | 'radiusMeters'>[];
+  undo: Pick<AreaDraft, 'type' | 'vertices' | 'radiusMeters'>[];
   error: string;
 }
 export function createAreaDraft(type: SearchGeometry['type'], area?: SearchArea): AreaDraft {
@@ -59,5 +59,33 @@ export function removeAreaPlan(document: CaseDocument, id: string): CaseDocument
     areas: document.areas.flatMap((area) =>
       area.id !== id ? [area] : area.checks.length ? [{ ...area, plannedGeometry: null }] : [],
     ),
+  };
+}
+
+/** Form and map edits share one geometry undo history inside the active session. */
+export function updateAreaSession<
+  T extends {
+    draft: AreaDraft;
+    version: number;
+    error: string;
+    undo: Pick<AreaDraft, 'type' | 'vertices' | 'radiusMeters'>[];
+  },
+>(session: T, draft: AreaDraft, undo = false): T {
+  const geometry = (value: AreaDraft) => ({
+    type: value.type,
+    vertices: value.vertices,
+    radiusMeters: value.radiusMeters,
+  });
+  const changed = JSON.stringify(geometry(session.draft)) !== JSON.stringify(geometry(draft));
+  return {
+    ...session,
+    draft: { ...session.draft, ...draft },
+    version: session.version + 1,
+    error: '',
+    undo: undo
+      ? session.undo.slice(0, -1)
+      : changed
+        ? [...session.undo, geometry(session.draft)]
+        : session.undo,
   };
 }

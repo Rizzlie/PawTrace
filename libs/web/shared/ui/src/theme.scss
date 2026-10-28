@@ -1,3 +1,112 @@
+@use '@angular/material' as mat;
+
+:root {
+  color-scheme: light;
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$green-palette,
+        tertiary: mat.$yellow-palette,
+        theme-type: light,
+      ),
+      typography: (
+        plain-family: (
+          system-ui,
+          sans-serif,
+        ),
+        brand-family: (
+          system-ui,
+          sans-serif,
+        ),
+      ),
+      density: -1,
+    )
+  );
+  @include mat.theme-overrides(
+    (
+      primary: #2c654c,
+      on-primary: #ffffff,
+      primary-container: #edf3e9,
+      on-primary-container: #204c39,
+      secondary: #62755f,
+      on-secondary: #ffffff,
+      secondary-container: #e5ecdf,
+      on-secondary-container: #294535,
+      tertiary: #9b7441,
+      tertiary-container: #f5e5cc,
+      on-tertiary-container: #5c421f,
+      surface: #fcfdf9,
+      surface-dim: #e9eedd,
+      surface-bright: #fcfdf9,
+      surface-container-lowest: #ffffff,
+      surface-container-low: #f4f7ef,
+      surface-container: #eef2e7,
+      surface-container-high: #e9eedd,
+      surface-container-highest: #e1e8dc,
+      on-surface: #294535,
+      on-surface-variant: #62755f,
+      outline: #82917d,
+      outline-variant: #dde5dc,
+      error: #a74e38,
+      body-large-size: 13px,
+      body-large-line-height: 20px,
+      body-medium-size: 13px,
+      body-medium-line-height: 20px,
+      label-large-size: 12px,
+      label-large-weight: 600,
+      title-large-size: 20px,
+      title-medium-size: 16px,
+      corner-small: 8px,
+      corner-medium: 16px,
+      corner-large: 20px,
+    )
+  );
+  @include mat.button-overrides(
+    (
+      filled-container-shape: 10px,
+      outlined-container-shape: 10px,
+      protected-container-shape: 10px,
+      text-container-shape: 10px,
+      tonal-container-shape: 10px,
+      outlined-outline-color: #dde5dc,
+    )
+  );
+  @include mat.icon-button-overrides(
+    (
+      state-layer-size: 44px,
+      icon-size: 22px,
+    )
+  );
+  @include mat.form-field-overrides(
+    (
+      outlined-container-shape: 8px,
+      container-height: 44px,
+      container-vertical-padding: 12px,
+      outlined-outline-color: #dde5dc,
+    )
+  );
+  @include mat.card-overrides(
+    (
+      outlined-container-shape: 16px,
+      outlined-container-color: #fffffff2,
+      outlined-outline-color: #ffffff,
+    )
+  );
+  @include mat.badge-overrides(
+    (
+      background-color: #edf3e9,
+      text-color: #2c654c,
+    )
+  );
+  @include mat.dialog-overrides(
+    (
+      container-shape: 20px,
+      container-color: #fcfdf9,
+      container-elevation-shadow: var(--pt-shadow),
+    )
+  );
+}
+
 :root {
   --pt-foreground: #294535;
   --pt-brand: #285a41;
@@ -35,29 +144,31 @@ textarea,
 select {
   font: inherit;
 }
-button {
-  cursor: pointer;
-  border: 1px solid var(--pt-border);
-  background: var(--pt-surface);
-  color: var(--pt-foreground);
-  border-radius: 10px;
-  padding: 9px 12px;
-  transition:
-    background 0.15s,
-    box-shadow 0.15s;
-}
-button:hover {
-  background: var(--pt-soft);
-}
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+// Leaflet and other native elements retain a keyboard focus indicator.
+:where(a, summary):focus-visible {
   outline: 3px solid #75ac8d;
   outline-offset: 3px;
 }
-button:disabled {
-  opacity: 0.65;
-  cursor: wait;
+
+mat-form-field {
+  width: 100%;
+  min-width: 0;
+}
+mat-expansion-panel {
+  min-width: 0;
+}
+.pt-dialog-content {
+  padding: 24px;
+}
+.pt-dialog-content h2 {
+  margin-top: 0;
+}
+.pt-dialog-content .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.pt-file-menu {
+  min-width: 190px;
 }

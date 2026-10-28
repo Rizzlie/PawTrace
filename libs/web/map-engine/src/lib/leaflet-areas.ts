@@ -51,7 +51,7 @@ export class LeafletAreas {
         const layer = this.shape(area.geometry, true);
         layer.bindTooltip(label(area.name));
         layer.on('click', (event: L.LeafletMouseEvent) => {
-          if (!this.pick(event.latlng)) this.intents.selected(area.id);
+          if (!this.pick(event.latlng)) this.intents.selected(area.selectionId ?? area.id);
         });
         layer.addTo(this.map);
         this.plans.set(area.id, { layer, geometry: area.geometry });
@@ -68,7 +68,8 @@ export class LeafletAreas {
       }
       entry?.layer.setTooltipContent(label(area.name));
       entry?.layer.setStyle({
-        color: area.selected ? '#234e3b' : '#587949',
+        color: area.color ?? (area.selected ? '#234e3b' : '#587949'),
+        dashArray: area.dashArray ?? '',
         weight: area.selected ? 4 : 2,
         fillOpacity: area.selected ? 0.22 : 0.1,
       });

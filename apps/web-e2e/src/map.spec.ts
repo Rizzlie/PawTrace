@@ -11,7 +11,7 @@ for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto('/');
     const search = page.getByRole('search');
-    const basemaps = page.getByRole('toolbar', { name: 'Podkład mapy' });
+    const basemaps = page.getByRole('radiogroup', { name: 'Podkład mapy' });
     await expect(search).toBeVisible();
     const actions = page.getByRole('toolbar', { name: 'Działania na mapie' });
     await expect(actions).toHaveAttribute('aria-orientation', 'vertical');
@@ -60,8 +60,8 @@ test.beforeEach(async ({ page }) => {
 
 test('basemap toolbar supports arrow-key navigation', async ({ page }) => {
   await page.goto('/');
-  const street = page.getByRole('button', { name: 'Mapa OSM', exact: true });
-  const satellite = page.getByRole('button', { name: 'Satelita', exact: true });
+  const street = page.getByRole('radio', { name: 'Mapa OSM', exact: true });
+  const satellite = page.getByRole('radio', { name: 'Satelita', exact: true });
   await street.focus();
   await page.keyboard.press('ArrowRight');
   await expect(satellite).toBeFocused();
@@ -103,14 +103,14 @@ test('map fills the workspace, supports keyboard zoom, and keeps OSM usable with
   await map.focus();
   await page.keyboard.press('+');
   await expect(scale).not.toHaveText(originalScale ?? '');
-  await page.getByRole('button', { name: 'Satelita', exact: true }).click();
+  await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
   await expect(
     page.getByText('Satelita wymaga skonfigurowania tokenu Mapbox.', {
       exact: false,
     }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('radio', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
 });
@@ -128,9 +128,9 @@ test('switches real Leaflet layers without changing viewport and displays provid
   await page.goto('/');
   await expect(page.locator('img.leaflet-tile-loaded').first()).toBeVisible();
   const scale = await page.locator('.leaflet-control-scale-line').textContent();
-  await page.getByRole('button', { name: 'Satelita', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Satelita', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Satelita', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await expect(
@@ -146,7 +146,7 @@ test('switches real Leaflet layers without changing viewport and displays provid
     .toBeGreaterThan(0);
   expect(requests.length).toBeGreaterThan(0);
   expect(requests.every((url) => url.includes('/satellite-streets-v12/tiles/512/'))).toBe(true);
-  await page.getByRole('button', { name: 'Mapa OSM', exact: true }).click();
+  await page.getByRole('radio', { name: 'Mapa OSM', exact: true }).click();
   await expect(page.locator('.leaflet-control-scale-line')).toHaveText(scale ?? '');
   await expect(page.getByRole('link', { name: 'Improve this map' })).toHaveCount(0);
 });
@@ -160,10 +160,10 @@ for (const status of [401, 403, 429, 503]) {
       route.fulfill({ status, body: 'Unavailable' }),
     );
     await page.goto('/');
-    await page.getByRole('button', { name: 'Satelita', exact: true }).click();
+    await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
     await expect(page.getByText('Przywrócono mapę OSM.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
     await expect(
@@ -214,7 +214,7 @@ test('location is requested on entry and can be refreshed manually', async ({ co
   const locate = page.getByRole('button', { name: 'Moja lokalizacja' });
   await expect(locate).toBeEnabled();
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Mapa OSM', exact: true }).focus();
+  await page.getByRole('radio', { name: 'Mapa OSM', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(locate).toBeFocused();
   await expect(
@@ -233,7 +233,7 @@ test('location is requested on entry and can be refreshed manually', async ({ co
   await page.getByRole('button', { name: 'Moja lokalizacja' }).click();
   await expect(locate).toBeEnabled();
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Mapa OSM', exact: true }).focus();
+  await page.getByRole('radio', { name: 'Mapa OSM', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(locate).toBeFocused();
   await expect(
@@ -261,9 +261,9 @@ test('configuration failure does not block the map and can be retried', async ({
   );
   await page.getByRole('button', { name: 'Ponów konfigurację' }).click();
   await expect(page.getByRole('button', { name: 'Ponów konfigurację' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Satelita', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Satelita', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Satelita', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
 });
@@ -298,7 +298,7 @@ test('uses runtime source templates and their corresponding attribution for both
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Street provider' })).toBeVisible();
   const scale = await page.locator('.leaflet-control-scale-line').textContent();
-  await page.getByRole('button', { name: 'Satelita', exact: true }).click();
+  await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
   await expect(
     page.locator('img.leaflet-tile-loaded[src*="maps.example.test/satellite/"]').first(),
   ).toBeVisible();

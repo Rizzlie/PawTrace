@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatButtonToggleHarness } from '@angular/material/button-toggle/testing';
 import { MapEngine } from './map-engine';
 import { LeafletMap } from './leaflet-map';
 
@@ -40,11 +42,16 @@ describe('Map host and location on demand', () => {
     map.selectBasemap('satellite');
     await fixture.whenStable();
     const host: HTMLElement = fixture.nativeElement;
-    expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toContain('Satelita');
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    expect(
+      await (await loader.getHarness(MatButtonToggleHarness.with({ checked: true }))).getText(),
+    ).toBe('Satelita');
     expect(host.querySelector('.mapbox-logo')).not.toBeNull();
     fixture.componentRef.setInput('config', { mapboxToken: '' });
     await fixture.whenStable();
-    expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toContain('Mapa OSM');
+    expect(
+      await (await loader.getHarness(MatButtonToggleHarness.with({ checked: true }))).getText(),
+    ).toBe('Mapa OSM');
     expect(host.querySelector('.mapbox-logo')).toBeNull();
   });
 
@@ -56,6 +63,23 @@ describe('Map host and location on demand', () => {
     host.querySelector<HTMLButtonElement>('.map-actions > button')?.click();
     await fixture.whenStable();
     expect(host.textContent).toContain('Lokalizacja jest niedostępna');
+  });
+
+  it('rejects unavailable satellite selection and emits an explicit choice of the active OSM fallback', async () => {
+    const fixture = TestBed.createComponent(MapEngine);
+    fixture.componentRef.setInput('basemap', 'satellite');
+    const selected = vi.fn();
+    fixture.componentInstance.basemapChanged.subscribe(selected);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const satellite = await loader.getHarness(MatButtonToggleHarness.with({ text: 'Satelita' }));
+    const osm = await loader.getHarness(MatButtonToggleHarness.with({ text: 'Mapa OSM' }));
+    await satellite.toggle();
+    expect(await satellite.isChecked()).toBe(false);
+    expect(await osm.isChecked()).toBe(true);
+    expect(selected).not.toHaveBeenCalled();
+    await osm.toggle();
+    expect(selected).toHaveBeenCalledExactlyOnceWith('osm');
   });
 
   it('requests once on click, handles denial and ignores callbacks after destruction', async () => {

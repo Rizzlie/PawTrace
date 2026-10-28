@@ -1,10 +1,12 @@
+import type { AreaCheckDraft } from '../area-workspace/check-draft';
 import { computed } from '@angular/core';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument, SearchGeometry } from '@pawtrace/case-domain';
-import type { AreaGeometryChange, MapAreaDraft } from '@pawtrace/map-engine';
+import type { AreaGeometryChange, MapArea, MapAreaDraft } from '@pawtrace/map-engine';
 import {
   applyAreaDraft,
+  updateAreaSession,
   createAreaDraft,
   draftGeometry,
   removeAreaPlan,
@@ -31,6 +33,7 @@ export function withAreaEditing() {
       state: type<CaseState>(),
       props: type<{
         _areaResources: EditorForm<AreaDraft>;
+        _checkResources: EditorForm<AreaCheckDraft>;
         _editorTransition: EditorTransition;
         _nextEditorId: () => number;
       }>(),
@@ -49,26 +52,13 @@ export function withAreaEditing() {
       ),
       on(areaEvents.changed, ({ payload }, state) => {
         const editor = state.editor;
-        if (editor?.kind !== 'area' || editor.id !== payload.id || caseBusy(state)) return {};
-        const changed =
-          JSON.stringify([editor.draft.vertices, editor.draft.radiusMeters]) !==
-          JSON.stringify([payload.draft.vertices, payload.draft.radiusMeters]);
-        return {
-          editor: {
-            ...editor,
-            draft: payload.draft,
-            version: editor.version + 1,
-            error: '',
-            undo: payload.undo
-              ? editor.undo.slice(0, -1)
-              : changed
-                ? [
-                    ...editor.undo,
-                    { vertices: editor.draft.vertices, radiusMeters: editor.draft.radiusMeters },
-                  ]
-                : editor.undo,
-          },
-        };
+        if (
+          (editor?.kind !== 'area' && editor?.kind !== 'area-check') ||
+          editor.id !== payload.id ||
+          caseBusy(state)
+        )
+          return {};
+        return { editor: updateAreaSession(editor, payload.draft, payload.undo) };
       }),
       on(areaEvents.selected, ({ payload }, state) =>
         caseBusy(state) ? {} : { selectedAreaId: payload, selectedPointId: null },
@@ -111,27 +101,42 @@ export function withAreaEditing() {
       deletingArea: computed(
         () => store.document()?.areas.find((area) => area.id === store.deletingAreaId()) ?? null,
       ),
-      mapAreas: computed(
+      mapAreas: computed<MapArea[]>(
         () =>
-          store.document()?.areas.flatMap((area) =>
-            area.plannedGeometry
+          store.document()?.areas.flatMap((area) => [
+            ...(area.plannedGeometry
               ? [
                   {
-                    id: area.id,
-                    name: area.name,
+                    id: JSON.stringify(['plan', area.id]),
+                    selectionId: area.id,
+                    name: `${area.name} — plan`,
                     geometry: area.plannedGeometry,
                     selected: area.id === store.selectedAreaId(),
                   },
                 ]
-              : [],
-          ) ?? [],
+              : []),
+            ...area.checks.map((check) => ({
+              id: JSON.stringify(['check', area.id, check.id]),
+              selectionId: area.id,
+              name: `${area.name} — przeszukanie: ${check.description ?? check.id}`,
+              geometry: check.actualGeometry,
+              selected: area.id === store.selectedAreaId(),
+              color: '#665699',
+              dashArray: '6 5',
+            })),
+          ]) ?? [],
       ),
       mapAreaDraft: computed<MapAreaDraft | null>(() => {
         const editor = store.editor();
-        return editor?.kind === 'area'
+        return editor?.kind === 'area' ||
+          (editor?.kind === 'area-check' && editor.draft.footprint === 'custom')
           ? {
               sessionId: editor.id,
-              areaId: editor.areaId,
+              areaId: JSON.stringify(
+                editor.kind === 'area'
+                  ? ['plan', editor.areaId]
+                  : ['check', editor.areaId, editor.checkId],
+              ),
               type: editor.draft.type,
               vertices: editor.draft.vertices.every(
                 (point) =>
@@ -191,8 +196,14 @@ export function withAreaEditing() {
         },
         changeAreaGeometry(change: AreaGeometryChange): void {
           const session = store.editor();
-          if (session?.kind !== 'area' || session.id !== change.sessionId) return;
+          if (
+            (session?.kind !== 'area' && session?.kind !== 'area-check') ||
+            session.id !== change.sessionId ||
+            (session.kind === 'area-check' && session.draft.footprint !== 'custom')
+          )
+            return;
           store._areaResources.saving?.abort();
+          store._checkResources.saving?.abort();
           dispatch.changed({
             id: session.id,
             draft: {
@@ -204,17 +215,24 @@ export function withAreaEditing() {
         },
         undoAreaGeometry(id: number): void {
           const editor = store.editor();
-          if (editor?.kind !== 'area' || editor.id !== id) return;
+          if ((editor?.kind !== 'area' && editor?.kind !== 'area-check') || editor.id !== id)
+            return;
           const previous = editor.undo[editor.undo.length - 1];
           if (!previous) return;
           store._areaResources.saving?.abort();
+          store._checkResources.saving?.abort();
           dispatch.changed({ id, draft: { ...editor.draft, ...previous }, undo: true });
         },
         removeAreaVertex(id: number, index: number): void {
           const editor = store.editor();
-          if (editor?.kind !== 'area' || editor.id !== id || editor.draft.type !== 'polygon')
+          if (
+            (editor?.kind !== 'area' && editor?.kind !== 'area-check') ||
+            editor.id !== id ||
+            editor.draft.type !== 'polygon'
+          )
             return;
           store._areaResources.saving?.abort();
+          store._checkResources.saving?.abort();
           dispatch.changed({
             id,
             draft: {
@@ -228,6 +246,7 @@ export function withAreaEditing() {
           if (session?.kind !== 'area' || session.id !== id || caseBusy(getState(store)))
             return false;
           store._areaResources.saving?.abort();
+          store._checkResources.saving?.abort();
           const cancellation = new AbortController();
           store._areaResources.saving = cancellation;
           const { validateCaseDocument, geometrySchema } = await import('@pawtrace/case-domain');
