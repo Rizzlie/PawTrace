@@ -1,0 +1,502 @@
+{
+  "basic-8bit-srgb.heic": {
+    "file": "basic-8bit-srgb.heic",
+    "bytes": 183061,
+    "sha256": "3fe7d32e5568f8bfd6b5d3290e61ac9b964d08464d388fa064f69cddddfee82c",
+    "url": "/samples/basic-8bit-srgb.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1600,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 1,
+    "features": [],
+    "width": 1600,
+    "height": 1200,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": ["PSNR against the source render: 36.9 dB"],
+    "preview": {
+      "src": "/samples/previews/basic-8bit-srgb.webp",
+      "width": 640,
+      "height": 480
+    }
+  },
+  "display-p3-10bit.heic": {
+    "file": "display-p3-10bit.heic",
+    "bytes": 165698,
+    "sha256": "ad1a2e753f04071074c2c7cac8ac0b28d1c31b4dcc40ab3cb8894aad47b7e3a1",
+    "url": "/samples/display-p3-10bit.heic",
+    "brands": {
+      "major": "heix",
+      "compatible": ["mif1", "heix", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1600,
+    "stored_height": 1200,
+    "codec": "HEVC Format Range Extensions (RExt)",
+    "chroma": "4:2:0",
+    "bit_depth": 10,
+    "colour": "ICC profile “Display P3 (heic.fyi sample, CC0)” (600 bytes)",
+    "item_count": 1,
+    "features": [],
+    "width": 1600,
+    "height": 1200,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "ICC round trip: P3-encoded sRGB green, red and grey convert back to sRGB within 3/255",
+      "P3 red patch decodes to (0.998, 0.001, 0.000); sRGB red in P3 decodes to (0.917, 0.200, 0.139)"
+    ],
+    "preview": {
+      "src": "/samples/previews/display-p3-10bit.webp",
+      "width": 640,
+      "height": 480
+    },
+    "preview_note": "Preview converted to sRGB, so the P3 pairs look identical here."
+  },
+  "hdr-pq-10bit-bt2020.heic": {
+    "file": "hdr-pq-10bit-bt2020.heic",
+    "bytes": 76897,
+    "sha256": "eb3a889d4833996f087951b4f680546ea51e8af71dedf2f078a71224408e6154",
+    "url": "/samples/hdr-pq-10bit-bt2020.heic",
+    "brands": {
+      "major": "heix",
+      "compatible": ["mif1", "heix", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1600,
+    "stored_height": 1200,
+    "codec": "HEVC Format Range Extensions (RExt)",
+    "chroma": "4:2:0",
+    "bit_depth": 10,
+    "colour": "nclx 9/16/9 full range (BT.2020, PQ (SMPTE ST 2084), BT.2020 NCL)",
+    "item_count": 1,
+    "features": [
+      "Content light level (clli): MaxCLL 1000 cd/m², MaxFALL 136 cd/m²",
+      "Mastering display (mdcv): 1000 / 0.005 cd/m²"
+    ],
+    "width": 1600,
+    "height": 1200,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "Luminance patches decode to 0.101, 0.99, 10, 49.6, 99.7, 202, 399, 595, 793, 992 cd/m² (targets 0.1, 1, 10, 50, 100, 203, 400, 600, 800, 1000)"
+    ],
+    "preview": {
+      "src": "/samples/previews/hdr-pq-10bit-bt2020.webp",
+      "width": 640,
+      "height": 480
+    },
+    "preview_note": "Preview tone-mapped to SDR; the file itself is PQ HDR."
+  },
+  "grid-12mp-512px-tiles.heic": {
+    "file": "grid-12mp-512px-tiles.heic",
+    "bytes": 802404,
+    "sha256": "ed14b6e639fc61ce19b933163579ea23f226aa2f0a78cb757753628bcee0e55e",
+    "url": "/samples/grid-12mp-512px-tiles.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 4032,
+    "stored_height": 3024,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 49,
+    "features": ["Grid image: 8 × 6 tiles of 512 × 512 px (48 tile items)"],
+    "width": 4032,
+    "height": 3024,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "Orange frame present on all four edges after decoding (grid output crop is correct)",
+      "PSNR against the source render: 34.3 dB"
+    ],
+    "preview": {
+      "src": "/samples/previews/grid-12mp-512px-tiles.webp",
+      "width": 640,
+      "height": 480
+    }
+  },
+  "large-48mp-grid.heic": {
+    "file": "large-48mp-grid.heic",
+    "bytes": 6172972,
+    "sha256": "bf62ab0056e848f7a9fbec4254299d6be1da92a95569a781d3fa0e9e1875ab30",
+    "url": "/samples/large-48mp-grid.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 8064,
+    "stored_height": 6048,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 193,
+    "features": ["Grid image: 16 × 12 tiles of 512 × 512 px (192 tile items)"],
+    "width": 8064,
+    "height": 6048,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "Orange frame present on all four edges after decoding (grid output crop is correct)"
+    ],
+    "preview": {
+      "src": "/samples/previews/large-48mp-grid.webp",
+      "width": 640,
+      "height": 480
+    }
+  },
+  "thumbnail-embedded.heic": {
+    "file": "thumbnail-embedded.heic",
+    "bytes": 210737,
+    "sha256": "f38af8720a2991f476bbd3af4e84ff0eefa0b4f676d177063e80f3729a4fac08",
+    "url": "/samples/thumbnail-embedded.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1600,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Embedded thumbnail: 320 × 240 px (thmb reference)"],
+    "width": 1600,
+    "height": 1200,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "Thumbnail decodes at 320 × 240 and shows the red EMBEDDED THUMBNAIL banner; the main image does not"
+    ],
+    "preview": {
+      "src": "/samples/previews/thumbnail-embedded.webp",
+      "width": 640,
+      "height": 238
+    },
+    "preview_note": "Left: the main image. Right: the embedded thumbnail."
+  },
+  "multi-image-burst.heic": {
+    "file": "multi-image-burst.heic",
+    "bytes": 173838,
+    "sha256": "a3f76e9b8552b1deca83b7196bfa637e2742894b7ff2a17deddcef24f010d813",
+    "url": "/samples/multi-image-burst.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1280,
+    "stored_height": 960,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 4,
+    "features": ["4 top-level images; primary item (pitm) is image 3 of 4"],
+    "width": 1280,
+    "height": 960,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": [
+      "Four images decode; libheif reports image 3 as primary and it carries the PRIMARY IMAGE banner"
+    ],
+    "preview": {
+      "src": "/samples/previews/multi-image-burst.webp",
+      "width": 640,
+      "height": 482
+    },
+    "preview_note": "All four images; image 3 is the primary."
+  },
+  "alpha-transparency.heic": {
+    "file": "alpha-transparency.heic",
+    "bytes": 87769,
+    "sha256": "5a2a4552c6aaa8787b396f5ba4c2a4fa762fb23cd320fbada007cd04ec4f007d",
+    "url": "/samples/alpha-transparency.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1200,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Auxiliary alpha image (urn:mpeg:hevc:2015:auxid:1), 4:0:0 8-bit"],
+    "width": 1200,
+    "height": 1200,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "checks": ["Alpha decodes: corner 0, card 255, ramp midpoint 127, circle 128 (0–255)"],
+    "preview": {
+      "src": "/samples/previews/alpha-transparency.webp",
+      "width": 640,
+      "height": 640
+    },
+    "preview_note": "Preview composited over a checkerboard."
+  },
+  "orientation-1.heic": {
+    "file": "orientation-1.heic",
+    "bytes": 56752,
+    "sha256": "e0bfbe92834aefccf7292888b202de6e6821e96183c921b051f4d2e7ae70d332",
+    "url": "/samples/orientation-1.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1200,
+    "stored_height": 800,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 1,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 1"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-1.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-2.heic": {
+    "file": "orientation-2.heic",
+    "bytes": 60381,
+    "sha256": "3a316089f67cb43b6f92667b964c3ebff2542c72db1f1d0328f400fa5db48111",
+    "url": "/samples/orientation-2.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1200,
+    "stored_height": 800,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item", "Transform properties: imir mode 1, left–right mirror"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 2,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 2"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-2.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-3.heic": {
+    "file": "orientation-3.heic",
+    "bytes": 60723,
+    "sha256": "09e326752dbc8bce85c9c65a03de22aec67c4490b1258cce1357385c9b4bdd7d",
+    "url": "/samples/orientation-3.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1200,
+    "stored_height": 800,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item", "Transform properties: irot 180° anticlockwise"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 3,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 3"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-3.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-4.heic": {
+    "file": "orientation-4.heic",
+    "bytes": 58460,
+    "sha256": "39b4d1de9d59db599c4b8728900d1d43fd4b66250ab21c71374425e1d94c875b",
+    "url": "/samples/orientation-4.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 1200,
+    "stored_height": 800,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item", "Transform properties: imir mode 0, top–bottom mirror"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 4,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 34.0 dB; Exif Orientation tag = 4"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-4.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-5.heic": {
+    "file": "orientation-5.heic",
+    "bytes": 66255,
+    "sha256": "51f891e23f8942ae765452043d5aff209e1e0c08a4a9ea46785789f53f6df8c0",
+    "url": "/samples/orientation-5.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 800,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": [
+      "Exif metadata item",
+      "Transform properties: imir mode 1, left–right mirror, irot 270° anticlockwise"
+    ],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 5,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 5"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-5.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-6.heic": {
+    "file": "orientation-6.heic",
+    "bytes": 64356,
+    "sha256": "80b615ae433d7ec53e9aaaeee081ecd11c0d9931350da13d6ce4e2b363d12c12",
+    "url": "/samples/orientation-6.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 800,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item", "Transform properties: irot 270° anticlockwise"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 6,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 6"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-6.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-7.heic": {
+    "file": "orientation-7.heic",
+    "bytes": 67018,
+    "sha256": "9a37bc72a54e6b2c39fd5a4e4e3d87d40eb636e91c03095bb1225c327eda1b50",
+    "url": "/samples/orientation-7.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 800,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": [
+      "Exif metadata item",
+      "Transform properties: imir mode 0, top–bottom mirror, irot 270° anticlockwise"
+    ],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 7,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 7"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-7.webp",
+      "width": 360,
+      "height": 240
+    }
+  },
+  "orientation-8.heic": {
+    "file": "orientation-8.heic",
+    "bytes": 65033,
+    "sha256": "3bf743e5ce553ea01a8d6b2747e06abfeb05d19c6e492d62840a19f7c4afc634",
+    "url": "/samples/orientation-8.heic",
+    "brands": {
+      "major": "heic",
+      "compatible": ["mif1", "heic", "miaf"]
+    },
+    "top_level_boxes": ["ftyp", "meta", "mdat"],
+    "stored_width": 800,
+    "stored_height": 1200,
+    "codec": "HEVC Main Still Picture",
+    "chroma": "4:2:0",
+    "bit_depth": 8,
+    "colour": "nclx 1/13/6 full range (BT.709/sRGB, sRGB, BT.601)",
+    "item_count": 2,
+    "features": ["Exif metadata item", "Transform properties: irot 90° anticlockwise"],
+    "width": 1200,
+    "height": 800,
+    "decoded_with": "libheif 1.23.4 via pillow-heif 1.8.0",
+    "orientation": 8,
+    "checks": [
+      "Decoded with libheif (irot/imir applied): matches the upright chart, PSNR 33.9 dB; Exif Orientation tag = 8"
+    ],
+    "preview": {
+      "src": "/samples/previews/orientation-8.webp",
+      "width": 360,
+      "height": 240
+    }
+  }
+}

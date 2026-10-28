@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01–F10 provide the Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas, actual-search snapshots and Material UI. Live Mapbox operation was confirmed on 2026-10-28. F11 adds persistent original-photo upload/download and asset metadata; image processing and photo controls follow in F12–F13.
+F01–F10 provide the Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas, actual-search snapshots and Material UI. Live Mapbox operation was confirmed on 2026-10-28. F11 adds persistent original-photo upload/download; F12 adds asynchronous thumbnails, full-resolution HEIC previews, processing retry and restart recovery. Photo controls follow in F13.
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -165,14 +165,20 @@ Food placement/refill details and food-status checks remain independent records 
 
 ## Original-photo storage
 
-The API can store JPEG, PNG, WebP and HEIC originals independently of case data. Photo controls arrive in F13; thumbnails, HEIC previews and processing retries arrive in F12. Format recognition uses file content; it does not promise that every recognizable file can be decoded.
+The API can store JPEG, PNG, WebP and HEIC originals independently of case data. It generates PNG thumbnails and full-resolution HEIC previews in a separate processing process. Photo controls arrive in F13. Format recognition uses file content; it does not promise that every recognizable file can be decoded.
 
 - `POST /api/assets`: send one multipart file named `file`; HTTP 201 returns its unique `filename`, original metadata and derivative states. Send additional photos as independent requests. Only successful original filenames should enter case `photos` lists. The response's `processing` field belongs to the asset interface, not the exported case JSON schema.
 - `GET /api/assets/:filename/metadata`: fetch metadata and current derivative states without caching them.
 - `GET /api/assets/:filename`: stream the unchanged original as an attachment. Missing files return 404. Failed original writes return a retryable HTTP 507 error without a successful filename; malformed multipart requests return 400 and unsupported content 415.
+- `GET /api/assets/:filename/thumbnail` and `GET /api/assets/:filename/preview`: stream a ready PNG derivative. Thumbnails fit inside 480 × 480 pixels without enlargement; HEIC previews retain the oriented full-image dimensions. Unavailable/not-required derivatives return 404; read metadata for their state.
+- `POST /api/assets/:filename/retry`: retry failed derivatives using the same saved original. Completed derivatives remain ready; original bytes and case photo references never change. Derivative failure is a warning on a successful attachment, not an upload failure.
+
+The production Linux image builds Sharp 0.35.5 against libvips 8.18.7, libheif 1.23.7 and libde265 1.1.3. Its disk-backed queue admits one child decoder at a time and resumes pending work after restart. `IMAGE_PROCESSING_TIMEOUT_MS` defaults to 60000 per derivative. V8 heap limits do not cap native memory; worker and API share a container memory cgroup. PNG previews do not promise identical HDR rendering. See [photo processing](docs/architecture/image-processing.md) for the interface, runtime, constraints and verification.
 
 `ASSET_DIRECTORY` defaults to `./data/assets` for Node development. Compose already binds the host directory to `/app/data/assets`. Each server-generated UUID reserves one directory containing the original and `metadata.json`; incomplete writes have no final metadata marker and cannot be retrieved. Do not expose this directory with a separate static-file server. Unlinking a case photo never removes server files. To back up or transfer a case with its photos, copy its JSON **and the complete asset directory**, including metadata, while uploads are stopped. JSON alone does not copy images.
 
 There is no product photo-count or MB cap. Actual disk/inode availability, permissions, network failure, parser header limits and Node's 300-second request/60-second header timeouts still apply. The Compose route has no buffering reverse proxy; uploads stream to disk and originals stream back. Successfully saved originals survive derivative failures. Hard kills can leave unpublished partial directories; automatic cleanup and guarantees against host power loss are outside this slice.
 
 With Docker running, `npm exec nx run api:verify-assets` builds the production image and checks original hashes, container-replacement persistence, read-only storage, real disk-full failures and recovery. It uses isolated temporary containers and preserves the ordinary Compose deployment.
+
+`npm exec -- nx run api:verify-images` verifies real HEIC decoding, preview dimensions/orientation, original hashes, processing retries, worker interruption, restart recovery and resource failures in the production image. Back up the full asset directory together with case JSON while uploads and processing are stopped. Use one application instance per asset directory.

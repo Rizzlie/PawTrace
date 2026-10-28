@@ -69,7 +69,10 @@ async function verifyOriginal(base, asset, bytes) {
   assert.equal(hash(new Uint8Array(await response.arrayBuffer())), hash(bytes));
   const metadata = await fetch(`${base}/assets/${asset.filename}/metadata`);
   assert.equal(metadata.status, 200);
-  assert.deepEqual(await metadata.json(), asset);
+  const current = await metadata.json();
+  for (const field of ['filename', 'originalName', 'mediaType', 'sizeBytes']) {
+    assert.deepEqual(current[field], asset[field]);
+  }
 }
 
 try {

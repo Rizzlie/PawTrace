@@ -14,6 +14,7 @@ const environmentSchema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   WEB_ROOT: z.string().default(''),
   ASSET_DIRECTORY: z.string().trim().min(1).default('./data/assets'),
+  IMAGE_PROCESSING_TIMEOUT_MS: z.coerce.number().int().min(1).max(600_000).default(60_000),
   REDIS_URL: z.url({ protocol: /^rediss?$/u }).default('redis://127.0.0.1:6379'),
   MAPBOX_PUBLIC_TOKEN: z.string().trim().default(''),
   OSM_TILE_URL: tileUrl.default(''),

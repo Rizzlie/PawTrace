@@ -1,6 +1,6 @@
 # F12 — Image processing and HEIC previews
 
-Status: planned
+Status: in_progress — implementation verified; final deployment validation and independent review in progress
 Depends on: F11
 
 ## Goal
@@ -40,4 +40,8 @@ Keep native image processing behind API/worker boundaries. Derivative progress a
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented the [photo-processing module](../architecture/image-processing.md): a disk-backed queue, one separate native decoder process at a time, 480-pixel PNG thumbnails, oriented full-resolution HEIC PNG previews, HTTP derivative downloads and per-derivative retry. Original filenames/bytes and browser case JSON are unchanged. Pending work recovers after restart; failed derivatives retain a warning state and the successful original.
+
+The production Linux image pins Node 24.16.0, Sharp 0.35.5, libvips 8.18.7, libheif 1.23.7 and libde265 1.1.3. Native archives are SHA-256 checked; the decoder is actually linked and exercised. Tests use the public HTTP interface and the deployed image, as agreed with the user.
+
+Validation so far: six new HTTP integration scenarios, all 269 workspace unit/integration tests, typechecking/lint/build for all eight projects, and the F11 production original-storage suite passed. Real JPEG/PNG/WebP/HEIC plus sixteen independent CC0 HEIC charts pass deployed processing, expected dimensions and original hashes. Visual inspection confirms all eight orientations, primary image 3 of 4 and fine full-resolution detail rather than an enlarged embedded thumbnail. Decoder corruption, derivative-write failure/retry, native SIGKILL, interrupted-container recovery and deadline failure/recovery passed. The final native validation run also exercises actual cgroup OOM and recovery; its evidence and the independent review will be recorded before completion.

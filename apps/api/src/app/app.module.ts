@@ -9,10 +9,11 @@ import { AddressSearch, AddressSearchController } from './address-search';
 import { AssetsController } from './assets/assets.controller';
 import { AssetUploads } from './assets/asset-uploads';
 import { OriginalAssets } from './assets/original-assets';
+import { ImageProcessing } from './assets/image-processing';
 
 @Module({
   controllers: [AppController, MapConfigController, AddressSearchController, AssetsController],
-  providers: [AddressSearch, AssetUploads, OriginalAssets],
+  providers: [AddressSearch, AssetUploads, OriginalAssets, ImageProcessing],
 })
 export class AppModule {
   static async configure(
