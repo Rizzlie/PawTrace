@@ -43,6 +43,9 @@ export interface PointPlacement {
 
 export interface MapArea {
   id: string;
+  selectionId?: string;
+  color?: string;
+  dashArray?: string;
   name: string;
   geometry: import('@pawtrace/case-domain').SearchGeometry;
   selected: boolean;

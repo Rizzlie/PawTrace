@@ -1,2 +1,6 @@
-<div class="panel-heading"><ng-content select="[panel-heading]" /></div>
-<ng-content />
+<mat-card appearance="outlined" class="panel-surface">
+  <div #content class="panel-content" [class.fixed-content]="!scrollable()">
+    <div class="panel-heading"><ng-content select="[panel-heading]" /></div>
+    <ng-content />
+  </div>
+</mat-card>

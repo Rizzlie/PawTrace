@@ -40,6 +40,7 @@
     </p>
   </div>
   <button
+    matButton="outlined"
     type="button"
     class="edit-profile"
     [disabled]="state.busy() || !state.document() || !!state.profileEditor()"
@@ -47,29 +48,22 @@
   >
     Edytuj profil
   </button>
-  <button type="button" [cdkMenuTriggerFor]="fileMenu" aria-label="Plik JSON">
+  <button matButton="outlined" type="button" [matMenuTriggerFor]="fileMenu" aria-label="Plik JSON">
     JSON <span aria-hidden="true">▾</span>
   </button>
-  <ng-template #fileMenu>
-    <div class="file-menu" cdkMenu aria-label="Plik sprawy">
-      <button
-        type="button"
-        cdkMenuItem
-        [cdkMenuItemDisabled]="state.busy()"
-        (cdkMenuItemTriggered)="fileInput.click()"
-      >
-        Importuj JSON
-      </button>
-      <button
-        type="button"
-        cdkMenuItem
-        [cdkMenuItemDisabled]="!state.document()"
-        (cdkMenuItemTriggered)="state.downloadExport()"
-      >
-        Eksportuj JSON
-      </button>
-    </div>
-  </ng-template>
+  <mat-menu #fileMenu="matMenu" class="pt-file-menu" aria-label="Plik sprawy">
+    <button type="button" mat-menu-item [disabled]="state.busy()" (click)="fileInput.click()">
+      Importuj JSON
+    </button>
+    <button
+      type="button"
+      mat-menu-item
+      [disabled]="!state.document()"
+      (click)="state.downloadExport()"
+    >
+      Eksportuj JSON
+    </button>
+  </mat-menu>
   <input
     #fileInput
     class="file-input"
@@ -90,26 +84,28 @@
     <div class="notices">
       @if (state.persistence().recovery) {
         <p class="warning" role="alert">{{ state.persistence().recovery }}</p>
-        <button type="button" [disabled]="state.busy()" (click)="state.retryRestore()">
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="state.busy()"
+          (click)="state.retryRestore()"
+        >
           Ponów odczyt
         </button>
       }
       @if (state.saveStatus() === 'error' || state.saveStatus() === 'unsaved') {
-        <button type="button" [disabled]="state.busy()" (click)="state.retrySave()">
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="state.busy()"
+          (click)="state.retrySave()"
+        >
           Ponów zapis
         </button>
       }
       @if (state.editorDirty()) {
         <p class="warning" role="status">
-          {{
-            state.editor()?.kind === 'area'
-              ? 'Niezatwierdzony obszar'
-              : state.editor()?.kind === 'point'
-                ? 'Niezatwierdzony punkt'
-                : state.editor()?.kind === 'entry'
-                  ? 'Niezatwierdzony wpis'
-                  : 'Niezatwierdzony profil'
-          }}
+          {{ draftLabel() }}
           — eksport obejmuje poprzednie dane.
         </p>
       }
@@ -124,82 +120,102 @@
 </section>
 
 @if (state.closeRequested()) {
-  <dialog #confirmation aria-labelledby="draft-title" (cancel)="stay($event)">
-    <h2 id="draft-title">
-      {{
-        state.editor()?.kind === 'area'
-          ? 'Niezatwierdzony obszar'
-          : state.editor()?.kind === 'point'
-            ? 'Niezatwierdzony punkt'
-            : state.editor()?.kind === 'entry'
-              ? 'Niezatwierdzony wpis'
-              : 'Niezatwierdzony profil'
-      }}
-    </h2>
-    <p>Zapisz zmiany, odrzuć szkic lub zostań przy edycji.</p>
-    @if (state.editorError()) {
-      <p role="alert" class="error">{{ state.editorError() }}</p>
-    }
-    <div class="actions">
-      <button type="button" (click)="resolveTransition('save')">Zapisz i kontynuuj</button>
-      <button type="button" (click)="resolveTransition('discard')">Odrzuć szkic</button>
-      <button type="button" (click)="resolveTransition('stay')" autofocus>
-        Zostań przy edycji
-      </button>
-    </div>
-  </dialog>
+  <ng-template #confirmation
+    ><div class="pt-dialog-content">
+      <h2 id="draft-title">
+        {{ draftLabel() }}
+      </h2>
+      <p>Zapisz zmiany, odrzuć szkic lub zostań przy edycji.</p>
+      @if (state.editorError()) {
+        <p role="alert" class="error">{{ state.editorError() }}</p>
+      }
+      <div class="actions">
+        <button matButton="outlined" type="button" (click)="resolveTransition('save')">
+          Zapisz i kontynuuj
+        </button>
+        <button matButton="outlined" type="button" (click)="resolveTransition('discard')">
+          Odrzuć szkic
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          (click)="resolveTransition('stay')"
+          cdkFocusInitial
+        >
+          Zostań przy edycji
+        </button>
+      </div>
+    </div></ng-template
+  >
 } @else if (state.replacementSummary(); as summary) {
-  <dialog #confirmation aria-labelledby="replacement-title" (cancel)="cancel($event)">
-    <h2 id="replacement-title">Zastąpienie sprawy</h2>
-    <p>
-      Nowa sprawa: <strong>{{ summary.title }}</strong>
-    </p>
-    <p>Zwierzę: {{ summary.animal }}</p>
-    <dl>
-      <div>
-        <dt>Punkty</dt>
-        <dd>{{ summary.points }}</dd>
-      </div>
-      <div>
-        <dt>Wpisy i kontrole</dt>
-        <dd>{{ summary.entries }}</dd>
-      </div>
-      <div>
-        <dt>Obszary</dt>
-        <dd>{{ summary.areas }}</dd>
-      </div>
-      <div>
-        <dt>Zdjęcia</dt>
-        <dd>{{ summary.photos }}</dd>
-      </div>
-    </dl>
-    @if (state.document()) {
+  <ng-template #confirmation
+    ><div class="pt-dialog-content">
+      <h2 id="replacement-title">Zastąpienie sprawy</h2>
       <p>
-        Ta operacja zastąpi całą obecną sprawę:
-        <strong>{{ state.document()!.case.title }}</strong
-        >. Sprawy nie zostaną połączone. Przed zastąpieniem możesz wyeksportować aktualne dane.
+        Nowa sprawa: <strong>{{ summary.title }}</strong>
       </p>
-      <button type="button" (click)="state.downloadExport()">Eksportuj obecną sprawę</button>
-    } @else if (state.persistence().recovery) {
-      <p class="warning">
-        {{ state.persistence().recovery }} Potwierdzenie zastąpi zachowany zapis.
+      <p>Zwierzę: {{ summary.animal }}</p>
+      <dl>
+        <div>
+          <dt>Punkty</dt>
+          <dd>{{ summary.points }}</dd>
+        </div>
+        <div>
+          <dt>Wpisy i kontrole</dt>
+          <dd>{{ summary.entries }}</dd>
+        </div>
+        <div>
+          <dt>Obszary</dt>
+          <dd>{{ summary.areas }}</dd>
+        </div>
+        <div>
+          <dt>Zdjęcia</dt>
+          <dd>{{ summary.photos }}</dd>
+        </div>
+      </dl>
+      @if (state.document()) {
+        <p>
+          Ta operacja zastąpi całą obecną sprawę:
+          <strong>{{ state.document()!.case.title }}</strong
+          >. Sprawy nie zostaną połączone. Przed zastąpieniem możesz wyeksportować aktualne dane.
+        </p>
+        <button matButton="outlined" type="button" (click)="state.downloadExport()">
+          Eksportuj obecną sprawę
+        </button>
+      } @else if (state.persistence().recovery) {
+        <p class="warning">
+          {{ state.persistence().recovery }} Potwierdzenie zastąpi zachowany zapis.
+        </p>
+      }
+      <p>
+        Eksport obejmuje wszystkie zatwierdzone dane, bez niezatwierdzonych formularzy i szkiców.
+        Zdjęcia pozostają na serwerze — plik zawiera ich nazwy.
       </p>
-    }
-    <p>
-      Eksport obejmuje wszystkie zatwierdzone dane, bez niezatwierdzonych formularzy i szkiców.
-      Zdjęcia pozostają na serwerze — plik zawiera ich nazwy.
-    </p>
-    @if (state.fileError()) {
-      <p role="alert" class="error">{{ state.fileError() }}</p>
-    }
-    @if (state.persistence().replacing) {
-      <p role="status">Zapisywanie nowej sprawy…</p>
-    }
-    <div class="actions">
-      <button type="button" [disabled]="state.busy()" (click)="replaceCase()">Zastąp sprawę</button>
-      <button type="button" [disabled]="state.busy()" (click)="cancelReplacement()" autofocus>
-        Anuluj
-      </button>
-    </div>
-  </dialog>
+      @if (state.fileError()) {
+        <p role="alert" class="error">{{ state.fileError() }}</p>
+      }
+      @if (state.persistence().replacing) {
+        <p role="status">Zapisywanie nowej sprawy…</p>
+      }
+      <div class="actions">
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="state.busy()"
+          (click)="replaceCase()"
+        >
+          Zastąp sprawę
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="state.busy()"
+          (click)="cancelReplacement()"
+          cdkFocusInitial
+        >
+          Anuluj
+        </button>
+      </div>
+    </div></ng-template
+  >
 }

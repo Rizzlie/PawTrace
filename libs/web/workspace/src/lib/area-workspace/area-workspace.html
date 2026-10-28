@@ -12,56 +12,131 @@
     </p>
     <form (submit)="$event.preventDefault(); state.saveArea(editor.id)">
       <fieldset [disabled]="state.editorBusy()">
-        <label>Nazwa obszaru <input [formField]="editor.fields.name" /></label>
-        <label>Opis obszaru <textarea [formField]="editor.fields.description"></textarea></label>
-        @if (editor.draft.type === 'circle') {
-          <label
-            >Promień (m) <input inputmode="decimal" [formField]="editor.fields.radiusMeters"
-          /></label>
-        } @else {
-          <p>
-            Wierzchołki: {{ editor.draft.vertices.length }}. Zapisz obszar, aby zatwierdzić
-            zamknięty kształt.
-          </p>
-        }
-        <p aria-label="Pomiary obszaru" role="status">{{ areaSize() }}</p>
-        <details>
-          <summary>Współrzędne geometrii</summary>
-          @for (vertex of editor.fields.vertices; track $index; let index = $index) {
-            <div class="vertex">
-              <label
-                >Szerokość wierzchołka {{ index + 1 }}
-                <input type="number" step="any" [formField]="vertex.latitude"
-              /></label>
-              <label
-                >Długość wierzchołka {{ index + 1 }}
-                <input type="number" step="any" [formField]="vertex.longitude"
-              /></label>
-              @if (editor.draft.type === 'polygon') {
-                <button
-                  type="button"
-                  [attr.aria-label]="'Usuń wierzchołek ' + (index + 1)"
-                  (click)="state.removeAreaVertex(editor.id, index)"
-                >
-                  Usuń wierzchołek
-                </button>
-              }
-            </div>
-          }
-        </details>
+        <mat-form-field
+          ><mat-label>Nazwa obszaru</mat-label>
+          <input matInput [formField]="editor.fields.name" />
+        </mat-form-field>
+        <mat-form-field
+          ><mat-label>Opis obszaru</mat-label>
+          <textarea matInput [formField]="editor.fields.description"></textarea>
+        </mat-form-field>
+        <ng-container [ngTemplateOutlet]="geometryControls" />
         @if (state.editorError()) {
           <p role="alert">{{ state.editorError() }}</p>
         }
         <div class="actions">
           <button
+            matButton="outlined"
             type="button"
             [disabled]="!editor.undo.length"
             (click)="state.undoAreaGeometry(editor.id)"
           >
             Cofnij krok
           </button>
-          <button type="submit">Zapisz obszar</button>
-          <button type="button" (click)="state.discardEditor(editor.id)">Anuluj obszar</button>
+          <button matButton="filled" type="submit">Zapisz obszar</button>
+          <button matButton="outlined" type="button" (click)="state.discardEditor(editor.id)">
+            Anuluj obszar
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </pt-floating-panel>
+} @else if (state.areaCheckEditor(); as editor) {
+  <pt-floating-panel class="editor" label="Edycja przeszukania">
+    <h2 panel-heading>{{ editor.existing ? 'Edycja przeszukania' : 'Nowe przeszukanie' }}</h2>
+    <form (submit)="$event.preventDefault(); state.saveAreaCheck(editor.id)">
+      <fieldset [disabled]="state.editorBusy()">
+        @if (!state.selectedArea()) {
+          <mat-form-field
+            ><mat-label>Nazwa obszaru</mat-label>
+            <input matInput [formField]="editor.fields.name" />
+          </mat-form-field>
+        }
+        @if (editor.hasPlan) {
+          <mat-form-field
+            ><mat-label>Zasięg przeszukania</mat-label>
+            <select matNativeControl [formField]="editor.fields.footprint">
+              <option value="plan">Cały aktualny plan</option>
+              <option value="custom">Osobno zaznaczony teren</option>
+            </select>
+          </mat-form-field>
+        }
+        @if (editor.draft.footprint === 'custom') {
+          <mat-form-field
+            ><mat-label>Kształt przeszukania</mat-label>
+            <select matNativeControl [formField]="editor.fields.type">
+              <option value="circle">Koło</option>
+              <option value="polygon">Wielokąt</option>
+            </select>
+          </mat-form-field>
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="!editor.undo.length"
+            (click)="state.undoAreaGeometry(editor.id)"
+          >
+            Cofnij krok
+          </button>
+          <p>
+            Klikaj mapę, aby zaznaczyć faktycznie przeszukany teren. Uchwyty pozwalają poprawić
+            geometrię.
+          </p>
+          <ng-container [ngTemplateOutlet]="geometryControls" />
+        } @else {
+          <p>
+            Przy zapisie zachowamy kopię aktualnego planu. Późniejsze zmiany planu jej nie zmienią.
+          </p>
+          <p>{{ areaSize() }}</p>
+        }
+        <mat-form-field
+          ><mat-label>Wynik kontroli</mat-label>
+          <select matNativeControl [formField]="editor.fields.result">
+            <option value="">Nie określono</option>
+            @for (result of results; track result.value) {
+              <option [value]="result.value">{{ result.label }}</option>
+            }
+          </select>
+        </mat-form-field>
+        @if (editor.draft.result === 'animal_seen') {
+          <mat-form-field
+            ><mat-label>Powiązana obserwacja</mat-label>
+            <select matNativeControl [formField]="editor.fields.observationEntryId">
+              <option value="">Wybierz obserwację</option>
+              @for (observation of observations(); track observation.id) {
+                <option [value]="observation.id">{{ observation.label }}</option>
+              }
+            </select>
+          </mat-form-field>
+          <p>
+            Wybierz pojedynczą obserwację z historii punktu. Jeśli jeszcze jej nie ma, zapisz
+            przeszukanie z nieokreślonym wynikiem, dodaj obserwację w punkcie i powiąż ją podczas
+            edycji przeszukania.
+          </p>
+        }
+        <mat-form-field
+          ><mat-label>Metoda / przebieg kontroli</mat-label>
+          <textarea matInput [formField]="editor.fields.method"></textarea>
+        </mat-form-field>
+        <mat-form-field
+          ><mat-label>Opis przeszukania</mat-label>
+          <textarea matInput [formField]="editor.fields.notes"></textarea>
+        </mat-form-field>
+        <pt-event-time-fields
+          [fields]="editor.fields.time"
+          [timeZone]="state.document()?.case?.timeZone ?? 'UTC'"
+        />
+        <p>
+          Wynik dotyczy tego przeszukania. Brak obserwacji nie wyklucza późniejszej obecności
+          zwierzęcia. Odnalezienie nie zamyka sprawy.
+        </p>
+        @if (state.editorError()) {
+          <p role="alert">{{ state.editorError() }}</p>
+        }
+        <div class="actions">
+          <button matButton="filled" type="submit">Zapisz przeszukanie</button
+          ><button matButton="outlined" type="button" (click)="state.discardEditor(editor.id)">
+            Anuluj przeszukanie
+          </button>
         </div>
       </fieldset>
     </form>
@@ -72,6 +147,7 @@
       <div panel-heading class="heading">
         <h2>{{ area.name }}</h2>
         <button
+          mat-icon-button
           type="button"
           aria-label="Zamknij szczegóły obszaru"
           (click)="state.selectArea(null)"
@@ -86,35 +162,137 @@
       }
       <div class="actions">
         <button
+          matButton="outlined"
           type="button"
-          [disabled]="state.busy()"
-          (click)="state.editArea(area.plannedGeometry?.type ?? 'polygon', area.id)"
+          [disabled]="state.busy() || !!state.candidate() || !!state.deletingArea()"
+          (click)="state.editAreaCheck(area.id)"
         >
-          Edytuj obszar
+          Dodaj przeszukanie
         </button>
-        <button
-          type="button"
-          [disabled]="state.busy() || !!state.candidate()"
-          (click)="state.requestAreaRemoval(area.id)"
-        >
-          Usuń plan
-        </button>
+        @if (area.plannedGeometry) {
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="state.busy()"
+            (click)="state.editArea(area.plannedGeometry.type, area.id)"
+          >
+            Edytuj obszar
+          </button>
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="state.busy() || !!state.candidate()"
+            (click)="state.requestAreaRemoval(area.id)"
+          >
+            Usuń plan
+          </button>
+        }
       </div>
+      <h3>Historia przeszukań ({{ area.checks.length }})</h3>
+      @for (section of history(); track section.label) {
+        @if (section.checks.length) {
+          <h4>{{ section.label }}</h4>
+          @for (check of section.checks; track check.id) {
+            <mat-card
+              appearance="outlined"
+              role="article"
+              [attr.aria-label]="check.description ?? 'Przeszukanie'"
+            >
+              <h4>{{ check.result ? searchResults[check.result] : 'Wynik nieokreślony' }}</h4>
+              <p>{{ check.time }}</p>
+              <p>{{ check.occurredAt.description }}</p>
+              <p>{{ check.description }}</p>
+              <p>{{ check.method }}</p>
+              <p>{{ check.size }}</p>
+              @if (check.observationEntryId) {
+                <p>Powiązana obserwacja: {{ check.observationEntryId }}</p>
+              }
+              @if (check.photos.length) {
+                <p>Zapisane odnośniki do zdjęć: {{ check.photos.join(', ') }}</p>
+              }
+              <button
+                matButton="outlined"
+                type="button"
+                [disabled]="state.busy() || !!state.candidate() || !!state.deletingArea()"
+                (click)="state.editAreaCheck(area.id, check.id)"
+              >
+                Edytuj przeszukanie
+              </button>
+            </mat-card>
+          }
+        }
+      }
+      @if (!area.checks.length) {
+        <p>Nie zapisano jeszcze przeszukań.</p>
+      }
     </pt-floating-panel>
   }
 }
 @if (state.deletingArea(); as area) {
-  <dialog #confirmation aria-labelledby="remove-area-title" (cancel)="cancelRemoval($event)">
-    <h2 id="remove-area-title">Usunąć plan „{{ area.name }}”?</h2>
-    <p>
-      Historia przeszukań ({{ area.checks.length }}) i ich faktyczna geometria pozostaną zachowane.
-      Pliki zdjęć pozostaną na serwerze.
-    </p>
-    <div class="actions">
-      <button type="button" (click)="state.confirmAreaRemoval()">Potwierdź usunięcie planu</button>
-      <button type="button" (click)="state.cancelAreaRemoval()" autofocus>
-        Anuluj usunięcie planu
-      </button>
-    </div>
-  </dialog>
+  <ng-template #confirmation
+    ><div class="pt-dialog-content">
+      <h2 id="remove-area-title">Usunąć plan „{{ area.name }}”?</h2>
+      <p>
+        Historia przeszukań ({{ area.checks.length }}) i ich faktyczna geometria pozostaną
+        zachowane. Pliki zdjęć pozostaną na serwerze.
+      </p>
+      <div class="actions">
+        <button matButton="outlined" type="button" (click)="state.confirmAreaRemoval()">
+          Potwierdź usunięcie planu
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          (click)="state.cancelAreaRemoval()"
+          cdkFocusInitial
+        >
+          Anuluj usunięcie planu
+        </button>
+      </div>
+    </div></ng-template
+  >
 }
+
+<ng-template #geometryControls>
+  @if (geometryEditor(); as editor) {
+    @if (editor.draft.type === 'circle') {
+      <mat-form-field
+        ><mat-label>Promień (m)</mat-label>
+        <input matInput inputmode="decimal" [formField]="editor.fields.radiusMeters" />
+      </mat-form-field>
+    } @else {
+      <p>
+        Wierzchołki: {{ editor.draft.vertices.length }}. Zapisz obszar, aby zatwierdzić zamknięty
+        kształt.
+      </p>
+    }
+    <p aria-label="Pomiary obszaru" role="status">{{ areaSize() }}</p>
+    <mat-expansion-panel>
+      <mat-expansion-panel-header
+        ><mat-panel-title>Współrzędne geometrii</mat-panel-title></mat-expansion-panel-header
+      >
+      @for (vertex of editor.fields.vertices; track $index; let index = $index) {
+        <div class="vertex">
+          <mat-form-field
+            ><mat-label>Szerokość wierzchołka {{ index + 1 }}</mat-label>
+            <input matInput type="number" step="any" [formField]="vertex.latitude" />
+          </mat-form-field>
+          <mat-form-field
+            ><mat-label>Długość wierzchołka {{ index + 1 }}</mat-label>
+            <input matInput type="number" step="any" [formField]="vertex.longitude" />
+          </mat-form-field>
+          @if (editor.draft.type === 'polygon') {
+            <button
+              matButton="outlined"
+              type="button"
+              [attr.aria-label]="'Usuń wierzchołek ' + (index + 1)"
+              (click)="state.removeAreaVertex(editor.id, index)"
+            >
+              Usuń wierzchołek
+            </button>
+          }
+        </div>
+      }
+    </mat-expansion-panel>
+  }
+</ng-template>

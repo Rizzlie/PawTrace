@@ -1,4 +1,4 @@
-import type { EventTime, HistoryEntry, SearchResult } from '@pawtrace/case-domain';
+import type { EventTime, HistoryEntry, SearchResult, MapPoint } from '@pawtrace/case-domain';
 export const entryTypes = {
   observation: 'Obserwacja',
   action: 'Działanie',
@@ -92,4 +92,16 @@ export function entryDetails(entry: HistoryEntry): string[] {
     case 'note':
       return [];
   }
+}
+
+/** A sighting has one identity, shared by checks in both histories. */
+export function observationOptions(points: readonly MapPoint[]) {
+  return points.flatMap((point) =>
+    point.entries
+      .filter((entry) => entry.type === 'observation')
+      .map((entry) => ({
+        id: entry.id,
+        label: `${point.name} — ${entry.description ?? entry.id} (${identifications[entry.identification]})`,
+      })),
+  );
 }

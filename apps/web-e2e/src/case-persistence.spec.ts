@@ -211,8 +211,8 @@ test('restores center, zoom and basemap after reopening the browser and offers O
     const page = await context.newPage();
     await page.goto('/');
     await importCase(page);
-    await expect(page.getByRole('button', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
     await expect(page.getByText('Zapisano widok satelitarny', { exact: false })).toBeVisible();
@@ -245,7 +245,7 @@ test('restores center, zoom and basemap after reopening the browser and offers O
           ),
       )
       .toEqual(beforeTiles);
-    await reopened.getByRole('button', { name: 'Mapa OSM', exact: true }).click();
+    await reopened.getByRole('radio', { name: 'Mapa OSM', exact: true }).click();
     await expect.poll(async () => (await exportCase(reopened)).mapView.basemap).toBe('osm');
     await expect(reopened.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
     await reopened.reload();
@@ -262,16 +262,16 @@ test('restores the satellite selection when the configured provider is available
   await configureMap(context, true);
   await page.goto('/');
   await importCase(page);
-  await expect(page.getByRole('button', { name: 'Satelita', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('radio', { name: 'Satelita', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await expect(
     page.locator('img.leaflet-tile-loaded[src*="api.mapbox.com"]').first(),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Satelita', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('radio', { name: 'Satelita', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await expect(
@@ -283,9 +283,9 @@ test('restores the satellite selection when the configured provider is available
 test('new case replaces the basemap selected before a case existed', async ({ page, context }) => {
   await configureMap(context, true);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Satelita', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Satelita', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await page.getByRole('radio', { name: 'Satelita', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Satelita', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
@@ -294,8 +294,8 @@ test('new case replaces the basemap selected before a case existed', async ({ pa
     .getByRole('button', { name: 'Zastąp sprawę', exact: true })
     .click();
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
-  await expect(page.getByRole('button', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('radio', { name: 'Mapa OSM', exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   expect((await exportCase(page)).mapView.basemap).toBe('osm');
@@ -317,7 +317,7 @@ test('startup location preserves a restored case viewport and factual timestamp'
   const locate = page.getByRole('button', { name: 'Moja lokalizacja' });
   await expect(locate).toBeEnabled();
   await expect(page.locator('.pt-location-accuracy, .pt-location-position')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Mapa OSM', exact: true }).focus();
+  await page.getByRole('radio', { name: 'Mapa OSM', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(locate).toBeFocused();
   await expect(

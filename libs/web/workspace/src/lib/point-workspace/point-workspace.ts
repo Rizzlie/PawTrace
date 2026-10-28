@@ -1,3 +1,10 @@
+import { MatChipsModule } from '@angular/material/chips';
+import { MatListModule } from '@angular/material/list';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
 import {
   afterRenderEffect,
   ChangeDetectionStrategy,
@@ -6,18 +13,30 @@ import {
   inject,
   linkedSignal,
   viewChild,
+  TemplateRef,
 } from '@angular/core';
 import { FormField } from '@angular/forms/signals';
 import { Router } from '@angular/router';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { FloatingPanel } from '@pawtrace/shared-ui';
+import { FloatingPanel, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { CaseStore } from '../case-store/case-store';
 import { PointHistory } from '../history/point-history';
 import { pointRoles } from './point-draft';
 
 @Component({
   selector: 'pt-point-workspace',
-  imports: [FloatingPanel, FormField, PointHistory],
+  imports: [
+    MatChipsModule,
+    MatListModule,
+    MatBadgeModule,
+    MatCheckboxModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    FloatingPanel,
+    FormField,
+    PointHistory,
+  ],
   templateUrl: './point-workspace.html',
   styleUrl: './point-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,21 +51,25 @@ export class PointWorkspace {
       pointId && this.phone ? true : (previous?.value ?? this.phone),
   });
   private readonly router = inject(Router);
-  private readonly confirmation = viewChild<ElementRef<HTMLDialogElement>>('confirmation');
-  private readonly details = viewChild('details', { read: ElementRef<HTMLElement> });
+  private readonly confirmation = viewChild<TemplateRef<unknown>>('confirmation');
+  private readonly details = viewChild<FloatingPanel>('details');
   private readonly placeHeading = viewChild<ElementRef<HTMLElement>>('placeHeading');
   constructor() {
-    afterRenderEffect(() => {
-      const dialog = this.confirmation()?.nativeElement;
-      if (dialog && !dialog.open) dialog.showModal();
-    });
+    presentMaterialDialog(
+      this.confirmation,
+      () => this.state.cancelPointRemoval(),
+      () => 'remove-title',
+    );
     afterRenderEffect(() => {
       this.state.selectedPointId();
       if (this.state.entryEditor()) return;
-      const panel = this.details()?.nativeElement;
-      if (panel) panel.scrollTop = 0;
+      this.details()?.scrollToTop();
       this.placeHeading()?.nativeElement.focus({ preventScroll: true });
     });
+  }
+  protected async recordUnplannedSearch(): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.editAreaCheck();
   }
   protected async edit(id: string): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
@@ -59,9 +82,5 @@ export class PointWorkspace {
   protected async selectArea(id: string): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.selectArea(id);
-  }
-  protected cancelRemoval(event: Event): void {
-    event.preventDefault();
-    this.state.cancelPointRemoval();
   }
 }

@@ -5,26 +5,23 @@
   role="region"
   aria-label="Mapa poszukiwań"
 ></div>
-<div class="basemaps" ngToolbar aria-label="Podkład mapy">
-  <button
-    ngToolbarWidget
-    type="button"
-    [attr.aria-pressed]="map.basemap() === 'osm'"
-    (click)="map.selectBasemap('osm')"
+<mat-button-toggle-group
+  #basemaps="matButtonToggleGroup"
+  class="basemaps"
+  aria-label="Podkład mapy"
+  [value]="map.basemap()"
+  hideSingleSelectionIndicator
+>
+  <mat-button-toggle value="osm" (change)="selectBasemap('osm', basemaps)"
+    >Mapa OSM</mat-button-toggle
   >
-    Mapa OSM
-  </button>
-  <button
-    ngToolbarWidget
-    type="button"
-    [attr.aria-pressed]="map.basemap() === 'satellite'"
-    (click)="map.selectBasemap('satellite')"
+  <mat-button-toggle value="satellite" (change)="selectBasemap('satellite', basemaps)"
+    >Satelita</mat-button-toggle
   >
-    Satelita
-  </button>
-</div>
+</mat-button-toggle-group>
 <div class="map-actions" ngToolbar orientation="vertical" aria-label="Działania na mapie">
   <button
+    mat-icon-button
     ngToolbarWidget
     type="button"
     [disabled]="map.locating()"
@@ -33,9 +30,13 @@
     matTooltipPosition="left"
     (click)="map.locate()"
   >
-    <span aria-hidden="true">⌖</span>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path d="M12 2v4m0 12v4M2 12h4m12 0h4" fill="none" stroke="currentColor" stroke-width="1.8" />
+    </svg>
   </button>
   <button
+    mat-icon-button
     ngToolbarWidget
     type="button"
     [disabled]="!pointCreationEnabled()"
@@ -44,9 +45,12 @@
     matTooltipPosition="left"
     (click)="addPointRequested.emit()"
   >
-    <span aria-hidden="true">＋</span>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M12 4v16M4 12h16" fill="none" stroke="currentColor" stroke-width="2" />
+    </svg>
   </button>
   <button
+    mat-icon-button
     ngToolbarWidget
     type="button"
     aria-label="Rysuj koło"
@@ -56,9 +60,12 @@
     [attr.aria-pressed]="areaDraft()?.type === 'circle'"
     (click)="addAreaRequested.emit('circle')"
   >
-    <span aria-hidden="true">◯</span>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+    </svg>
   </button>
   <button
+    mat-icon-button
     ngToolbarWidget
     type="button"
     aria-label="Rysuj wielokąt"
@@ -73,6 +80,7 @@
     </svg>
   </button>
   <button
+    mat-icon-button
     ngToolbarWidget
     type="button"
     aria-label="Zmierz odległość"
@@ -92,25 +100,37 @@
   </button>
 </div>
 @if (measurement() !== null) {
-  <section class="measurement" aria-label="Pomiar odległości">
+  <mat-card appearance="outlined" role="region" class="measurement" aria-label="Pomiar odległości">
     <strong>Odległość w linii prostej</strong>
     <p role="status">{{ distance() }}</p>
     <p>
       Przeciągnij uchwyty, aby poprawić pozycje. Kolejne kliknięcie po dwóch pozycjach rozpoczyna
       nowy pomiar.
     </p>
-    <button type="button" [disabled]="!measurement()?.length" (click)="undoMeasurement()">
+    <button
+      matButton="outlined"
+      type="button"
+      [disabled]="!measurement()?.length"
+      (click)="undoMeasurement()"
+    >
       Cofnij pomiar
     </button>
-    <button type="button" (click)="measurementClosed.emit()">Zakończ pomiar</button>
-  </section>
+    <button matButton="outlined" type="button" (click)="measurementClosed.emit()">
+      Zakończ pomiar
+    </button>
+  </mat-card>
 }
 @if (
   map.tileMessage() ||
   map.locationMessage() ||
   (basemap() === 'satellite' && !map.satelliteAvailable())
 ) {
-  <aside class="messages" aria-label="Komunikaty mapy">
+  <mat-card
+    appearance="outlined"
+    role="complementary"
+    class="messages"
+    aria-label="Komunikaty mapy"
+  >
     @if (basemap() === 'satellite' && !map.satelliteAvailable() && !map.tileMessage()) {
       <p role="status">
         Zapisano widok satelitarny, ale satelita jest niedostępna. Wyświetlono mapę OSM.
@@ -118,12 +138,14 @@
     }
     @if (map.tileMessage()) {
       <p role="status">{{ map.tileMessage() }}</p>
-      <button type="button" (click)="map.retryTiles()">Ponów pobieranie mapy</button>
+      <button matButton="outlined" type="button" (click)="map.retryTiles()">
+        Ponów pobieranie mapy
+      </button>
     }
     @if (map.locationMessage()) {
       <p role="status">{{ map.locationMessage() }}</p>
     }
-  </aside>
+  </mat-card>
 }
 @if (map.showMapboxLogo()) {
   <a class="mapbox-logo" href="https://www.mapbox.com/" aria-label="Mapbox"
@@ -132,13 +154,13 @@
 }
 
 @if (overlapping().length > 1) {
-  <section class="overlap" aria-label="Nakładające się punkty">
+  <mat-card appearance="outlined" role="region" class="overlap" aria-label="Nakładające się punkty">
     <strong>Wybierz miejsce</strong>
     @for (place of overlapping(); track place.id) {
-      <button type="button" (click)="choosePlace(place.id)">
+      <button matButton="outlined" type="button" (click)="choosePlace(place.id)">
         <span aria-hidden="true">{{ place.number }} · </span>{{ place.name }}
       </button>
     }
-    <button type="button" (click)="dismissOverlap()">Zamknij wybór</button>
-  </section>
+    <button matButton="outlined" type="button" (click)="dismissOverlap()">Zamknij wybór</button>
+  </mat-card>
 }

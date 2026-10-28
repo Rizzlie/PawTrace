@@ -1,6 +1,6 @@
 # F10 — Actual searches and area-check history
 
-Status: planned
+Status: done
 Depends on: F09
 
 ## Goal
@@ -41,4 +41,38 @@ Area-check editors use the shared explicit Save/Cancel lifecycle. Preserve actua
 
 ## Completion notes
 
-To be filled during implementation.
+Implemented actual-search creation and editing in the existing CaseStore and explicit Save/Cancel lifecycle. A new check can snapshot the whole current plan or use a separate circle/polygon footprint; searches without plans create an area with no planned geometry. Existing checks reopen their historical footprint rather than the current plan. Plan edits/removal preserve all check snapshots, identifiers, photo references and times.
+
+Signal Forms edit the single session-owned draft. Derived history sections and map scenes use computed projections. Form and map geometry changes share undo history, and session IDs/cancellation protect against stale edits and delayed Saves. The shared event-time editor handles exact, approximate, range, date-only and unknown times, including explicit repeated-hour choices. Point and area controls share result labels and reference existing observation entries; removing an observation uses the existing unlink rule, retaining the search and an explanatory note. Recovery never locks the case.
+
+Actual footprints render as separate dashed purple layers, selectable through the same area's history. Areas without plans remain accessible in the place list. Process notes remain free text; no new thoroughness fields, observation copies, photo-upload workflow or JSON version were introduced.
+
+Verification on 2026-10-28:
+
+- `npm exec nx run-many -- -t typecheck lint test build --output-style=static` passed all 24 targets across eight projects. All 239 unit/integration tests passed (123 case-domain, 49 workspace, 33 map-engine, 31 API, two browser-persistence and one web).
+- With the existing local development services, `$env:BASE_URL='http://127.0.0.1:4200'; npm exec nx run web-e2e:e2e -- --workers=2 --output-style=static` passed all 66 Chromium scenarios. F10 scenarios cover two searches of one plan, a smaller footprint, plan editing/removal, unplanned polygon creation at 390px, cancellation/Stay, recovery, linked-observation validation/removal, reload and JSON transfer. Existing history scenarios also verify the shared time controls, including repeated hours.
+- TDD observed missing check commands, missing shared area chronology and absent historical map layers before implementation. An added undo regression exposed a form-radius change skipping geometry history; form and map edits now use the same immutable session update. Stale writes, delayed Saves, invalid geometry/references and retained photo/time metadata are covered through the agreed public seams.
+- Initial browser runs corrected test integration details: JSON fixture import is static, select locators use the combobox role, and a subsequent import waits for the prior confirmation dialog to close. No product assertion or timeout was relaxed. The first automatic-service run found ports already occupied, so subsequent runs used the documented BASE_URL option with the running workspace services.
+- Desktop and 390px screenshots were inspected. Panels scroll, controls remain usable and the map retains room for geometry editing. Tests use controlled map responses; no paid provider or photo operation was introduced.
+
+## Standards
+
+Independent review against user-approved `main` (pinned `8f9dd76b0348d2a162913003a6104ae633dfe05a`, including uncommitted/new files) found three low-priority items:
+
+- The shared export warning and Save/Discard/Stay dialog mislabeled actual-search drafts as profiles. A single computed label now covers every editor kind, and the phone regression checks the actual-search dialog title.
+- Possible duplicated observation-option projections in point and area histories. Both now use the existing history-presentation module's shared projection.
+- The case-domain README documented the old history-ordering export. It now documents `chronologicalHistory` for point entries and area checks.
+
+Standards: three findings, worst severity low; all addressed before final validation.
+
+## Spec
+
+The independent spec review found one low-priority issue: the same misleading actual-search draft label in shared lifecycle feedback. The computed label and browser assertion resolve it. No other missing requirements, scope creep or incorrect F10 behavior was identified.
+
+Spec: one finding, worst severity low; addressed before final validation.
+
+## Material UI follow-up
+
+Migrated forms, buttons, menus, badges, cards, lists and dialogs to the installed Angular Material/CDK 22.2.3 packages. The shared Material 3 theme retains the PawTrace palette and typography. Place and area lists scroll independently beneath fixed headings, with rounded items and visible selection/focus indicators. Search and place panels share a width; details reserve room for map controls.
+
+Final affected checks against `main` passed lint, typecheck, build and 209 unit/integration tests across seven projects. Formatting passed, and all 71 Chromium scenarios passed using an isolated development server on port 4300. Added regression coverage verifies that an unavailable satellite selection retains OSM, explicitly choosing the active OSM fallback persists that choice, the search field remains visible, and list scrolling leaves headings fixed. Dialog cancellation/focus restoration and JSON round-trips remain covered.

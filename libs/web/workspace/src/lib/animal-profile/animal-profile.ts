@@ -1,3 +1,9 @@
+import { MatCardModule } from '@angular/material/card';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -16,7 +22,15 @@ import { incidentMomentChoices } from './incident-time';
 
 @Component({
   selector: 'pt-animal-profile',
-  imports: [FormField],
+  imports: [
+    MatCardModule,
+    MatExpansionModule,
+    MatCheckboxModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    FormField,
+  ],
   templateUrl: './animal-profile.html',
   styleUrl: './animal-profile.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

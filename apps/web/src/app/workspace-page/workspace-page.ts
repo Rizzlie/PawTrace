@@ -1,3 +1,4 @@
+import { MatButtonModule } from '@angular/material/button';
 import { AppHeader } from '../layout/app-header/app-header';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -32,6 +33,7 @@ import { FloatingPanel } from '@pawtrace/shared-ui';
 @Component({
   selector: 'app-workspace-page',
   imports: [
+    MatButtonModule,
     AppHeader,
     RouterOutlet,
     MapEngine,

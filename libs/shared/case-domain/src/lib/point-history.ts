@@ -3,7 +3,9 @@ import type { EventTime } from './case-values';
 import type { CaseDocument } from './case-contract';
 
 /** Display ordering only: a date is never converted into a midnight event. */
-export function pointHistory(entries: readonly HistoryEntry[], timeZone: string) {
+export function chronologicalHistory<
+  T extends Pick<HistoryEntry, 'id' | 'occurredAt' | 'createdAt'>,
+>(entries: readonly T[], timeZone: string) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',

@@ -15,6 +15,11 @@ async function savePoint(page: Page) {
   await expect(page.getByLabel('Nazwa punktu')).toBeHidden();
 }
 
+async function expandPlaces(page: Page) {
+  const expand = page.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
+  if (await expand.isVisible()) await expand.click();
+}
+
 async function selectListedPoint(page: Page, name: string) {
   const expand = page.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
   if (await expand.isVisible()) await expand.click();
@@ -45,6 +50,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog')).toBeHidden();
 });
 
 async function exportCase(page: Page) {
@@ -58,6 +64,7 @@ async function exportCase(page: Page) {
 }
 
 async function importCase(page: Page, file: unknown) {
+  await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
   await page.getByLabel('Importuj plik JSON').setInputFiles({
     name: 'points.json',
@@ -66,6 +73,7 @@ async function importCase(page: Page, file: unknown) {
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog')).toBeHidden();
 }
 
 test('creates by map click and drag, cancels a candidate, and collapses without resizing the map', async ({
@@ -283,8 +291,8 @@ test('starts with a collapsed place list on a phone and keeps the canvas full si
 });
 
 for (const { width, inset } of [
-  { width: 1280, inset: 16 },
-  { width: 390, inset: 12 },
+  { width: 1280, inset: 72 },
+  { width: 390, inset: 68 },
 ]) {
   test(`opens selected-place details independently at the bottom right at ${width}px`, async ({
     page,
@@ -305,6 +313,10 @@ for (const { width, inset } of [
     const panel = await markerBox(details);
     expect(panel.x + panel.width).toBeCloseTo(canvas.x + canvas.width - inset, 0);
     expect(panel.y + panel.height).toBeCloseTo(canvas.y + canvas.height - 80, 0);
+    const basemaps = await markerBox(page.getByRole('radiogroup', { name: 'Podkład mapy' }));
+    expect(panel.x + panel.width).toBeCloseTo(basemaps.x + basemaps.width, 0);
+    const zoom = await markerBox(page.locator('.leaflet-control-zoom'));
+    expect(panel.x + panel.width + 12).toBeLessThanOrEqual(zoom.x);
     await collapsePlaces(page);
     await expect(details).toBeVisible();
     const list = await markerBox(page.getByRole('complementary', { name: 'Miejsca', exact: true }));
@@ -377,4 +389,224 @@ test('zooms closer to 22, reuses supported tiles and restores the view after rel
     /leaflet-disabled/,
   );
   expect((await exportCase(page)).mapView.zoom).toBe(22);
+});
+
+for (const width of [390, 1280]) {
+  test(`keeps search results and places separate at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload();
+    await importCase(page, completeFile);
+    await page.route('**/api/address-search?*', (route) =>
+      route.fulfill({
+        json: {
+          results: [
+            {
+              id: 'test:1',
+              label: 'Długi adres testowy, Warszawa, Polska',
+              latitude: 52.23,
+              longitude: 21.01,
+            },
+          ],
+          attribution: {
+            label: '© OpenStreetMap contributors',
+            url: 'https://www.openstreetmap.org/copyright',
+          },
+        },
+      }),
+    );
+    const search = page.locator('pt-address-search');
+    const places = page.getByRole('complementary', { name: 'Miejsca', exact: true });
+    await page.getByRole('searchbox', { name: 'Adres w Polsce' }).fill('Warszawa');
+    await page.getByRole('button', { name: 'Szukaj', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Długi adres testowy, Warszawa, Polska', exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const a = await markerBox(search);
+        const b = await markerBox(places);
+        return b.y - a.y - a.height;
+      })
+      .toBeGreaterThanOrEqual(12);
+    await page
+      .getByRole('button', { name: 'Długi adres testowy, Warszawa, Polska', exact: true })
+      .click();
+    await expect(page.getByRole('status', { name: 'Wybrane miejsce' })).toBeVisible();
+    const a = await markerBox(search);
+    const b = await markerBox(places);
+    expect(b.y - a.y - a.height).toBeGreaterThanOrEqual(12);
+    expect(a.width).toBeCloseTo(b.width, 0);
+    expect(a.x).toBeCloseTo(b.x, 0);
+    const icon = await markerBox(search.locator('.search-icon'));
+    const field = await markerBox(search.getByRole('searchbox'));
+    expect(
+      Math.abs(icon.y + icon.height / 2 - field.y - field.height / 2),
+      JSON.stringify({ icon, field }),
+    ).toBeLessThanOrEqual(1);
+    await page.screenshot({
+      path: resolve(__dirname, `../../../.scratch/layout-search-${width}.png`),
+    });
+  });
+  test(`centers toolbar icons and keeps panel content inset at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload();
+    await importCase(page, {
+      ...completeFile,
+      points: [
+        ...completeFile.points,
+        ...Array.from({ length: 20 }, (_, index) => ({
+          ...completeFile.points[0],
+          id: `padding-point-${index}`,
+          name: `Długie miejsce ${index + 1}`,
+          entries: [],
+        })),
+      ],
+    });
+    const toolbar = page.getByRole('toolbar', { name: 'Działania na mapie' });
+    for (const button of await toolbar.getByRole('button').all()) {
+      const frame = await markerBox(button);
+      const icon = await markerBox(button.locator('svg'));
+      expect
+        .soft(Math.abs(icon.x + icon.width / 2 - frame.x - frame.width / 2))
+        .toBeLessThanOrEqual(1);
+      expect
+        .soft(Math.abs(icon.y + icon.height / 2 - frame.y - frame.height / 2))
+        .toBeLessThanOrEqual(1);
+    }
+    const panel = page.getByRole('complementary', { name: 'Miejsca', exact: true });
+    const searchBounds = await markerBox(page.locator('pt-address-search'));
+    const inputBounds = await markerBox(page.getByRole('searchbox', { name: 'Adres w Polsce' }));
+    expect(inputBounds.y).toBeGreaterThanOrEqual(searchBounds.y);
+    expect(inputBounds.y + inputBounds.height).toBeLessThanOrEqual(
+      searchBounds.y + searchBounds.height,
+    );
+    await collapsePlaces(page);
+    const frame = await markerBox(panel);
+    const heading = await markerBox(panel.locator('.heading'));
+    expect
+      .soft(Math.abs(heading.x + heading.width / 2 - frame.x - frame.width / 2))
+      .toBeLessThanOrEqual(1);
+    expect
+      .soft(Math.abs(heading.y + heading.height / 2 - frame.y - frame.height / 2))
+      .toBeLessThanOrEqual(1);
+    const toggle = panel.getByRole('button', { name: 'Rozwiń miejsca', exact: true });
+    await toggle.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(toggle).toBeFocused();
+    await expect
+      .poll(() => toggle.evaluate((element) => element.matches(':focus-visible')))
+      .toBe(true);
+    const focus = await toggle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      const extra = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+      return {
+        top: box.top - extra,
+        bottom: box.bottom + extra,
+        left: box.left - extra,
+        right: box.right + extra,
+      };
+    });
+    const clip = await markerBox(panel.locator('.panel-content'));
+    expect.soft(focus.top).toBeGreaterThanOrEqual(clip.y);
+    expect.soft(focus.bottom).toBeLessThanOrEqual(clip.y + clip.height);
+    expect.soft(focus.left).toBeGreaterThanOrEqual(clip.x);
+    expect.soft(focus.right).toBeLessThanOrEqual(clip.x + clip.width);
+    expect(heading.x - frame.x).toBeGreaterThanOrEqual(18);
+    expect(heading.x - frame.x).toBeLessThanOrEqual(32);
+    expect(frame.x + frame.width - heading.x - heading.width).toBeGreaterThanOrEqual(18);
+    await expandPlaces(page);
+    const headingBeforeScroll = await markerBox(panel.locator('.heading'));
+    const scrolling = panel.locator('mat-action-list[aria-label="Lista miejsc"]');
+    await expect
+      .poll(() => scrolling.evaluate((element) => element.scrollHeight - element.clientHeight))
+      .toBeGreaterThan(0);
+    await scrolling.evaluate((element) => {
+      element.scrollTop = element.scrollHeight / 2;
+    });
+    const viewport = await markerBox(scrolling);
+    const border = await markerBox(panel);
+    expect(viewport.y - border.y).toBeGreaterThanOrEqual(12);
+    expect(border.y + border.height - viewport.y - viewport.height).toBeGreaterThanOrEqual(12);
+    expect(viewport.x - border.x).toBeGreaterThanOrEqual(12);
+    expect(border.x + border.width - viewport.x - viewport.width).toBeGreaterThanOrEqual(12);
+    expect(await scrolling.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    expect((await markerBox(panel.locator('.heading'))).y).toBe(headingBeforeScroll.y);
+    expect(
+      await panel
+        .locator('.panel-content')
+        .evaluate((element) => element.scrollHeight - element.clientHeight),
+    ).toBeLessThanOrEqual(1);
+    await expect(scrolling.getByRole('button').first()).toHaveCSS('border-radius', '12px');
+    await page.screenshot({
+      path: resolve(__dirname, `../../../.scratch/panel-scroll-${width}.png`),
+    });
+  });
+}
+
+test('keeps a selected area outline visible after scrolling the places list', async ({ page }) => {
+  await importCase(page, {
+    ...completeFile,
+    areas: Array.from({ length: 20 }, (_, index) => ({
+      ...completeFile.areas[0],
+      id: `focus-area-${index}`,
+      name: `Obszar do sprawdzenia ${index + 1}`,
+      checks: [],
+    })),
+  });
+  const places = page.getByRole('complementary', { name: 'Miejsca', exact: true });
+  const item = places.getByRole('button', { name: 'Obszar do sprawdzenia 15', exact: true });
+  await item.click();
+  await expect(item).toHaveAttribute('aria-pressed', 'true');
+  const metrics = await item.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const extra = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    const ancestors = [];
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const css = getComputedStyle(parent);
+      if (['auto', 'scroll', 'hidden'].includes(css.overflowX)) {
+        const rect = parent.getBoundingClientRect();
+        ancestors.push({
+          name: parent.className,
+          left: rect.left + parent.clientLeft,
+          right: rect.left + parent.clientLeft + parent.clientWidth,
+          scrollLeft: parent.scrollLeft,
+        });
+      }
+    }
+    return {
+      left: box.left - extra,
+      right: box.right + extra,
+      buttonLeft: box.left,
+      buttonRight: box.right,
+      ancestors,
+    };
+  });
+  expect.soft(metrics.left).toBeGreaterThanOrEqual(metrics.buttonLeft);
+  expect.soft(metrics.right).toBeLessThanOrEqual(metrics.buttonRight);
+  for (const clip of metrics.ancestors) {
+    expect.soft(metrics.left, JSON.stringify(clip)).toBeGreaterThanOrEqual(clip.left);
+    expect.soft(metrics.right, JSON.stringify(clip)).toBeLessThanOrEqual(clip.right);
+    expect.soft(clip.scrollLeft, clip.name).toBe(0);
+  }
+  await page.keyboard.press('Tab');
+  const next = places.getByRole('button', { name: 'Obszar do sprawdzenia 16', exact: true });
+  await expect(next).toBeFocused();
+  await expect(next).toHaveCSS('outline-style', 'solid');
+  const keyboardOutline = await next.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const extra = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    return {
+      left: box.left - extra,
+      right: box.right + extra,
+      buttonLeft: box.left,
+      buttonRight: box.right,
+    };
+  });
+  expect(keyboardOutline.left).toBeGreaterThanOrEqual(keyboardOutline.buttonLeft);
+  expect(keyboardOutline.right).toBeLessThanOrEqual(keyboardOutline.buttonRight);
+  await page.screenshot({ path: resolve(__dirname, '../../../.scratch/place-item-focus.png') });
 });

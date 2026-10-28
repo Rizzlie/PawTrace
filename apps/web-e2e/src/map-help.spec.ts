@@ -24,10 +24,10 @@ for (const width of [390, 1280]) {
     });
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-    await expect(help.locator('mat-icon svg')).toBeVisible();
     await dialog.getByRole('button', { name: 'Przejdź do mapy' }).click();
     await expect(dialog).toBeHidden();
     await expect(help).toBeFocused();
+    await expect(help.locator('mat-icon svg')).toBeVisible();
     await page.reload();
     await expect(page.getByRole('region', { name: 'Mapa poszukiwań' })).toBeVisible();
     await expect(dialog).toBeHidden();
@@ -38,6 +38,7 @@ for (const width of [390, 1280]) {
     await expect(dialog).toBeHidden();
     await expect(help).toBeFocused();
     await help.click();
+    await expect(dialog).toBeVisible();
     await page.mouse.click(5, 5);
     await expect(dialog).toBeHidden();
     await page.reload();

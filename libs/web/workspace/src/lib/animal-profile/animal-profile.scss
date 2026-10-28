@@ -16,10 +16,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  border: 1px solid var(--pt-border);
-  border-radius: 18px;
   box-shadow: var(--pt-shadow);
-  background: var(--pt-panel, #fffef8);
   color: var(--pt-foreground);
   height: min(760px, calc(100dvh - 145px));
   overflow: hidden;
@@ -31,10 +28,6 @@ footer {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-header button {
-  font-size: 22px;
-  padding: 4px 12px;
 }
 .eyebrow {
   color: var(--pt-muted);
@@ -65,12 +58,8 @@ form {
   min-height: 0;
   padding: 4px;
 }
-details {
-  border: 1px solid var(--pt-border);
-  border-radius: 10px;
-  padding: 12px;
-}
-summary {
+
+mat-expansion-panel-header {
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
@@ -80,25 +69,6 @@ summary {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
-}
-label {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  font-size: 12px;
-}
-input,
-textarea,
-select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--pt-border);
-  border-radius: 7px;
-  padding: 9px;
-  color: var(--pt-foreground);
-  background: #fff;
-  font: inherit;
 }
 textarea {
   resize: vertical;
@@ -119,23 +89,12 @@ textarea {
   align-items: center;
   grid-column: 1 / -1;
 }
-.checkbox input {
-  width: auto;
-}
 footer {
   flex-shrink: 0;
   justify-content: flex-start;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--pt-border);
-}
-button {
-  padding: 10px 12px;
-  font-size: 12px;
-}
-.primary {
-  color: #fff;
-  background: var(--pt-primary);
 }
 .error {
   color: #913600;
@@ -144,10 +103,6 @@ button {
   max-height: 110px;
   overflow: auto;
   flex-shrink: 0;
-}
-:is(input, textarea, select, summary, button):focus-visible {
-  outline: 3px solid var(--pt-primary);
-  outline-offset: 3px;
 }
 @media (max-width: 600px) {
   .fields {

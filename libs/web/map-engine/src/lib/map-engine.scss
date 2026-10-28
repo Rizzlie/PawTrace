@@ -19,15 +19,22 @@
   gap: 12px;
   pointer-events: none;
 }
-.map-actions > * {
+.map-actions > button {
   pointer-events: auto;
   display: grid;
   place-items: center;
   box-sizing: border-box;
   width: 44px;
   height: 44px;
-  padding: 8px;
-  font-size: 24px;
+  padding: 0;
+  line-height: 1;
+  background: var(--mat-sys-surface);
+  box-shadow: var(--pt-shadow);
+}
+.map-actions svg {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 .measurement {
   position: absolute;
@@ -36,52 +43,22 @@
   right: 76px;
   width: min(300px, calc(100% - 100px));
   padding: 16px;
-  border-radius: 16px;
-  background: var(--pt-panel);
   box-shadow: var(--pt-shadow);
   font-size: 12px;
-}
-button {
-  font: inherit;
-  font-size: 12px;
-  color: var(--pt-foreground, #294535);
-  background: var(--pt-surface, #fcfdf9);
-  border: 1px solid var(--pt-border, #dde5dc);
-  border-radius: 10px;
-  padding: 11px 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 18px #26422a0e;
-}
-button:hover {
-  background: var(--pt-soft, #edf3e9);
-}
-button:focus-visible,
-a:focus-visible {
-  outline: 3px solid #75ac8d;
-  outline-offset: 3px;
 }
 button[aria-pressed='true'] {
   color: #fff;
   background: var(--pt-primary, #2c654c);
   border-color: var(--pt-primary, #2c654c);
 }
-button:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
 .basemaps {
   position: absolute;
   z-index: 500;
-  right: 64px;
+  right: var(--pt-details-inset, 72px);
   bottom: 30px;
   display: flex;
 }
-.basemaps button:first-child {
-  border-radius: 12px 0 0 12px;
-}
-.basemaps button:last-child {
-  border-radius: 0 12px 12px 0;
-}
+
 .messages {
   position: absolute;
   z-index: 501;
@@ -91,9 +68,6 @@ button:disabled {
   max-height: calc(100% - 160px);
   overflow: auto;
   padding: 16px;
-  border: 1px solid #fff;
-  border-radius: 16px;
-  background: var(--pt-panel, #fffffff2);
   box-shadow: var(--pt-shadow, 0 8px 32px #2f4c2a17);
   backdrop-filter: blur(8px);
 }
@@ -107,8 +81,6 @@ button:disabled {
   margin-bottom: 0;
 }
 .messages button {
-  font-size: 11px;
-  padding: 7px 10px;
   margin-bottom: 8px;
 }
 .mapbox-logo {
@@ -125,10 +97,6 @@ button:disabled {
     top: 12px;
     right: 12px;
     gap: 8px;
-  }
-  button {
-    font-size: 11px;
-    padding: 10px;
   }
   .messages {
     top: 116px;
@@ -150,7 +118,5 @@ button:disabled {
   padding: 16px;
   max-height: 50%;
   overflow: auto;
-  border-radius: 16px;
-  background: var(--pt-panel);
   box-shadow: var(--pt-shadow);
 }

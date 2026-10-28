@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HistoryEntry } from './history-entry';
-import { observationCounts, pointHistory } from './point-history';
+import { observationCounts, chronologicalHistory } from './point-history';
 
 const note = (id: string, occurredAt: HistoryEntry['occurredAt']): HistoryEntry => ({
   id,
@@ -34,7 +34,7 @@ describe('point history', () => {
       note('tie-b', { kind: 'date', date: '2026-10-16', description: null }),
       note('tie-a', { kind: 'date', date: '2026-10-16', description: null }),
     ];
-    const history = pointHistory(entries, 'Europe/Warsaw');
+    const history = chronologicalHistory(entries, 'Europe/Warsaw');
     expect(history.known.map((e) => e.id)).toEqual([
       'range',
       'late',
@@ -45,7 +45,7 @@ describe('point history', () => {
     ]);
     expect(history.unknown.map((e) => e.id)).toEqual(['unknown']);
     expect(entries[0].occurredAt).toEqual({ kind: 'unknown', description: 'Dawno temu' });
-    expect(pointHistory([...entries].reverse(), 'Europe/Warsaw')).toEqual(history);
+    expect(chronologicalHistory([...entries].reverse(), 'Europe/Warsaw')).toEqual(history);
   });
   it('counts independent identification outcomes across active and manually rejected reports', () => {
     const base = {
@@ -78,4 +78,27 @@ describe('point history', () => {
       different_animal: 1,
     });
   });
+});
+
+it('orders independent actual searches with date-only and unknown times', async () => {
+  const { chronologicalHistory } = await import('../history');
+  const { default: file } = await import('../fixtures/complete-case-v1.json');
+  const { parseCaseFile } = await import('../index');
+  const parsed = parseCaseFile(JSON.stringify(file));
+  if (!parsed.success) throw new Error('Expected valid fixture');
+  const check = parsed.data.areas[0].checks[0];
+  const history = chronologicalHistory(
+    [
+      { ...check, id: 'unknown', occurredAt: { kind: 'unknown' as const, description: 'Nocą' } },
+      {
+        ...check,
+        id: 'dated',
+        occurredAt: { kind: 'date' as const, date: '2026-10-27', description: null },
+      },
+    ],
+    'Europe/Warsaw',
+  );
+  expect(history.known.map((item) => item.id)).toEqual(['dated']);
+  expect(history.unknown.map((item) => item.id)).toEqual(['unknown']);
+  expect(history.unknown[0].actualGeometry).toEqual(check.actualGeometry);
 });

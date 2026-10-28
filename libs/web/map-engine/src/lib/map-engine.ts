@@ -1,3 +1,6 @@
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonToggleModule, MatButtonToggleGroup } from '@angular/material/button-toggle';
+import { MatButtonModule } from '@angular/material/button';
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -20,7 +23,14 @@ import type { Basemap, InitialLocation, MapConfig, MapViewport } from './map-typ
 
 @Component({
   selector: 'pt-map',
-  imports: [Toolbar, ToolbarWidget, MatTooltip],
+  imports: [
+    MatCardModule,
+    MatButtonToggleModule,
+    MatButtonModule,
+    Toolbar,
+    ToolbarWidget,
+    MatTooltip,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [LeafletMap],
   templateUrl: './map-engine.html',
@@ -79,6 +89,11 @@ export class MapEngine {
   readonly basemap = input<Basemap>('osm');
   readonly basemapChanged = output<Basemap>();
   protected readonly map = inject(LeafletMap);
+  protected selectBasemap(basemap: Basemap, control: MatButtonToggleGroup): void {
+    this.map.selectBasemap(basemap);
+    // Material owns transient selection; reconcile a rejected request with the map.
+    control.value = this.map.basemap();
+  }
   private readonly canvas = viewChild.required<ElementRef<HTMLElement>>('canvas');
 
   constructor() {

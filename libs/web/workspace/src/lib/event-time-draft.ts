@@ -1,3 +1,5 @@
+import type { FieldTree } from '@angular/forms/signals';
+import { incidentMomentChoices } from './animal-profile/incident-time';
 import type { EventTime } from '@pawtrace/case-domain';
 import { localIncidentMoment, resolveIncidentMoment } from './animal-profile/incident-time';
 
@@ -78,4 +80,28 @@ export function applyEventTimeDraft(
     case 'unknown':
       return { kind: 'unknown', description };
   }
+}
+
+/** Shared local-time choices; a repeated hour requires an explicit occurrence. */
+export function eventTimeMoments(
+  fields: FieldTree<EventTimeDraft> | undefined,
+  zone: string | undefined,
+) {
+  if (!fields || !zone) return [];
+  const kind = fields.kind().value();
+  const moments =
+    kind === 'range'
+      ? ([
+          { key: 'start', instant: 'startInstant', label: 'Początek przedziału' },
+          { key: 'end', instant: 'endInstant', label: 'Koniec przedziału' },
+        ] as const)
+      : kind === 'exact' || kind === 'approximate'
+        ? ([{ key: 'at', instant: 'atInstant', label: 'Chwila zdarzenia' }] as const)
+        : [];
+  return moments.map((moment) => ({
+    ...moment,
+    field: fields[moment.key],
+    choice: fields[moment.instant],
+    options: incidentMomentChoices(fields[moment.key]().value(), zone),
+  }));
 }

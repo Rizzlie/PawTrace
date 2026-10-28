@@ -1,19 +1,20 @@
 :host {
   display: block;
 }
-header {
+mat-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+  height: auto;
   min-height: 74px;
   padding: 14px 18px;
   background: var(--pt-surface);
   border-bottom: 1px solid var(--pt-border);
 }
 @media (max-width: 480px) {
-  header {
+  mat-toolbar {
     min-height: 68px;
     padding: 12px;
     gap: 10px;
@@ -37,23 +38,6 @@ header {
   border: 0;
   background: transparent;
   font-size: 28px;
-}
-dialog {
-  width: min(440px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  box-sizing: border-box;
-  padding: clamp(20px, 5vw, 30px);
-  overflow: auto;
-  color: var(--pt-foreground);
-  background: rgb(252 253 249 / 94%);
-  border: 1px solid rgb(255 255 255 / 75%);
-  border-radius: 24px;
-  box-shadow: 0 24px 80px rgb(20 33 28 / 24%);
-  backdrop-filter: blur(12px);
-}
-dialog::backdrop {
-  background: rgb(20 33 28 / 26%);
-  backdrop-filter: blur(4px);
 }
 .help-heading {
   display: flex;

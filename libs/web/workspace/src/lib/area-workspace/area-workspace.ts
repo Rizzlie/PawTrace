@@ -1,32 +1,83 @@
+import { MatCardModule } from '@angular/material/card';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
+import { NgTemplateOutlet } from '@angular/common';
+import { chronologicalHistory } from '@pawtrace/case-domain/history';
 import {
-  afterRenderEffect,
+  eventTimeLabel,
+  observationOptions,
+  options,
+  searchResults,
+} from '../history/history-presentation';
+import { EventTimeFields } from '../history/event-time-fields/event-time-fields';
+import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  ElementRef,
   inject,
   viewChild,
+  TemplateRef,
 } from '@angular/core';
 import { FormField } from '@angular/forms/signals';
-import { FloatingPanel } from '@pawtrace/shared-ui';
+import { FloatingPanel, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { geometryArea } from '@pawtrace/case-domain/geometry';
 import { CaseStore } from '../case-store/case-store';
 import { draftGeometry } from './area-draft';
 
 @Component({
   selector: 'pt-area-workspace',
-  imports: [FloatingPanel, FormField],
+  imports: [
+    MatCardModule,
+    MatExpansionModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    FloatingPanel,
+    FormField,
+    NgTemplateOutlet,
+    EventTimeFields,
+  ],
   templateUrl: './area-workspace.html',
   styleUrl: './area-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AreaWorkspace {
   protected readonly state = inject(CaseStore);
-  private readonly confirmation = viewChild<ElementRef<HTMLDialogElement>>('confirmation');
+  private readonly confirmation = viewChild<TemplateRef<unknown>>('confirmation');
+  protected readonly results = options(searchResults);
+  protected readonly searchResults = searchResults;
+  protected readonly geometryEditor = computed(
+    () => this.state.areaEditor() ?? this.state.areaCheckEditor(),
+  );
+  protected readonly observations = computed(() =>
+    observationOptions(this.state.document()?.points ?? []),
+  );
+  protected readonly history = computed(() => {
+    const zone = this.state.document()?.case.timeZone ?? 'UTC';
+    const ordered = chronologicalHistory(this.state.selectedArea()?.checks ?? [], zone);
+    return [
+      { label: 'Znany czas', checks: ordered.known },
+      { label: 'Nieznany czas', checks: ordered.unknown },
+    ].map((section) => ({
+      ...section,
+      checks: section.checks.map((check) => ({
+        ...check,
+        time: eventTimeLabel(check.occurredAt, zone),
+        size: this.formatArea(check.actualGeometry),
+      })),
+    }));
+  });
+  private formatArea(geometry: import('@pawtrace/case-domain').SearchGeometry): string {
+    return `Powierzchnia ≈ ${new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(geometryArea(geometry))} m²`;
+  }
   protected readonly areaSize = computed(() => {
-    const editor = this.state.areaEditor();
+    const editor = this.state.areaEditor() ?? this.state.areaCheckEditor();
     const geometry = editor
-      ? draftGeometry(editor.draft)
+      ? editor.kind === 'area-check' && editor.draft.footprint === 'plan'
+        ? this.state.selectedArea()?.plannedGeometry
+        : draftGeometry(editor.draft)
       : this.state.selectedArea()?.plannedGeometry;
     if (!geometry) return 'Wskaż geometrię na mapie.';
     if (
@@ -42,13 +93,10 @@ export class AreaWorkspace {
       : 'Podaj prawidłową geometrię.';
   });
   constructor() {
-    afterRenderEffect(() => {
-      const dialog = this.confirmation()?.nativeElement;
-      if (dialog && !dialog.open) dialog.showModal();
-    });
-  }
-  protected cancelRemoval(event: Event): void {
-    event.preventDefault();
-    this.state.cancelAreaRemoval();
+    presentMaterialDialog(
+      this.confirmation,
+      () => this.state.cancelAreaRemoval(),
+      () => 'remove-area-title',
+    );
   }
 }

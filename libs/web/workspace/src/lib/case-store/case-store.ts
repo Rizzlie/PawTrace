@@ -1,3 +1,4 @@
+import { withAreaCheckEditing } from './with-area-check-editing';
 import { withEntryEditing } from './with-entry-editing';
 import { withAreaEditing } from './with-area-editing';
 import { signalStore, withState } from '@ngrx/signals';
@@ -18,6 +19,7 @@ export const CaseStore = signalStore(
   withPointEditing(),
   withEntryEditing(),
   withAreaEditing(),
+  withAreaCheckEditing(),
   withAnimalEditing(),
   withEditorLifecycle(),
   withCaseFiles(),

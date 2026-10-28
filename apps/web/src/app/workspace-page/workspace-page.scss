@@ -6,6 +6,7 @@
   min-height: 0;
 }
 .workspace {
+  --pt-details-inset: 72px;
   position: relative;
   flex: 1;
   overflow: hidden;
@@ -13,12 +14,14 @@
   background: var(--pt-map);
 }
 pt-address-search {
-  position: absolute;
-  z-index: 502;
-  top: 16px;
-  left: 16px;
-  width: min(320px, calc(100% - 220px));
-  max-height: calc(100% - 96px);
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  pointer-events: auto;
+  width: 100%;
+  min-height: 44px;
+  max-height: 50%;
 }
 
 p {
@@ -46,9 +49,7 @@ p {
 }
 @media (max-width: 600px) {
   pt-address-search {
-    top: 12px;
-    left: 12px;
-    width: calc(100% - 174px);
+    width: 100%;
   }
   .config-error {
     bottom: 230px;
@@ -67,6 +68,10 @@ main {
 
 .new-case {
   flex-shrink: 0;
-  font-size: 12px;
-  padding: 10px 12px;
+}
+
+@media (max-width: 700px) {
+  .workspace {
+    --pt-details-inset: 68px;
+  }
 }

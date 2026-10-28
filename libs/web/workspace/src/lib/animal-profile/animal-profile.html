@@ -1,11 +1,21 @@
 @if (state.profileEditor(); as session) {
-  <section aria-labelledby="profile-title" class="profile-panel">
+  <mat-card
+    appearance="outlined"
+    role="region"
+    aria-labelledby="profile-title"
+    class="profile-panel"
+  >
     <header>
       <div>
         <span class="eyebrow">Zwierzę i zaginięcie</span>
         <h2 id="profile-title" #heading tabindex="-1">Profil zwierzęcia</h2>
       </div>
-      <button type="button" aria-label="Zamknij profil" (click)="router.navigateByUrl('/')">
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Zamknij profil"
+        (click)="router.navigateByUrl('/')"
+      >
         ×
       </button>
     </header>
@@ -24,120 +34,135 @@
     <form aria-describedby="profile-help" (submit)="$event.preventDefault(); save(session.id)">
       <div class="groups">
         @for (group of groups; track group.id) {
-          <details [open]="group.id === 'basics'">
-            <summary>{{ group.title }}</summary>
+          <mat-expansion-panel [expanded]="group.id === 'basics'">
+            <mat-expansion-panel-header
+              ><mat-panel-title>{{ group.title }}</mat-panel-title></mat-expansion-panel-header
+            >
             <div class="fields">
               @for (field of group.fields; track field.key) {
-                <label>
-                  {{ field.label }}
-                  <textarea rows="2" [formField]="session.fields.animal[field.key]"></textarea>
-                </label>
+                <mat-form-field
+                  ><mat-label>{{ field.label }}</mat-label>
+                  <textarea
+                    matInput
+                    rows="2"
+                    [formField]="session.fields.animal[field.key]"
+                  ></textarea>
+                </mat-form-field>
               }
               @if (group.id === 'basics') {
-                <label>
-                  Płeć
-                  <select [formField]="session.fields.animal.sex">
+                <mat-form-field
+                  ><mat-label>Płeć</mat-label>
+                  <select matNativeControl [formField]="session.fields.animal.sex">
                     <option value="">Nie wiadomo</option>
                     <option value="female">Samica</option>
                     <option value="male">Samiec</option>
                     <option value="intersex">Interpłciowe</option>
                   </select>
-                </label>
-                <label>
-                  Kastracja / sterylizacja
-                  <select [formField]="session.fields.animal.neutered">
+                </mat-form-field>
+                <mat-form-field
+                  ><mat-label>Kastracja / sterylizacja</mat-label>
+                  <select matNativeControl [formField]="session.fields.animal.neutered">
                     <option value="">Nie wiadomo</option>
                     <option value="yes">Tak</option>
                     <option value="no">Nie</option>
                   </select>
-                </label>
+                </mat-form-field>
                 <fieldset class="age">
                   <legend>Wiek</legend>
-                  <label>
-                    Wiek — wartość
-                    <input inputmode="decimal" [formField]="session.fields.animal.age.value" />
-                  </label>
-                  <label>
-                    Jednostka wieku
-                    <select [formField]="session.fields.animal.age.unit">
+                  <mat-form-field
+                    ><mat-label>Wiek — wartość</mat-label>
+                    <input
+                      matInput
+                      inputmode="decimal"
+                      [formField]="session.fields.animal.age.value"
+                    />
+                  </mat-form-field>
+                  <mat-form-field
+                    ><mat-label>Jednostka wieku</mat-label>
+                    <select matNativeControl [formField]="session.fields.animal.age.unit">
                       <option value="years">Lata</option>
                       <option value="months">Miesiące</option>
                     </select>
-                  </label>
-                  <label class="checkbox"
-                    ><input type="checkbox" [formField]="session.fields.animal.age.approximate" />
-                    Wiek przybliżony</label
+                  </mat-form-field>
+                  <mat-checkbox class="checkbox" [formField]="session.fields.animal.age.approximate"
+                    >Wiek przybliżony</mat-checkbox
                   >
                 </fieldset>
-                <label>
-                  Masa (kg)
-                  <input inputmode="decimal" [formField]="session.fields.animal.weightKilograms" />
-                </label>
+                <mat-form-field
+                  ><mat-label>Masa (kg)</mat-label>
+                  <input
+                    matInput
+                    inputmode="decimal"
+                    [formField]="session.fields.animal.weightKilograms"
+                  />
+                </mat-form-field>
               }
               @if (group.id === 'identification') {
-                <label>
-                  Mikroczip
-                  <select [formField]="session.fields.animal.microchipped">
+                <mat-form-field
+                  ><mat-label>Mikroczip</mat-label>
+                  <select matNativeControl [formField]="session.fields.animal.microchipped">
                     <option value="">Nie wiadomo</option>
                     <option value="yes">Tak</option>
                     <option value="no">Nie</option>
                   </select>
-                </label>
+                </mat-form-field>
               }
               @if (group.id === 'habits') {
-                <label>
-                  Wychodzenie
-                  <select [formField]="session.fields.animal.outdoorAccess">
+                <mat-form-field
+                  ><mat-label>Wychodzenie</mat-label>
+                  <select matNativeControl [formField]="session.fields.animal.outdoorAccess">
                     <option value="">Nie wiadomo</option>
                     <option value="indoor_only">Wyłącznie w domu</option>
                     <option value="supervised">Pod nadzorem</option>
                     <option value="unrestricted">Swobodne</option>
                   </select>
-                </label>
-                <label>
-                  Znajomość okolicy
-                  <select [formField]="session.fields.animal.familiarWithArea">
+                </mat-form-field>
+                <mat-form-field
+                  ><mat-label>Znajomość okolicy</mat-label>
+                  <select matNativeControl [formField]="session.fields.animal.familiarWithArea">
                     <option value="">Nie wiadomo</option>
                     <option value="yes">Tak</option>
                     <option value="no">Nie</option>
                   </select>
-                </label>
+                </mat-form-field>
               }
             </div>
-          </details>
+          </mat-expansion-panel>
         }
-        <details>
-          <summary>Okoliczności zaginięcia</summary>
+        <mat-expansion-panel>
+          <mat-expansion-panel-header
+            ><mat-panel-title>Okoliczności zaginięcia</mat-panel-title></mat-expansion-panel-header
+          >
           <div class="fields">
             <p class="wide">
               Data i godzina w strefie sprawy: {{ state.document()?.case?.timeZone }}. Jeśli nie
               znasz godziny, wybierz tylko datę albo zachowaj opis czasu.
             </p>
-            <label>
-              Dokładność czasu
-              <select [formField]="session.fields.escape.time.kind">
+            <mat-form-field
+              ><mat-label>Dokładność czasu</mat-label>
+              <select matNativeControl [formField]="session.fields.escape.time.kind">
                 <option value="unknown">Nie wiadomo / tylko opis</option>
                 <option value="exact">Dokładna chwila</option>
                 <option value="approximate">Przybliżona chwila</option>
                 <option value="range">Przedział czasu</option>
                 <option value="date">Tylko data</option>
               </select>
-            </label>
+            </mat-form-field>
             @for (moment of momentInputs(); track moment.key) {
               <div>
-                <label>
-                  {{ moment.label }}
-                  <input type="datetime-local" step="0.001" [formField]="moment.field" />
-                </label>
+                <mat-form-field
+                  ><mat-label>{{ moment.label }}</mat-label>
+                  <input matInput type="datetime-local" step="0.001" [formField]="moment.field" />
+                </mat-form-field>
                 @if (moment.field().value() && moment.options.length === 0) {
                   <p class="error" role="alert">
                     Ta godzina nie istnieje w strefie sprawy. Wybierz inną datę lub godzinę.
                   </p>
                 }
                 @if (moment.options.length > 1) {
-                  <label>
-                    {{ moment.label }} — wystąpienie godziny
-                    <select [formField]="moment.choice">
+                  <mat-form-field
+                    ><mat-label>{{ moment.label }} — wystąpienie godziny</mat-label>
+                    <select matNativeControl [formField]="moment.choice">
                       <option value="">Wybierz wystąpienie godziny</option>
                       @for (option of moment.options; track option.value) {
                         <option [value]="option.value">
@@ -145,7 +170,7 @@
                         </option>
                       }
                     </select>
-                  </label>
+                  </mat-form-field>
                 }
               </div>
             }
@@ -153,56 +178,75 @@
               <p class="wide">Możesz podać tylko jedną granicę przedziału.</p>
             }
             @if (session.fields.escape.time.kind().value() === 'date') {
-              <label>
-                Data zaginięcia
-                <input type="date" [formField]="session.fields.escape.time.date" />
-              </label>
+              <mat-form-field
+                ><mat-label>Data zaginięcia</mat-label>
+                <input matInput type="date" [formField]="session.fields.escape.time.date" />
+              </mat-form-field>
             }
-            <label class="wide">
-              Oryginalny opis czasu
-              <textarea rows="2" [formField]="session.fields.escape.time.description"></textarea>
-            </label>
-            <label class="wide">
-              Miejsce ucieczki
-              <select [formField]="session.fields.escape.escapePointId">
+            <mat-form-field class="wide"
+              ><mat-label>Oryginalny opis czasu</mat-label>
+              <textarea
+                matInput
+                rows="2"
+                [formField]="session.fields.escape.time.description"
+              ></textarea>
+            </mat-form-field>
+            <mat-form-field class="wide"
+              ><mat-label>Miejsce ucieczki</mat-label>
+              <select matNativeControl [formField]="session.fields.escape.escapePointId">
                 <option value="">Nie wiadomo</option>
                 @for (point of state.document()?.points; track point.id) {
                   <option [value]="point.id">{{ point.name }}</option>
                 }
               </select>
-            </label>
+            </mat-form-field>
             <p class="wide">
               Wybierz istniejący punkt z wczytanej sprawy. Tworzenie i wskazywanie punktów na mapie
               będzie dostępne w kolejnym etapie.
             </p>
-            <label class="wide">
-              Sytuacja zaginięcia
-              <textarea rows="3" [formField]="session.fields.escape.description"></textarea>
-            </label>
-            <label>
-              Możliwy kierunek
-              <textarea rows="2" [formField]="session.fields.escape.directionOfTravel"></textarea>
-            </label>
-            <label>
-              Znajomość miejsca ucieczki
-              <select [formField]="session.fields.escape.familiarWithLocation">
+            <mat-form-field class="wide"
+              ><mat-label>Sytuacja zaginięcia</mat-label>
+              <textarea
+                matInput
+                rows="3"
+                [formField]="session.fields.escape.description"
+              ></textarea>
+            </mat-form-field>
+            <mat-form-field
+              ><mat-label>Możliwy kierunek</mat-label>
+              <textarea
+                matInput
+                rows="2"
+                [formField]="session.fields.escape.directionOfTravel"
+              ></textarea>
+            </mat-form-field>
+            <mat-form-field
+              ><mat-label>Znajomość miejsca ucieczki</mat-label>
+              <select matNativeControl [formField]="session.fields.escape.familiarWithLocation">
                 <option value="">Nie wiadomo</option>
                 <option value="yes">Tak</option>
                 <option value="no">Nie</option>
               </select>
-            </label>
+            </mat-form-field>
           </div>
-        </details>
+        </mat-expansion-panel>
       </div>
       @if (state.editorError()) {
         <p role="alert" class="error">{{ state.editorError() }}</p>
       }
       <footer>
-        <button type="submit" class="primary" [disabled]="state.editorBusy()">Zapisz profil</button>
-        <button type="button" [disabled]="state.editorBusy()" (click)="cancel(session.id)">
+        <button matButton="filled" type="submit" class="primary" [disabled]="state.editorBusy()">
+          Zapisz profil
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="state.editorBusy()"
+          (click)="cancel(session.id)"
+        >
           Anuluj edycję
         </button>
       </footer>
     </form>
-  </section>
+  </mat-card>
 }

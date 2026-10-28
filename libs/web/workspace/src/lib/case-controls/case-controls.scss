@@ -36,35 +36,6 @@
 .notices p {
   margin: 0;
 }
-.file-menu {
-  display: grid;
-  min-width: 180px;
-  padding: 6px;
-  background: var(--pt-surface);
-  border: 1px solid var(--pt-border);
-  border-radius: 12px;
-  box-shadow: var(--pt-shadow);
-}
-.file-menu button {
-  text-align: left;
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-  border-radius: 7px;
-  padding: 12px;
-}
-.file-menu button:hover,
-.file-menu button:focus-visible {
-  background: var(--pt-soft);
-}
-.file-menu button[aria-disabled='true'] {
-  opacity: 0.5;
-}
-button {
-  font-size: 12px;
-  padding: 9px 12px;
-  white-space: nowrap;
-}
 h2 {
   margin: 8px 0;
   font-size: 17px;
@@ -93,20 +64,6 @@ p {
 }
 .file-input {
   display: none;
-}
-dialog {
-  width: min(460px, calc(100vw - 48px));
-  max-height: calc(100dvh - 64px);
-  overflow: auto;
-  padding: 24px;
-  color: var(--pt-foreground);
-  background: var(--pt-panel);
-  border: 1px solid var(--pt-border);
-  border-radius: 16px;
-  box-shadow: var(--pt-shadow);
-}
-dialog::backdrop {
-  background: rgb(19 36 27 / 45%);
 }
 dl {
   display: grid;
@@ -137,9 +94,5 @@ dd {
 @media (max-width: 420px) {
   .case-controls {
     gap: 6px;
-  }
-  button {
-    font-size: 11px;
-    padding: 9px;
   }
 }

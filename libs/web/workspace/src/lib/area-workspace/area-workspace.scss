@@ -15,7 +15,7 @@ pt-floating-panel {
   top: 110px;
 }
 .details {
-  right: 16px;
+  right: var(--pt-details-inset, 72px);
   bottom: 80px;
   max-height: min(350px, calc(100% - 210px));
 }
@@ -44,44 +44,14 @@ fieldset {
   display: grid;
   gap: 12px;
 }
-label {
-  display: grid;
-  gap: 5px;
-  font-size: 12px;
-}
 .vertex {
   display: grid;
   gap: 8px;
   padding-block: 12px;
 }
-summary {
+mat-expansion-panel-header {
   cursor: pointer;
   font-size: 12px;
-}
-input,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 9px;
-  border: 1px solid var(--pt-border);
-  border-radius: 8px;
-  font: inherit;
-  background: var(--pt-panel);
-  color: inherit;
-}
-dialog {
-  pointer-events: auto;
-  max-width: min(480px, calc(100vw - 48px));
-  border: 1px solid var(--pt-panel-border);
-  border-radius: 18px;
-  padding: 24px;
-  background: var(--pt-panel);
-  color: inherit;
-  box-shadow: var(--pt-shadow);
-}
-dialog::backdrop {
-  background: #17241466;
-  backdrop-filter: blur(4px);
 }
 @media (max-width: 700px) {
   .editor {
@@ -92,9 +62,14 @@ dialog::backdrop {
     max-height: min(320px, calc(100% - 230px));
   }
   .details {
-    right: 12px;
+    right: var(--pt-details-inset, 68px);
     bottom: 115px;
-    width: calc(100% - 56px);
+    width: calc(100% - 116px);
     max-height: min(255px, calc(100% - 210px));
   }
+}
+
+mat-card[role='article'] {
+  border-top: 1px solid var(--pt-border);
+  padding-block: 12px;
 }
