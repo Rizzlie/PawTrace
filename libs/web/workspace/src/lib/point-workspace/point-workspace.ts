@@ -27,7 +27,7 @@ export class PointWorkspace {
   protected readonly roles = pointRoles;
   private readonly phone = inject(BreakpointObserver).isMatched('(max-width: 700px)');
   protected readonly collapsed = linkedSignal<string | null, boolean>({
-    source: () => this.state.selectedPointId(),
+    source: () => this.state.selectedPointId() ?? this.state.selectedAreaId(),
     computation: (pointId, previous) =>
       pointId && this.phone ? true : (previous?.value ?? this.phone),
   });
@@ -55,6 +55,10 @@ export class PointWorkspace {
   protected async selectPoint(id: string | null): Promise<void> {
     if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
       await this.state.selectPoint(id);
+  }
+  protected async selectArea(id: string): Promise<void> {
+    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
+      await this.state.selectArea(id);
   }
   protected cancelRemoval(event: Event): void {
     event.preventDefault();

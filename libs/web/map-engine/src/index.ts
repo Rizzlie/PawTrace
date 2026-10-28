@@ -9,5 +9,8 @@ export type {
   MapPlace,
   MapPointDraft,
   PointPlacement,
+  MapArea,
+  MapAreaDraft,
+  AreaGeometryChange,
 } from './lib/map-types';
 export { parseMapConfig } from './lib/map-config';

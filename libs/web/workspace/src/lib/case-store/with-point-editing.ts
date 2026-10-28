@@ -42,6 +42,7 @@ export function withPointEditing() {
         caseBusy(state) ||
         state.editor ||
         state.transfer.candidate ||
+        state.deletingAreaId ||
         state.deletingPointId ||
         state.deletingEntry
           ? {}
@@ -60,10 +61,14 @@ export function withPointEditing() {
             },
       ),
       on(pointEvents.selected, ({ payload }, state) =>
-        caseBusy(state) ? {} : { selectedPointId: payload },
+        caseBusy(state) ? {} : { selectedPointId: payload, selectedAreaId: null },
       ),
       on(pointEvents.deletionRequested, ({ payload }, state) =>
-        caseBusy(state) || state.editor || state.transfer.candidate || state.deletingEntry
+        caseBusy(state) ||
+        state.editor ||
+        state.transfer.candidate ||
+        state.deletingAreaId ||
+        state.deletingEntry
           ? {}
           : { deletingPointId: payload },
       ),
@@ -165,6 +170,7 @@ export function withPointEditing() {
               caseBusy(getState(store)) ||
               store.editor() ||
               store.transfer().candidate ||
+              store.deletingAreaId() ||
               store.deletingPointId() ||
               store.deletingEntry()
             )

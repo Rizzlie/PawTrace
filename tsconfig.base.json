@@ -20,6 +20,7 @@
       "@pawtrace/shared-ui": ["./libs/web/shared/ui/src/index.ts"],
       "@pawtrace/case-domain": ["./libs/shared/case-domain/src/index.ts"],
       "@pawtrace/case-domain/history": ["./libs/shared/case-domain/src/history.ts"],
+      "@pawtrace/case-domain/geometry": ["./libs/shared/case-domain/src/geometry.ts"],
       "@pawtrace/browser-persistence": ["./libs/web/browser-persistence/src/index.ts"],
       "@pawtrace/case-domain/fixtures/*": ["./libs/shared/case-domain/src/fixtures/*"]
     }

@@ -102,7 +102,13 @@
       @if (state.editorDirty()) {
         <p class="warning" role="status">
           {{
-            state.editor()?.kind === 'point' ? 'Niezatwierdzony punkt' : 'Niezatwierdzony profil'
+            state.editor()?.kind === 'area'
+              ? 'Niezatwierdzony obszar'
+              : state.editor()?.kind === 'point'
+                ? 'Niezatwierdzony punkt'
+                : state.editor()?.kind === 'entry'
+                  ? 'Niezatwierdzony wpis'
+                  : 'Niezatwierdzony profil'
           }}
           — eksport obejmuje poprzednie dane.
         </p>
@@ -120,7 +126,15 @@
 @if (state.closeRequested()) {
   <dialog #confirmation aria-labelledby="draft-title" (cancel)="stay($event)">
     <h2 id="draft-title">
-      {{ state.editor()?.kind === 'point' ? 'Niezatwierdzony punkt' : 'Niezatwierdzony profil' }}
+      {{
+        state.editor()?.kind === 'area'
+          ? 'Niezatwierdzony obszar'
+          : state.editor()?.kind === 'point'
+            ? 'Niezatwierdzony punkt'
+            : state.editor()?.kind === 'entry'
+              ? 'Niezatwierdzony wpis'
+              : 'Niezatwierdzony profil'
+      }}
     </h2>
     <p>Zapisz zmiany, odrzuć szkic lub zostań przy edycji.</p>
     @if (state.editorError()) {

@@ -316,7 +316,7 @@ test('startup location preserves a restored case viewport and factual timestamp'
   await page.reload();
   const locate = page.getByRole('button', { name: 'Moja lokalizacja' });
   await expect(locate).toBeEnabled();
-  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
+  await expect(page.locator('.pt-location-accuracy, .pt-location-position')).toHaveCount(2);
   await page.getByRole('button', { name: 'Mapa OSM', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(locate).toBeFocused();

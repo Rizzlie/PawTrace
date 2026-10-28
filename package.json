@@ -86,6 +86,8 @@
     "@nestjs/core": "11.2.8",
     "@nestjs/platform-express": "11.2.8",
     "@ngrx/signals": "22.0.1",
+    "@turf/area": "7.4.0",
+    "@turf/distance": "7.4.0",
     "cache-manager": "7.2.9",
     "idb": "8.0.4",
     "keyv": "5.6.0",

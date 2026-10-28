@@ -3,6 +3,7 @@ import { createProfileDraft, type ProfileDraft } from '../animal-profile/profile
 import type { CaseDocument } from '@pawtrace/case-domain';
 import type { Basemap } from '@pawtrace/map-engine';
 import type { PointSession } from '../point-workspace/point-draft';
+import type { AreaSession } from '../area-workspace/area-draft';
 
 export interface ProfileSession {
   kind: 'profile';
@@ -16,7 +17,9 @@ export interface ProfileSession {
 export interface CaseState {
   document: CaseDocument | null;
   emptyBasemap: Basemap;
-  editor: ProfileSession | PointSession | EntrySession | null;
+  editor: ProfileSession | PointSession | EntrySession | AreaSession | null;
+  selectedAreaId: string | null;
+  deletingAreaId: string | null;
   selectedPointId: string | null;
   deletingPointId: string | null;
   deletingEntry: { pointId: string; entryId: string } | null;
@@ -47,6 +50,8 @@ export function createCaseState(document: CaseDocument | null = null, generation
     emptyBasemap: 'osm',
     editor: null,
     selectedPointId: null,
+    selectedAreaId: null,
+    deletingAreaId: null,
     deletingPointId: null,
     deletingEntry: null,
     closeRequested: false,

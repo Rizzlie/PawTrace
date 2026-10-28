@@ -1,4 +1,6 @@
 import * as L from 'leaflet';
+import { LeafletAreas } from './leaflet-areas';
+import type { MapArea, MapAreaDraft, AreaGeometryChange, MapCoordinates } from './map-types';
 import {
   afterRenderEffect,
   computed,
@@ -17,6 +19,12 @@ import type { MapPlace, MapPointDraft, PointPlacement } from './map-types';
 import { defaultMapSources } from './map-config';
 
 interface MapBindings {
+  areas?: Signal<MapArea[]>;
+  areaDraft?: Signal<MapAreaDraft | null>;
+  areaChanged?: (change: AreaGeometryChange) => void;
+  areaSelected?: (id: string) => void;
+  measurement?: Signal<MapCoordinates[] | null>;
+  measured?: (points: MapCoordinates[]) => void;
   places?: Signal<MapPlace[]>;
   pointDraft?: Signal<MapPointDraft | null>;
   pointPlaced?: (placement: PointPlacement) => void;
@@ -106,6 +114,7 @@ export class LeafletMap implements OnDestroy {
   );
 
   private map!: L.Map;
+  private areas?: LeafletAreas;
   private resizeObserver?: ResizeObserver;
   private layer?: L.TileLayer;
   private restoring = false;
@@ -124,6 +133,16 @@ export class LeafletMap implements OnDestroy {
   private draftMarker?: { sessionId: number; marker: L.Marker };
 
   constructor() {
+    afterRenderEffect({
+      mixedReadWrite: () => {
+        const bindings = this.bindings();
+        const areas = bindings?.areas?.() ?? [];
+        const draft = bindings?.areaDraft?.() ?? null;
+        const measurement = bindings?.measurement?.() ?? null;
+        if (bindings && !this.destroyed)
+          untracked(() => this.areas?.render(areas, draft, measurement));
+      },
+    });
     afterRenderEffect({
       mixedReadWrite: () => {
         const bindings = this.bindings();
@@ -186,6 +205,11 @@ export class LeafletMap implements OnDestroy {
     this.map.on('zoomstart', this.onZoomStart);
     this.map.on('zoomend', this.onZoomEnd);
     this.map.on('click', this.onMapClick);
+    this.areas = new LeafletAreas(this.map, {
+      changed: (change) => this.bindings()?.areaChanged?.(change),
+      selected: (id) => this.bindings()?.areaSelected?.(id),
+      measured: (points) => this.bindings()?.measured?.(points),
+    });
     this.resizeObserver = new ResizeObserver(() => {
       if (this.destroyed) return;
       const wasRestoring = this.restoring;
@@ -281,6 +305,7 @@ export class LeafletMap implements OnDestroy {
     this.resizeObserver?.disconnect();
     this.removeLayer();
     this.map?.off('click', this.onMapClick);
+    this.areas?.destroy();
     for (const { marker } of this.markers.values()) marker.off().remove();
     this.markers.clear();
     this.draftMarker?.marker.off().remove();
@@ -369,8 +394,10 @@ export class LeafletMap implements OnDestroy {
           icon: this.pointIcon(place.number, place.selected, false, place.accents),
           bubblingMouseEvents: false,
         }).addTo(this.map);
+        const placeMarker = marker;
         marker.on('click', () => {
           if (this.destroyed || this.bindings()?.pointDraft?.()) return;
+          if (this.areas?.pick(placeMarker.getLatLng())) return;
           const current = this.bindings()?.places?.() ?? [];
           const origin = current.find((item) => item.id === place.id);
           if (!origin) return;
@@ -456,6 +483,7 @@ export class LeafletMap implements OnDestroy {
     });
   }
   private readonly onMapClick = (event: L.LeafletMouseEvent): void => {
+    if (this.areas?.pick(event.latlng)) return;
     const draft = this.bindings()?.pointDraft?.();
     if (draft) this.emitPlacement(draft.sessionId, event.latlng);
   };
@@ -481,12 +509,14 @@ export class LeafletMap implements OnDestroy {
     this.locationLayers?.remove();
     this.locationLayers = L.layerGroup([
       L.circle([latitude, longitude], {
+        className: 'pt-location-accuracy',
         radius: accuracy,
         color: '#416b37',
         weight: 1,
         fillOpacity: 0.08,
       }),
       L.circleMarker([latitude, longitude], {
+        className: 'pt-location-position',
         radius: 7,
         color: '#fffef8',
         weight: 3,

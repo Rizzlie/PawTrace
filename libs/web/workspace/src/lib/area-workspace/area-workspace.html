@@ -1,0 +1,120 @@
+@if (state.areaEditor(); as editor) {
+  <pt-floating-panel class="editor" label="Edycja obszaru">
+    <h2 panel-heading>
+      {{ editor.draft.type === 'circle' ? 'Koło poszukiwań' : 'Wielokąt poszukiwań' }}
+    </h2>
+    <p>
+      {{
+        editor.draft.type === 'circle'
+          ? 'Kliknij środek, potem krawędź koła. Przeciągnij uchwyt środka lub promienia, aby poprawić kształt.'
+          : 'Klikaj kolejne wierzchołki. Przeciągaj uchwyty, aby poprawić kształt. Przesuwanie mapy nie zmienia obszaru.'
+      }}
+    </p>
+    <form (submit)="$event.preventDefault(); state.saveArea(editor.id)">
+      <fieldset [disabled]="state.editorBusy()">
+        <label>Nazwa obszaru <input [formField]="editor.fields.name" /></label>
+        <label>Opis obszaru <textarea [formField]="editor.fields.description"></textarea></label>
+        @if (editor.draft.type === 'circle') {
+          <label
+            >Promień (m) <input inputmode="decimal" [formField]="editor.fields.radiusMeters"
+          /></label>
+        } @else {
+          <p>
+            Wierzchołki: {{ editor.draft.vertices.length }}. Zapisz obszar, aby zatwierdzić
+            zamknięty kształt.
+          </p>
+        }
+        <p aria-label="Pomiary obszaru" role="status">{{ areaSize() }}</p>
+        <details>
+          <summary>Współrzędne geometrii</summary>
+          @for (vertex of editor.fields.vertices; track $index; let index = $index) {
+            <div class="vertex">
+              <label
+                >Szerokość wierzchołka {{ index + 1 }}
+                <input type="number" step="any" [formField]="vertex.latitude"
+              /></label>
+              <label
+                >Długość wierzchołka {{ index + 1 }}
+                <input type="number" step="any" [formField]="vertex.longitude"
+              /></label>
+              @if (editor.draft.type === 'polygon') {
+                <button
+                  type="button"
+                  [attr.aria-label]="'Usuń wierzchołek ' + (index + 1)"
+                  (click)="state.removeAreaVertex(editor.id, index)"
+                >
+                  Usuń wierzchołek
+                </button>
+              }
+            </div>
+          }
+        </details>
+        @if (state.editorError()) {
+          <p role="alert">{{ state.editorError() }}</p>
+        }
+        <div class="actions">
+          <button
+            type="button"
+            [disabled]="!editor.undo.length"
+            (click)="state.undoAreaGeometry(editor.id)"
+          >
+            Cofnij krok
+          </button>
+          <button type="submit">Zapisz obszar</button>
+          <button type="button" (click)="state.discardEditor(editor.id)">Anuluj obszar</button>
+        </div>
+      </fieldset>
+    </form>
+  </pt-floating-panel>
+} @else if (!state.editor()) {
+  @if (state.selectedArea(); as area) {
+    <pt-floating-panel class="details" label="Szczegóły obszaru">
+      <div panel-heading class="heading">
+        <h2>{{ area.name }}</h2>
+        <button
+          type="button"
+          aria-label="Zamknij szczegóły obszaru"
+          (click)="state.selectArea(null)"
+        >
+          ×
+        </button>
+      </div>
+      <p>{{ area.description }}</p>
+      <p aria-label="Pomiary obszaru">{{ areaSize() }}</p>
+      @if (area.plannedGeometry?.type === 'circle') {
+        <p>Promień: {{ area.plannedGeometry.radiusMeters }} m</p>
+      }
+      <div class="actions">
+        <button
+          type="button"
+          [disabled]="state.busy()"
+          (click)="state.editArea(area.plannedGeometry?.type ?? 'polygon', area.id)"
+        >
+          Edytuj obszar
+        </button>
+        <button
+          type="button"
+          [disabled]="state.busy() || !!state.candidate()"
+          (click)="state.requestAreaRemoval(area.id)"
+        >
+          Usuń plan
+        </button>
+      </div>
+    </pt-floating-panel>
+  }
+}
+@if (state.deletingArea(); as area) {
+  <dialog #confirmation aria-labelledby="remove-area-title" (cancel)="cancelRemoval($event)">
+    <h2 id="remove-area-title">Usunąć plan „{{ area.name }}”?</h2>
+    <p>
+      Historia przeszukań ({{ area.checks.length }}) i ich faktyczna geometria pozostaną zachowane.
+      Pliki zdjęć pozostaną na serwerze.
+    </p>
+    <div class="actions">
+      <button type="button" (click)="state.confirmAreaRemoval()">Potwierdź usunięcie planu</button>
+      <button type="button" (click)="state.cancelAreaRemoval()" autofocus>
+        Anuluj usunięcie planu
+      </button>
+    </div>
+  </dialog>
+}

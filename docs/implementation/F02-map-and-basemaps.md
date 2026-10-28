@@ -1,6 +1,6 @@
 # F02 — Leaflet map and basemap switching
 
-Status: blocked — implementation ready; live Mapbox verification pending a configured public token
+Status: done — live Mapbox operation confirmed by the user on 2026-10-28
 Depends on: F01
 
 ## Goal
@@ -61,7 +61,7 @@ Signal refactor on 2026-10-26: the host passes readonly configuration/viewport s
 
 Provider documentation checked: [Leaflet reference](https://leafletjs.com/reference.html), [Mapbox Static Tiles](https://docs.mapbox.com/api/maps/static-tiles/), [Mapbox trial limits](https://docs.mapbox.com/accounts/guides/signup/), [Mapbox attribution](https://docs.mapbox.com/help/ja/dive-deeper/attribution/), and [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). Direct browser requests preserve normal HTTP caching and Referer. No Mapbox account or payment method was created and no token was obtained.
 
-Remaining acceptance blocker: configure an accepted card-free Mapbox account's public token, inspect a small number of actual satellite tile responses and confirm real imagery, labels, alignment and attribution while switching both layers at the same center/zoom. Controlled tile tests establish integration and failure handling, not provider-account access or real satellite imagery. F02 remains blocked until this check is completed.
+Live acceptance on 2026-10-28: the user confirmed that Mapbox works correctly. This closes the remaining external Mapbox acceptance blocker and marks F02 done. This confirmation is user-reported; no additional tile-response inspection or automated live-provider check was performed in this update. The controlled tests above remain the evidence for integration and failure handling.
 
 ### Map actions and startup location refinement
 

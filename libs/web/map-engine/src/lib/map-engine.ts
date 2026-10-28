@@ -13,6 +13,8 @@ import {
 import { MatTooltip } from '@angular/material/tooltip';
 import { LeafletMap } from './leaflet-map';
 import { Toolbar, ToolbarWidget } from '@angular/aria/toolbar';
+import { groundDistance } from '@pawtrace/case-domain/geometry';
+import type { MapArea, MapAreaDraft, AreaGeometryChange, MapCoordinates } from './map-types';
 import type { MapPlace, MapPointDraft, PointPlacement } from './map-types';
 import type { Basemap, InitialLocation, MapConfig, MapViewport } from './map-types';
 
@@ -25,6 +27,28 @@ import type { Basemap, InitialLocation, MapConfig, MapViewport } from './map-typ
   styleUrl: './map-engine.scss',
 })
 export class MapEngine {
+  readonly areas = input<MapArea[]>([]);
+  readonly areaDraft = input<MapAreaDraft | null>(null);
+  readonly areaChanged = output<AreaGeometryChange>();
+  readonly areaSelected = output<string>();
+  readonly addAreaRequested = output<'circle' | 'polygon'>();
+  readonly measurementRequested = output<void>();
+  readonly measurementClosed = output<void>();
+  readonly measuring = input(false);
+  protected readonly measurement = linkedSignal<MapCoordinates[] | null>(() =>
+    this.measuring() && !this.areaDraft() && !this.pointDraft() ? [] : null,
+  );
+  protected readonly distance = computed(() => {
+    const points = this.measurement();
+    return points?.length === 2
+      ? new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(
+          groundDistance(points[0], points[1]),
+        ) + ' m'
+      : 'Wybierz dwie pozycje na mapie.';
+  });
+  protected undoMeasurement(): void {
+    this.measurement.update((points) => points?.slice(0, -1) ?? null);
+  }
   readonly pointCreationEnabled = input(false);
   readonly addPointRequested = output<void>();
   readonly places = input<MapPlace[]>([]);
@@ -34,6 +58,8 @@ export class MapEngine {
   private readonly overlapIds = linkedSignal(() => {
     this.places();
     this.pointDraft();
+    this.areaDraft();
+    this.measuring();
     return [] as string[];
   });
   protected readonly overlapping = computed(() =>
@@ -61,6 +87,12 @@ export class MapEngine {
         this.map.initialize(this.canvas().nativeElement, {
           config: this.config,
           places: this.places,
+          areas: this.areas,
+          areaDraft: this.areaDraft,
+          areaChanged: (change) => this.areaChanged.emit(change),
+          areaSelected: (id) => this.areaSelected.emit(id),
+          measurement: this.measurement,
+          measured: (points) => this.measurement.set(points),
           pointDraft: this.pointDraft,
           pointPlaced: (placement) => this.pointPlaced.emit(placement),
           placesSelected: (ids) => {
