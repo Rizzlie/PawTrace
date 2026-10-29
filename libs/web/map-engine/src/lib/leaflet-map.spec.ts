@@ -8,7 +8,9 @@ import type {
   MapPlace,
   MapPointDraft,
   MapAreaDraft,
+  MapArea,
 } from './map-types';
+import * as L from 'leaflet';
 
 const captured = vi.hoisted(() => ({
   layers: [] as import('leaflet').TileLayer[],
@@ -45,6 +47,8 @@ describe('Reactive Leaflet integration', () => {
   let places: WritableSignal<MapPlace[]>;
   let pointDraft: WritableSignal<MapPointDraft | null>;
   let areaDraft: WritableSignal<MapAreaDraft | null>;
+  let areas: WritableSignal<MapArea[]>;
+  const areaSelected = vi.fn();
   const areaChanged = vi.fn();
   const pointPlaced = vi.fn();
   const placesSelected = vi.fn();
@@ -79,6 +83,8 @@ describe('Reactive Leaflet integration', () => {
       pointPlaced,
       areaDraft,
       areaChanged,
+      areas,
+      areaSelected,
       placesSelected,
     });
     TestBed.tick();
@@ -92,6 +98,7 @@ describe('Reactive Leaflet integration', () => {
     places = signal<MapPlace[]>([]);
     pointDraft = signal<MapPointDraft | null>(null);
     areaDraft = signal<MapAreaDraft | null>(null);
+    areas = signal<MapArea[]>([]);
     config = signal<MapConfig>({ mapboxToken: '' });
     viewport = signal<MapViewport | undefined>(undefined);
     vi.stubGlobal(
@@ -452,6 +459,33 @@ describe('Reactive Leaflet integration', () => {
     initialize();
     expect(container.querySelectorAll('.leaflet-map-pane')).toHaveLength(1);
   });
+  it('places a point draft inside a saved area instead of selecting the area', () => {
+    areas.set([
+      {
+        id: 'park',
+        name: 'Park',
+        selected: false,
+        geometry: { type: 'circle', center: { latitude: 52, longitude: 21 }, radiusMeters: 500 },
+      },
+    ]);
+    TestBed.tick();
+    const shapes: L.Circle[] = [];
+    captured.maps[0].eachLayer((layer) => {
+      if (layer instanceof L.Circle) shapes.push(layer);
+    });
+    shapes[0].fire('click', { latlng: L.latLng(52.001, 21.001) });
+    expect(areaSelected).toHaveBeenLastCalledWith('park');
+    areaSelected.mockClear();
+    pointDraft.set({ sessionId: 9, pointId: 'new', number: 1, coordinates: null });
+    TestBed.tick();
+    shapes[0].fire('click', { latlng: L.latLng(52.002, 21.002) });
+    expect(pointPlaced).toHaveBeenLastCalledWith({
+      sessionId: 9,
+      coordinates: { latitude: 52.002, longitude: expect.closeTo(21.002, 9) },
+    });
+    expect(areaSelected).not.toHaveBeenCalled();
+  });
+
   it('emits geographic circle edits only in the active mode and cleans up its handles', () => {
     areaDraft.set({ sessionId: 71, areaId: 'new', type: 'circle', vertices: [], radiusMeters: 0 });
     TestBed.tick();

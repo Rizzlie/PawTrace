@@ -206,6 +206,7 @@ export class LeafletMap implements OnDestroy {
     this.map.on('zoomend', this.onZoomEnd);
     this.map.on('click', this.onMapClick);
     this.areas = new LeafletAreas(this.map, {
+      placePoint: (point) => this.placePoint(point),
       changed: (change) => this.bindings()?.areaChanged?.(change),
       selected: (id) => this.bindings()?.areaSelected?.(id),
       measured: (points) => this.bindings()?.measured?.(points),
@@ -482,10 +483,14 @@ export class LeafletMap implements OnDestroy {
       coordinates: { latitude: wrapped.lat, longitude: wrapped.lng },
     });
   }
-  private readonly onMapClick = (event: L.LeafletMouseEvent): void => {
-    if (this.areas?.pick(event.latlng)) return;
+  /** Also used by saved area shapes, so a point can be positioned inside an area. */
+  private placePoint(point: L.LatLng): boolean {
     const draft = this.bindings()?.pointDraft?.();
-    if (draft) this.emitPlacement(draft.sessionId, event.latlng);
+    if (draft) this.emitPlacement(draft.sessionId, point);
+    return !!draft;
+  }
+  private readonly onMapClick = (event: L.LeafletMouseEvent): void => {
+    if (!this.areas?.pick(event.latlng)) this.placePoint(event.latlng);
   };
 
   private restoreViewport(view: MapViewport): void {

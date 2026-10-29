@@ -115,4 +115,4 @@ The [F-task execution guide](../implementation/README.md) and task-specific arch
 
 ## Existing product behavior retained
 
-The [JSON contract](../mvp/issues/06-json-contract.md), [case lifecycle](../mvp/issues/01-case-files.md), and [interface decisions](../mvp/issues/05-map-workflow.md) remain authoritative for behavior. One committed document owner does not change the agreed file contents, cancel behavior, or protection against failed saving. Implementation changes remain uncommitted for manual review.
+The [JSON contract](../mvp/issues/06-json-contract.md), [case lifecycle](../mvp/issues/01-case-files.md), and [interface decisions](../mvp/issues/05-map-workflow.md) remain authoritative for behavior. One committed document owner does not change the agreed file contents, cancel behavior, or protection against failed saving.
