@@ -7,6 +7,9 @@ Terms describing a missing animal and information collected during the search.
 **Case**:
 The information about one animal disappearance and the associated search.
 
+**Case owner**:
+The person to whom a private case belongs. In the first shared-instance release, each case has exactly one owner.
+
 **Animal profile**:
 A description of the animal covering identifying features, age, health, behavior, and familiarity with the area.
 
