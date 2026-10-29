@@ -306,6 +306,12 @@ it('edits an observation through isolated Signal Forms, validates rejection sepa
     occurredAt: original.points[1].entries[0].occurredAt,
   });
   expect(state.mapPlaces()[1].observations).toEqual({
+    target_animal: 0,
+    uncertain: 1,
+    different_animal: 1,
+  });
+  state.updateFilter({ showRejected: true });
+  expect(state.mapPlaces()[1].observations).toEqual({
     target_animal: 1,
     uncertain: 1,
     different_animal: 2,
@@ -390,7 +396,7 @@ it('cancels history drafts and delayed Saves, ignores stale fields, and unlinks 
     observationEntryId: null,
   });
   expect(state.mapPlaces()[1].observations).toEqual({
-    target_animal: 2,
+    target_animal: 1,
     uncertain: 0,
     different_animal: 1,
   });
@@ -1181,4 +1187,120 @@ it('edits historical geometry after plan removal, retains photo/time metadata an
   expect(unlinked?.description).toContain('observation-target');
   expect(unlinked?.actualGeometry).toEqual(check.actualGeometry);
   expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('counts only observations matching the selected period and hides rejected reports by default', async () => {
+  const { state } = await setup();
+  const shed = () => state.mapPlaces().find((place) => place.id === 'point-shed');
+  expect(shed()?.observations).toEqual({ target_animal: 1, uncertain: 1, different_animal: 1 });
+  state.updateFilter({ from: '2026-10-16' });
+  expect(shed()?.observations).toEqual({ target_animal: 0, uncertain: 0, different_animal: 1 });
+  state.updateFilter({ includeUnknownTime: true, showRejected: true });
+  expect(shed()?.observations).toEqual({ target_animal: 1, uncertain: 0, different_animal: 1 });
+  state.updateFilter({ from: '', to: '2026-10-15', includeUnknownTime: false });
+  expect(shed()?.observations).toEqual({ target_animal: 1, uncertain: 1, different_animal: 0 });
+});
+
+it('narrows places by role and entry type while keeping different-animal sightings and empty places usable', async () => {
+  const { state } = await setup();
+  const visible = () => state.mapPlaces().map((place) => [place.id, place.number]);
+  expect(visible()).toEqual([
+    ['point-home', 1],
+    ['point-shed', 2],
+  ]);
+  state.updateFilter({ roles: ['escape_location'] });
+  expect(visible()).toEqual([['point-home', 1]]);
+  state.updateFilter({ roles: ['feeding_location', 'escape_location'], entryTypes: ['note'] });
+  expect(visible()).toEqual([['point-shed', 2]]);
+  state.updateFilter({ roles: [], entryTypes: ['observation'], from: '2026-10-16' });
+  expect(state.mapPlaces()).toMatchObject([
+    { id: 'point-shed', observations: { target_animal: 0, uncertain: 0, different_animal: 1 } },
+  ]);
+  state.updateFilter({ from: '2026-11-01' });
+  expect(state.mapPlaces()).toEqual([]);
+  state.resetFilter();
+  expect(state.filterActive()).toBe(false);
+  expect(visible()).toHaveLength(2);
+});
+
+it('keeps the selected full history with highlighted matches and exports complete data under every filter', async () => {
+  const { state, storage } = await setup();
+  const unfiltered = JSON.parse(await state.exportJson());
+  await state.selectPoint('point-shed');
+  expect(state.selectedEntryMatches()).toBeNull();
+  const combinations = [
+    { from: '2026-10-16' },
+    { entryTypes: ['action', 'check'] as const },
+    { roles: ['trail_camera'] as const, showRejected: true, includeUnknownTime: true },
+    { from: '2026-12-01', to: '2026-12-31' },
+  ];
+  for (const change of combinations) {
+    state.resetFilter();
+    state.updateFilter({
+      ...change,
+      entryTypes: [...(change.entryTypes ?? [])],
+      roles: [...(change.roles ?? [])],
+    });
+    expect(state.selectedPoint()?.entries).toHaveLength(7);
+    const exported = JSON.parse(await state.exportJson());
+    expect({ ...exported, exportedAt: null }).toEqual({ ...unfiltered, exportedAt: null });
+  }
+  state.resetFilter();
+  state.updateFilter({ from: '2026-10-16' });
+  expect([...(state.selectedEntryMatches() ?? [])].sort()).toEqual([
+    'check-food',
+    'note-evening',
+    'observation-different',
+  ]);
+  expect(state.selectedPointCounts()).toEqual({
+    target_animal: 0,
+    uncertain: 0,
+    different_animal: 1,
+  });
+  state.updateFilter({ from: '2026-12-01' });
+  expect(state.selectedPointId()).toBe('point-shed');
+  expect(state.selectedEntryMatches()?.size).toBe(0);
+  expect(state.persistence().revision).toBe(0);
+  expect(storage.jobs).toHaveLength(0);
+});
+
+it('matches multi-day and open-ended ranges by overlap and keeps the rejected-report toggle separate', async () => {
+  const storage = new Storage();
+  const saved = document();
+  const [target, uncertain, different] = saved.points[1].entries;
+  saved.points[1].entries = [
+    {
+      ...target,
+      occurredAt: {
+        kind: 'range',
+        start: '2026-10-10T22:30:00Z',
+        end: '2026-10-12T08:00:00Z',
+        description: null,
+      },
+    },
+    {
+      ...uncertain,
+      occurredAt: { kind: 'range', start: '2026-10-14T12:00:00Z', end: null, description: null },
+    },
+    {
+      ...different,
+      occurredAt: { kind: 'range', start: null, end: '2026-10-05T12:00:00Z', description: null },
+    },
+  ];
+  storage.saved = saved;
+  const { state } = await setup(storage);
+  const counts = () => state.mapPlaces().find((place) => place.id === 'point-shed')?.observations;
+  // 22:30 UTC is already 11 October in Warsaw; the range ends on 12 October.
+  state.updateFilter({ from: '2026-10-11', to: '2026-10-11' });
+  expect(counts()).toEqual({ target_animal: 1, uncertain: 0, different_animal: 0 });
+  state.updateFilter({ from: '2026-10-13', to: '2026-10-13' });
+  expect(state.mapPlaces()).toEqual([]);
+  state.updateFilter({ from: '2026-11-20', to: '' });
+  expect(counts()).toEqual({ target_animal: 0, uncertain: 1, different_animal: 0 });
+  state.updateFilter({ from: '', to: '2026-10-01' });
+  expect(counts()).toEqual({ target_animal: 0, uncertain: 0, different_animal: 1 });
+  state.resetFilter();
+  state.updateFilter({ showRejected: true });
+  expect(state.filterActive()).toBe(false);
+  expect(state.mapPlaces()).toHaveLength(2);
 });

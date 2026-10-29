@@ -7,6 +7,7 @@ import { signalStore, withState } from '@ngrx/signals';
 import { createCaseState } from './case-state';
 import { withCaseProjections } from './with-case-projections';
 import { withCaseView } from './with-case-view';
+import { withCaseFilters } from './with-case-filters';
 import { withEditorResources, withEditorLifecycle } from './with-editor-lifecycle';
 import { withPointEditing } from './with-point-editing';
 import { withAnimalEditing } from './with-animal-editing';
@@ -17,6 +18,7 @@ export const CaseStore = signalStore(
   withState(createCaseState()),
   withCaseProjections(),
   withCaseView(),
+  withCaseFilters(),
   withEditorResources(),
   withPointEditing(),
   withEntryEditing(),

@@ -66,7 +66,6 @@ export function entryDetails(entry: HistoryEntry): string[] {
   switch (entry.type) {
     case 'observation':
       return [
-        identifications[entry.identification],
         entry.source ? sources[entry.source] : 'Źródło nieznane',
         entry.sourceDescription,
         entry.uncertaintyRadiusMeters

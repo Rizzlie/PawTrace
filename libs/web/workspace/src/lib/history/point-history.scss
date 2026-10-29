@@ -73,3 +73,59 @@ h4 {
 .time {
   font-size: 11px;
 }
+.filter-note {
+  font-style: italic;
+}
+.rejected-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.entry-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.outcome,
+.match-label {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.outcome[data-identification='target_animal'] {
+  background: #e3f0e5;
+  color: #347247;
+}
+.outcome[data-identification='uncertain'] {
+  background: #f6ecd6;
+  color: #89610f;
+}
+.outcome[data-identification='different_animal'] {
+  background: #ebe7f4;
+  color: #6e6098;
+}
+.match-label {
+  background: var(--pt-primary);
+  color: white;
+}
+mat-card[role='article'][data-identification='uncertain'] {
+  border-left-color: #a77717;
+}
+mat-card[role='article'][data-identification='different_animal'] {
+  border-left-color: #6e6098;
+  border-left-style: dashed;
+}
+mat-card[role='article'].match {
+  background: var(--pt-soft);
+  box-shadow: inset 0 0 0 2px var(--pt-primary);
+}
+mat-card[role='article'].rejected {
+  border-left-color: #9a543c;
+  border-left-style: solid;
+}

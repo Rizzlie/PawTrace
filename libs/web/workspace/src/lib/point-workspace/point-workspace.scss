@@ -211,3 +211,27 @@ mat-chip-set {
 mat-action-list button + button {
   margin-top: 6px;
 }
+
+.place-counts {
+  font-size: 11px;
+  color: var(--pt-muted);
+}
+.no-results {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.active-filter {
+  background: var(--pt-primary);
+  color: white;
+}
+#place-list > pt-case-filters {
+  flex: 0 1 auto;
+  min-height: 96px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#place-list:has(> pt-case-filters) mat-action-list:not([hidden]) {
+  min-height: min(112px, 100%);
+}

@@ -1,0 +1,48 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+  @include mat.checkbox-density(-2);
+  @include mat.form-field-density(-4);
+}
+.filters,
+fieldset {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.filters {
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--pt-border);
+  border-radius: 12px;
+  background: var(--pt-surface);
+}
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+legend {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.period {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+p {
+  margin: 0;
+  color: var(--pt-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+p[role='alert'] {
+  color: var(--pt-danger);
+}
