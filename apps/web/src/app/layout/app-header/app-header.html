@@ -1,5 +1,21 @@
 <mat-toolbar role="banner">
-  <pt-brand />
+  <button
+    class="account-trigger"
+    [matMenuTriggerFor]="accountMenu"
+    [attr.aria-label]="'Konto: ' + (session.user()?.email ?? '')"
+    [title]="'Konto: ' + (session.user()?.email ?? '')"
+  >
+    <pt-brand />
+  </button>
+  <mat-menu #accountMenu="matMenu">
+    <p class="account-email">{{ session.user()?.email }}</p>
+    <button mat-menu-item [disabled]="session.signingOut()" (click)="session.logout()">
+      Wyloguj się
+    </button>
+    @if (session.failed()) {
+      <p role="alert">Wylogowanie nie powiodło się. Spróbuj ponownie.</p>
+    }
+  </mat-menu>
   <ng-content />
   <button
     mat-icon-button

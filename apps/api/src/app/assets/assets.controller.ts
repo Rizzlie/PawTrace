@@ -3,8 +3,10 @@ import type { Request, Response } from 'express';
 import { AssetUploads } from './asset-uploads';
 import { OriginalAssets } from './original-assets';
 import { ImageProcessing } from './image-processing';
+import { OwnerlessAsset } from '../../auth/auth-policy';
 
 @Controller('assets')
+@OwnerlessAsset()
 export class AssetsController {
   constructor(
     private readonly uploads: AssetUploads,

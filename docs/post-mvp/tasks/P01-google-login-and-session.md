@@ -1,7 +1,7 @@
 # P01 — Google login and durable private session
 
-Status: planned; implementation not started.
-Blocked by: none.
+Status: blocked — implementation delivered locally; required live-Google verification and independent parent review remain unavailable/pending.
+Blocked by: live Google client/HTTPS configuration for the required external smoke check. No credentials requested or inspected.
 
 ## Assumptions and sources
 
@@ -40,8 +40,8 @@ Provide controlled-provider/time seams for deterministic tests without a login b
 ## Discussion topics and decision record
 
 - Settled: Google-only identity, PKCE S256, server-side session, sliding seven-day API inactivity, optional allowlist, no retained 30-day absolute cap.
-- Implementation decision to record: maintained OIDC/session library, SQL access and migration tooling, user uniqueness, cookie/rotation details, and test-provider isolation. Select these before introducing dependent database conventions; no ORM is preselected.
-- Record the exact authenticated API activity classification, development HTTP exception and production HTTPS behavior. Adding privileged Google scopes or a production auth bypass changes scope and requires review.
+- Implemented choices: `openid-client` 6.8.8 with explicit JWKS signature checking, `express-session` 1.19.0 with a transactional PostgreSQL family/identifier adapter, user-selected `drizzle-orm` 0.45.4 / `drizzle-kit` 0.31.11 over `pg` 8.23.1, generated SQL migrations under an advisory lock. Users are unique by issuer/subject; email is verified admission data. Nest AuthModule owns the controller, global guard, session middleware and provider lifecycle.
+- [Runtime and decision record](../p01-authentication.md) documents the small installation interface, expiry/rotation/revocation, exact API activity classification, loopback HTTP exception, production HTTPS/cookie/proxy contract, test-provider isolation and limitations. Identity scopes remain `openid email`; production rejects controlled dependencies.
 
 ## Scope boundaries
 
@@ -49,8 +49,9 @@ Case catalogue/mapping belongs to P02; photo ownership to P03; account-keyed loc
 
 ## Delivery and review record
 
-- Implementation: not started; implementer/date/branch/commit/PR not recorded yet.
-- Verification: not run for this task; add exact commands, results, clock/provider setup and live-Google evidence.
-- Standards review: pending; record reviewer, findings and resolution.
-- Specification review: pending; map evidence to the criteria above, including denied access and expiry.
-- Remaining blockers/limitations: live credentials/configuration may block the external smoke check; do not mark done while a required check remains unverified.
+- Implementation: Codex implementation sub-agent, 2026-10-29, branch `google-session`, prepared worktree `C:/Users/macsy/.t3/worktrees/pawtrace/t3-f48620ed`. Confirmed clean HEAD, parent `feat/p01-google-session` and `origin/main` all started at `14a6b1bed8e991ccf19fb40c4ab2fc72ff02b42a`. Parent tip merge check: `git merge --ff-only feat/p01-google-session` reported already up to date. Local implementation commit recorded after normal hooks below; no push or PR, per parent instruction.
+- Verification: real PostGIS 17/3.5 and Redis started with `docker compose -p pawtrace-p01-test -f compose.auth-test.yaml up -d --wait`. First PostgreSQL start was empty; API restart repeats migration initialization without erasing identity/session data. Tests use a local RSA-signed OIDC provider/JWKS/token endpoint, real HTTP and injected application time, never authenticated request mocks. Nx authentication tests have caching disabled.
+- Commands/evidence: `npm exec nx run api:test -- src/authentication.spec.ts --output-style=static` proved rejection of state/nonce/PKCE/signature/issuer/audience/expiry/replay, cancellation/provider failure, verified-email admission, two identities, HTTPS host-only cookie flags, CSRF, exact seven-day expiry, background activity beyond 30 days, concurrent rotation and racing logout with durable replay rejection. `npm exec nx run-many -- -t typecheck lint test build -p api web web-e2e --output-style=static` passed after the Drizzle/Nest adaptation: typecheck/lint for api, web and web-e2e; 81 API tests (including 21 authentication scenarios); 2 web tests; API and production web builds. `npm exec nx run api:db-generate -- --output-style=static` reported no schema changes. `npm exec nx run web-e2e:e2e -- --workers=2 --output-style=static` passed 81 scenarios, with exactly 3 explicit P03 ownership fixmes. Normal commit-hook evidence is recorded with the implementation commit. Browser evidence includes actual signed redirects, reload, persistent-profile reopen, API restart, logout and expired/denied/failed/cancelled states. No live Google test was performed.
+- Standards review: implementer self-check only; independent parent review pending. Resolved findings from execution: cookie renewal on rejected requests, rotation response identity, SPA fallback beneath hidden checkout paths, onboarding fixture assumptions, account controls outside the existing header, and mobile map height after adding account UI (resolved by placing it in the existing brand menu). User-requested Drizzle and native NestJS integration supersede the initial direct-SQL/Express-router draft. No sub-agents used.
+- Specification review: deterministic HTTP/browser coverage maps to all listed criteria except live Google/Console validation and production-like externally configured HTTPS Compose smoke. Independent parent acceptance review pending. Acceptance boxes remain unchecked until required external verification and review finish.
+- Remaining blockers/limitations: live Google credentials/Console/HTTPS smoke unavailable; P01 is **not done**. P02–P04 are unimplemented; ownerless uploads and every legacy asset route are denied even after login, and account-keyed local queues/pending-edit logout are not claimed. Three historical browser photo-publication scenarios are explicitly `fixme` pending P03 ownership; adapter storage regression coverage and current upload-denial tests remain active. Session tombstones have no pruning job. Production web build emits the existing 500 kB warning budget (under the 1 MB error budget); browser lint reports the pre-existing conditional-test warning in filters.

@@ -6,6 +6,8 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
+P01 adds Google login and PostgreSQL-backed sessions for the private shell. It remains **blocked for acceptance** until the separate live-Google smoke check is recorded. This branch is an incomplete private integration: ownerless photo endpoints are denied, and private case persistence/photo ownership/account-keyed recovery arrive in P02–P04. Follow the [P01 runtime and verification notes](docs/post-mvp/p01-authentication.md) before using the historical MVP runbook below; anonymous startup instructions no longer describe this branch.
+
 The desktop MVP (implementation tasks F01–F15) is complete: Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas and actual-search snapshots, persistent original photos with thumbnails and HEIC previews, photo attachments, and context-preserving filters. F15 verified the complete flow and its failure paths; see the [runbook](#runbook) and [known limitations](#known-tested-limitations).
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.

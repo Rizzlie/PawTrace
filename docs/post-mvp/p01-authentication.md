@@ -1,0 +1,50 @@
+# P01 authentication runtime and verification
+
+P01 is an incomplete private integration. It does not deliver P02 case persistence, P03 photo ownership or P04 account-keyed local recovery. Ownerless assets (including uploads, metadata, retry, original, preview and thumbnail) are inaccessible even to signed-in users. Nothing automatically claims anonymous files. Keep the instance private until P10 acceptance.
+
+## Technology and module interface
+
+`AppModule` imports `AuthModule`, whose Nest controller exposes login/callback/me/logout and readiness. A global guard protects Nest endpoints by default; public endpoints and temporarily inaccessible ownerless assets have explicit metadata. The module registers `express-session` as Nest middleware. Its asynchronous authentication provider owns the Drizzle connection and closes it through `OnApplicationShutdown`; bootstrap does not install an Express auth router or replace `app.close()`. The production entry point supplies configuration only. Controlled provider/time dependencies are available to separate test executables and explicitly rejected in production. There is no environment-selectable issuer, identity header, login bypass, test token or production test endpoint.
+
+- `openid-client` 6.8.8 handles authorization code exchange, PKCE S256, state, nonce and claim validation. `enableNonRepudiationChecks` also verifies ID-token signatures against provider JWKS; relying only on TLS token delivery would not meet the signature acceptance test. Production discovers Google's fixed HTTPS issuer and requests only `openid email`. Exchanged access/ID tokens are discarded server-side; no Google refresh token is requested.
+- `express-session` 1.19.0 handles opaque cookie generation, signing, parsing and response serialization. Its default MemoryStore is replaced with a PostgreSQL adapter. Application sessions have no absolute maximum age. A custom SQL adapter is necessary for serialized sliding expiry, identifier overlap and whole-family revocation; the cryptographic/session-cookie implementation remains maintained library code.
+- The user selected **Drizzle**: `drizzle-orm` 0.45.4 uses the typed PostgreSQL schema in `auth/schema.ts`, query builders and transactions through the `pg` 8.23.1 driver. `drizzle-kit` 0.31.11 generates committed SQL/snapshot/journal files. The Drizzle migrator applies them before readiness; a PostgreSQL advisory lock serializes application startup on one checked-out connection. Initial migration `0000_auth_session.sql` also enables PostGIS. Existing user/session rows survive repeated startup. Generate future migrations with `npm exec nx run api:db-generate`; append migrations, never use schema push against persistent instances or edit an applied migration. No case mapping beyond P01 is introduced.
+- Users are unique by `(issuer, subject)`; verified email is an admission attribute and can change without creating another user. The allowlist is trimmed, case insensitive and checked after validated OIDC claims. Empty admits every verified identity.
+
+Sources consulted: [openid-client documentation](https://github.com/panva/openid-client/tree/main/docs), [express-session documentation](https://github.com/expressjs/session), [Drizzle migrations](https://orm.drizzle.team/docs/migrations), [Drizzle transactions](https://orm.drizzle.team/docs/transactions), [Nest guards](https://docs.nestjs.com/guards), [Nest middleware](https://docs.nestjs.com/middleware), [Nest lifecycle](https://docs.nestjs.com/fundamentals/lifecycle-events), [Google OIDC](https://developers.google.com/identity/openid-connect/openid-connect), [OWASP session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+
+## Session policy
+
+Server time rejects a session at `expires_at <= now` before any touch. Authenticated GET requests to `/api/auth/me`, `/api/map-config` and `/api/address-search` count as activity, including automatic/background requests and input/upstream failures after authentication. Accepted activity resets expiry to seven days and renews cookie expiry. Anonymous/invalid credentials, CSRF failures, ownerless assets, unknown routes, health, readiness and static files do not touch expiry or renew cookies. Logout revokes rather than extends.
+
+The identifier rotates after one day of accepted activity. A transaction locks the family row, creates one canonical identifier, and permits the previous identifier for 60 seconds. Concurrent tabs converge on the same new identifier. Logout atomically revokes the family, including overlapping identifiers. Store writes cannot change existing families or revive a revocation after a delayed response or restart. Revoked/expired records and aliases are deliberately retained as tombstones; operational pruning is not implemented in P01.
+
+The session cookie is HttpOnly, persistent, Path=/, SameSite=Lax and host-only. HTTPS uses `__Host-pawtrace` plus Secure. Loopback HTTP development uses `pawtrace` without Secure. Production rejects HTTP origins and incomplete authentication settings. The `XSRF-TOKEN` cookie is JavaScript-readable by design and is not a session credential; Angular sends `X-XSRF-TOKEN` for mutations. The server requires both the exact configured Origin and the session's CSRF token. Login uses a separate ten-minute HttpOnly cookie bound to a one-use PostgreSQL state/nonce/verifier record. Parallel login attempts in one profile replace that binding; restart login to recover.
+
+The Angular root derives the visible shell from the identity resource and removes it on an authenticated request's 401. While identity is loading/unknown/failed, the router outlet and case workspace are absent. Cancellation, denial, failure, expiry and network failure have recoverable messages. Successful logout reloads the document after confirmed server revocation. Pending-edit warnings, cross-tab local cleanup and account-keyed caches are explicitly P04 work; P01 does not promise those flows.
+
+## Runtime
+
+Use Node 24.16.x/npm 11.13.x and `npm ci` (normal hooks enabled). Store private configuration in ignored `.env` or the deployment secret manager; never commit it or paste it into chat. Required when authentication is configured: `DATABASE_URL`, a stable independent `SESSION_SECRET` of at least 32 characters, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `PUBLIC_ORIGIN`. `AUTH_EMAIL_ALLOWLIST` is optional. Do not rotate SESSION_SECRET on routine restart: changing it invalidates cookies.
+
+For production Compose, set `POSTGRES_PASSWORD`, the session/Google values and an HTTPS `PUBLIC_ORIGIN`, with no trailing slash or path. Register exactly `PUBLIC_ORIGIN/api/auth/callback` as a Google web-client redirect URI. The application remains bound to a loopback host port. Put it behind a TLS reverse proxy that overwrites `X-Forwarded-Proto`; only that trusted proxy may reach ingress (one trusted hop). TLS/domain/public hosting are not provisioned here. `docker compose up --build --wait` waits for PostgreSQL/Redis, then migrations complete before the application listens. `/api/health` is liveness; `/api/ready` queries PostgreSQL without touching sessions and is used by the Compose healthcheck. PostgreSQL uses the named `postgres-data` volume; do not run `down -v` on an instance whose sessions must survive.
+
+Node development permits only loopback HTTP, normally `PUBLIC_ORIGIN=http://127.0.0.1:4200`, with Angular's existing proxy to port 3000. Start PostgreSQL/Redis, configure DATABASE_URL and the other required values, then `npm run dev`. Missing database configuration keeps health/static usable but denies all private requests; it never enables guest access. Production fails startup instead.
+
+## Deterministic verification
+
+The isolated test infrastructure uses public, disposable test-only credentials on loopback ports 55432 (PostGIS) and 6379 (Redis):
+
+```sh
+docker compose -p pawtrace-p01-test -f compose.auth-test.yaml up -d --wait
+npm exec nx run api:test -- --output-style=static
+npm exec nx run-many -- -t typecheck lint test build -p api web web-e2e --output-style=static
+npm exec nx run web-e2e:e2e -- src/authentication.spec.ts --output-style=static
+docker compose -p pawtrace-p01-test -f compose.auth-test.yaml down
+```
+
+API tests use an actual RSA-signed local provider and JWKS/token endpoints (`tests/oidc-provider.ts`), real PostgreSQL/PostGIS and injected application time. They do not mock authenticated requests or query tables as assertions. Browser acceptance uses a separate compiled test host, never the production main/webpack entry: built Angular assets on 4200, controlled OIDC on 3901, loopback test lifecycle controls on 3902. This executable refuses production mode. Playwright stops its host after the run. Do not point authentication browser scenarios at a live deployment with BASE_URL: they require the controlled lifecycle host. Existing storage/geocoder regression suites run through `tests/adapter-application.ts`, an isolated test-only Nest harness; they verify adapter behavior, not production authorization. Runtime authentication tests cover the actual Nest application and AuthModule and ownerless denial instead.
+
+The authentication browser project changes provider/time controls and runs serially before the dependent Chromium regression project. Existing browser fixtures authenticate through the real signed authorization redirect and callback rather than injecting cookies. Three historical browser scenarios requiring anonymous photo publication are explicitly marked `fixme` with P03 ownership reasons; they are never counted as current photo acceptance. The upload-denial scenario remains active and verifies that rejected uploads preserve editor text.
+
+The separate live-Google login/logout check remains required. Deterministic protocol success does not prove Google Console, audience or deployed HTTPS settings. No live credentials have been requested or inspected, and no live-Google success is claimed.

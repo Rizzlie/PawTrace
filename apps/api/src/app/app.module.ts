@@ -10,12 +10,14 @@ import { AssetsController } from './assets/assets.controller';
 import { AssetUploads } from './assets/asset-uploads';
 import { OriginalAssets } from './assets/original-assets';
 import { ImageProcessing } from './assets/image-processing';
+import { AuthModule } from '../auth/auth.module';
+import type { AuthenticationDependencies } from '../auth/authentication';
 
 @Module({
   controllers: [AppController, MapConfigController, AddressSearchController, AssetsController],
   providers: [AddressSearch, AssetUploads, OriginalAssets, ImageProcessing],
 })
-export class AppModule {
+export class WorkspaceModule {
   static async configure(
     options: { envFilePath?: string; ignoreEnvFile?: boolean } = {},
   ): Promise<DynamicModule> {
@@ -27,7 +29,7 @@ export class AppModule {
       ...options,
     });
     return {
-      module: AppModule,
+      module: WorkspaceModule,
       imports: [
         config,
         CacheModule.registerAsync({
@@ -55,6 +57,28 @@ export class AppModule {
             ],
           }),
         }),
+      ],
+    };
+  }
+}
+
+@Module({})
+export class AppModule {
+  static async configure(
+    options: {
+      envFilePath?: string;
+      ignoreEnvFile?: boolean;
+      authentication?: AuthenticationDependencies;
+    } = {},
+  ): Promise<DynamicModule> {
+    return {
+      module: AppModule,
+      imports: [
+        await WorkspaceModule.configure({
+          envFilePath: options.envFilePath,
+          ignoreEnvFile: options.ignoreEnvFile,
+        }),
+        AuthModule.configure(options.authentication),
       ],
     };
   }

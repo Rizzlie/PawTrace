@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  HUSKY: "0"
-  NX_DAEMON: "false"
+  HUSKY: '0'
+  NX_DAEMON: 'false'
   BASE_SHA: ${{ github.event.pull_request.base.sha }}
   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
@@ -43,9 +43,21 @@ jobs:
     name: Quality
     runs-on: ubuntu-latest
     services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: pawtrace_test
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: pawtrace_test
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U pawtrace_test -d pawtrace_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
       redis:
         image: redis:7.4.6-alpine
-        ports: ["6379:6379"]
+        ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
