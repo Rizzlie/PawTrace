@@ -259,6 +259,15 @@ test('starts with a collapsed place list on a phone and keeps the canvas full si
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  // A delayed browser response makes the initial disabled state reproducible.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: (_success: unknown, failure: (error: { code: number }) => void) =>
+          setTimeout(() => failure({ code: 1 }), 2000),
+      },
+    });
+  });
   await page.reload();
   const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
   const before = await map.boundingBox();
@@ -272,7 +281,12 @@ test('starts with a collapsed place list on a phone and keeps the canvas full si
       .getByRole('complementary', { name: 'Miejsca', exact: true })
       .getByRole('button', { name: 'Dodaj punkt', exact: true }),
   ).toHaveCount(0);
-  await actions.getByRole('button', { name: 'Moja lokalizacja' }).focus();
+  const locate = actions.getByRole('button', { name: 'Moja lokalizacja' });
+  // Enabled alone can pass before the automatic request starts after case restoration.
+  await expect(page.getByText('Brak zgody na lokalizację.', { exact: false })).toBeVisible();
+  await expect(locate).toBeEnabled();
+  await expect(add).toBeEnabled();
+  await locate.focus();
   await page.keyboard.press('ArrowDown');
   await expect(add).toBeFocused();
   await page.getByRole('button', { name: 'Rozwiń miejsca', exact: true }).click();

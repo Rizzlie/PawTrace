@@ -120,6 +120,65 @@ export class OriginalAssets {
     return join(this.root, match[1]);
   }
 
+  /** Internal processing protocol: strict records and atomic replacement share storage ownership. */
+  async findMetadata(id: string): Promise<AssetMetadata | undefined> {
+    try {
+      const metadata = assetMetadataSchema.parse(
+        JSON.parse(await readFile(join(this.root, id, 'metadata.json'), 'utf8')),
+      );
+      return metadata.filename.slice(0, 36) === id ? metadata : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async saveMetadata(metadata: AssetMetadata): Promise<void> {
+    const directory = this.directory(metadata.filename);
+    const temporary = join(directory, 'processing-metadata.part');
+    const handle = await open(temporary, 'w');
+    try {
+      await handle.writeFile(JSON.stringify(assetMetadataSchema.parse(metadata)));
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(temporary, join(directory, 'metadata.json'));
+  }
+
+  async publishDerivative(
+    metadata: AssetMetadata,
+    kind: 'thumbnail' | 'preview',
+    temporary: string,
+  ): Promise<void> {
+    const filename = `${kind}.png`;
+    await rename(temporary, join(this.directory(metadata.filename), filename));
+    metadata.processing[kind] = { status: 'ready', filename };
+    if (kind === 'thumbnail') metadata.thumbnailFilename = filename;
+    else metadata.previewFilename = filename;
+  }
+
+  async derivative(filename: string, kind: 'thumbnail' | 'preview'): Promise<StreamableFile> {
+    const metadata = await this.metadata(filename);
+    const derivative = metadata.processing[kind];
+    if (derivative.status !== 'ready')
+      throw new NotFoundException('Podgląd zdjęcia niedostępny. Sprawdź metadane zdjęcia.');
+    try {
+      // Only module-generated derivative names can resolve, even if stored metadata was edited.
+      if (derivative.filename !== `${kind}.png`)
+        throw new NotFoundException('Podgląd zdjęcia niedostępny.');
+      const handle = await open(join(this.directory(filename), derivative.filename), 'r');
+      return new StreamableFile(handle.createReadStream(), {
+        type: 'image/png',
+        disposition: 'inline',
+      });
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (systemCode(error) === 'ENOENT')
+        throw new NotFoundException('Podgląd zdjęcia niedostępny.');
+      throw new HttpException('Podgląd zdjęcia jest niedostępny. Ponów odczyt.', 503);
+    }
+  }
+
   async metadata(filename: string): Promise<AssetMetadata> {
     try {
       const directory = this.directory(filename);
