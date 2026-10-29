@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-F01–F10 provide the Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas, actual-search snapshots and Material UI. Live Mapbox operation was confirmed on 2026-10-28. F11 adds persistent original-photo upload/download; F12 adds asynchronous thumbnails, full-resolution HEIC previews, processing retry and restart recovery. Photo controls follow in F13.
+The desktop MVP (implementation tasks F01–F15) is complete: Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas and actual-search snapshots, persistent original photos with thumbnails and HEIC previews, photo attachments, and context-preserving filters. F15 verified the complete flow and its failure paths; see the [runbook](#runbook) and [known limitations](#known-tested-limitations).
 
 The initial release targets a desktop browser, local Docker deployment, and searches within Poland. Phone-specific refinement follows the desktop version.
 
@@ -51,23 +51,84 @@ The Leaflet host and adapter live in `libs/web/map-engine`; the framework-neutra
 - [Technical research](docs/mvp/research/) — findings, primary sources, and remaining implementation checks.
 - [Accepted UI prototype](docs/mvp/prototypes/pawtrace-floating-prototype.html) — visual and interaction reference; uses simulated data and is not the application.
 
-## Getting started
+## Runbook
+
+### Install and start
 
 For desktop use, install Docker Desktop with the Linux containers engine (or Docker Engine with the Compose v2 plugin). From the repository root:
 
 ```sh
+cp .env.example .env        # PowerShell: Copy-Item .env.example .env
 docker compose up --build --wait
 ```
 
-Open http://localhost:8080. Health is available at http://localhost:8080/api/health and returns `{"status":"ok"}`. One NestJS process serves both the compiled Angular application and the API; no browser API hostname or credentials are required.
+Open http://localhost:8080. Health is available at http://localhost:8080/api/health and returns `{"status":"ok"}`. One NestJS process serves both the compiled Angular application and the API; Redis runs beside it as the address-search cache. No browser API hostname or credentials are required. The first build compiles the HEIC codecs and takes several minutes; later builds reuse Docker's layer cache.
 
-```sh
-docker compose logs -f pawtrace
-docker compose restart pawtrace
-docker compose down
-```
+### Configuration and private token
 
-Optional: copy `.env.example` to `.env` before startup and change `APP_PORT` or `ASSET_DIRECTORY`. Compose reads this file automatically. The default `./data/assets` directory is mounted at `/app/data/assets` for future photo storage and survives container replacement. F01 does not implement uploads or serve this directory. Keep its contents with future case backups. The desktop port binds to loopback; phone/LAN HTTPS setup is deferred.
+Compose reads the ignored `.env` file automatically. Ordinary settings are `APP_PORT` (default 8080, loopback only), `ASSET_DIRECTORY` (default `./data/assets`) and `REDIS_PORT`. Compose also publishes Redis on loopback port `REDIS_PORT` (default 6379) for Node development; if another Redis already uses that port, `up` fails, so set a free port in `.env` (the application itself uses the internal Redis address). OSM and address search work without an account. For satellite imagery, put your **public** Mapbox token (`pk.*`) into `MAPBOX_PUBLIC_TOKEN` in `.env`, never in a committed file, chat or issue, and apply it with `docker compose up -d --force-recreate pawtrace`. Never use a secret (`sk.*`) token. See [Map configuration](#map-configuration) for provider overrides and [Address search](#address-search) for the geocoder settings.
+
+### Everyday operation (non-destructive)
+
+| Task                       | Command                                          |
+| -------------------------- | ------------------------------------------------ |
+| Follow logs                | `docker compose logs -f pawtrace`                |
+| Restart the application    | `docker compose restart pawtrace`                |
+| Apply `.env` changes       | `docker compose up -d --force-recreate pawtrace` |
+| Update after `git pull`    | `docker compose up -d --build --wait`            |
+| Stop, keeping containers   | `docker compose stop`                            |
+| Stop and remove containers | `docker compose down`                            |
+| Start again                | `docker compose up -d --wait`                    |
+
+None of these touches case or photo data. `down`, recreation and rebuilds keep the asset directory (a host bind mount) and the `redis-data` cache volume.
+
+### Where data lives
+
+| Data                   | Location                                                                | Notes                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| The case               | Browser IndexedDB for this origin (for example `http://localhost:8080`) | One case per browser profile and origin. Changing `APP_PORT` or the browser profile starts empty; use JSON transfer. |
+| Photos and derivatives | `ASSET_DIRECTORY` on the host (default `./data/assets`)                 | One UUID directory per original, with `metadata.json`, thumbnail and preview.                                        |
+| Address-search cache   | Docker volume `<project>_redis-data`                                    | Disposable cache only; not part of a backup.                                                                         |
+
+### Backup
+
+1. In the browser, open the **JSON** menu (accessible name “Plik JSON”), choose **Eksportuj JSON** and keep the downloaded `pawtrace-<case-id>.json`. Export works even when the save indicator reports a failure.
+2. Stop the application so no upload or derivative is half-written: `docker compose stop pawtrace`.
+3. Copy the **complete** asset directory, including every `metadata.json`:
+   - sh: `cp -a data/assets backup/assets-2026-10-29`
+   - PowerShell: `Copy-Item -Recurse data\assets backup\assets-2026-10-29`
+4. Start again: `docker compose start pawtrace`.
+
+JSON without the asset directory restores all case data but shows photos as unavailable; the asset directory without JSON contains photos but no case.
+
+### Restore (same or another machine)
+
+1. Stop the application: `docker compose stop pawtrace` (or skip on a fresh installation).
+2. Copy the backed-up asset directory into the configured `ASSET_DIRECTORY`. Asset directories have unique UUID names, so copying into a directory that already contains other photos merges them. Alternatively point `ASSET_DIRECTORY` in `.env` at the restored copy.
+3. Start: `docker compose up -d --wait`.
+4. In the browser, open the **JSON** menu, choose **Importuj JSON**, check the summary and choose **Zastąp sprawę**. The confirmation offers an export of the case being replaced.
+
+Photos whose files are missing remain referenced and show as unavailable.
+
+### Destructive removal
+
+These commands delete data permanently. Export JSON and back up the assets first.
+
+- Delete all photos: remove the contents of `ASSET_DIRECTORY` (`./data/assets`). Compose never deletes this bind-mounted directory, not even with `down --volumes`.
+- Delete the case in a browser: clear site data for the PawTrace origin in browser settings, or replace it with **Nowa sprawa**.
+- Delete the address cache: `docker compose down --volumes` removes `redis-data`. This deletes only cached geocoder responses.
+- Remove the built images: `docker compose down --rmi local`. The next start rebuilds them.
+
+### Known tested limitations
+
+Verified on Windows 11 with Docker Desktop (Linux containers) and Chromium on 2026-10-29; see [F15 completion notes](docs/implementation/F15-mvp-acceptance.md#completion-notes).
+
+- Desktop browser first. Phone layouts are usable at 390 px, but phone refinement, physical gestures and LAN/HTTPS access are not yet supported; the port binds to loopback.
+- One case per browser profile and origin, no cross-device synchronization or multi-tab editing lock. Clearing site data deletes the case unless you exported it.
+- One application instance per asset directory and one API process against the public Nominatim service (one request per second, no autocomplete).
+- Mapbox satellite needs your public token and is limited by the provider's free monthly quota; tile errors fall back to OSM without diagnosing the cause.
+- Multi-image HEIC files show one still primary image; frame browsing and animation are not supported. Only photos can be attached (no video, audio or documents).
+- Ungraceful kills can leave unpublished partial upload directories; there is no automatic cleanup. A Linux host directory must be writable by the container's `node` user (UID 1000). This was not exercised on a Linux host.
 
 ## Local development
 
@@ -97,9 +158,11 @@ npx playwright install chromium
 npm run e2e
 ```
 
-The HTTP integration test starts a real NestJS server on an ephemeral loopback port. Angular tests cover connection success and recovery after a failed request. The Chromium end-to-end test starts both development servers and checks same-origin health, the shell and original icon. To exercise a running container instead, set `BASE_URL=http://127.0.0.1:8080` in your shell before `npm run e2e`; in PowerShell use `$env:BASE_URL='http://127.0.0.1:8080'` and then `Remove-Item Env:BASE_URL` afterwards.
+The HTTP integration tests start a real NestJS server on an ephemeral loopback port. The Chromium suite starts both development servers and drives every feature through the UI against the real API, with controlled tile, map-configuration and geocoder responses so it never consumes provider quotas. `apps/web-e2e/src/mvp-acceptance.spec.ts` is the cross-feature MVP acceptance flow: from an empty case to photos, filters, reload and JSON round-trip, plus a run with every provider and photo unavailable. Run only that flow with `npm run e2e -- mvp-acceptance`. To exercise a running container instead, set `BASE_URL=http://127.0.0.1:8080` in your shell before `npm run e2e`; in PowerShell use `$env:BASE_URL='http://127.0.0.1:8080'` and then `Remove-Item Env:BASE_URL` afterwards.
 
-Nx tags enforce browser/API/shared dependency directions. Further libraries under `libs/web/**` and `libs/api/**` will be added when a feature needs them; `libs/shared/case-domain` already provides the JSON v1 contract. Signal Forms and the published `linkedSignal` custom setter are available in the pinned Angular baseline; editor-state integration belongs to later tasks. Version-selection references: [Angular compatibility](https://angular.dev/reference/versions), [Nx/Angular matrix](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS prerequisites](https://docs.nestjs.com/first-steps), and [linkedSignal API](https://angular.dev/api/core/linkedSignal).
+With Docker running, `npm exec -- nx run api:verify-images` and `npm exec -- nx run api:verify-assets` check the production image's native HEIC processing and original-photo storage (see [Original-photo storage](#original-photo-storage)).
+
+Nx tags enforce browser/API/shared dependency directions. Version-selection references: [Angular compatibility](https://angular.dev/reference/versions), [Nx/Angular matrix](https://nx.dev/docs/kb/angular-nx-version-matrix), [NestJS prerequisites](https://docs.nestjs.com/first-steps), and [linkedSignal API](https://angular.dev/api/core/linkedSignal).
 
 ## Map configuration
 
@@ -115,7 +178,7 @@ URL templates must use HTTP(S) or a relative path and contain `{z}`, `{x}`, and 
 
 Provider documentation checked on 2026-10-26: [Static Tiles API](https://docs.mapbox.com/api/maps/static-tiles/), [Mapbox trial limits](https://docs.mapbox.com/accounts/guides/signup/), [attribution requirements](https://docs.mapbox.com/help/ja/dive-deeper/attribution/), and [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). The card-free trial currently includes 20,000 Static Tiles requests per month, subject to provider changes; no payment method or upgrade is configured. See the [provider decision](docs/mvp/issues/12-satellite-provider.md).
 
-Tiles load directly through the browser, retaining normal HTTP caching and referrer headers. There is no bulk download, offline prefetch, proxy, or automatic satellite retry. OSM attribution remains visible; satellite mode adds Mapbox/OSM/Maxar links, feedback, and the official Mapbox logo (vendored from Mapbox GL JS 3.17.0 CSS). Automated map tests use controlled tile responses and never consume provider quotas. Real OSM tiles were separately verified; real Mapbox imagery still requires account/token verification.
+Tiles load directly through the browser, retaining normal HTTP caching and referrer headers. There is no bulk download, offline prefetch, proxy, or automatic satellite retry. OSM attribution remains visible; satellite mode adds Mapbox/OSM/Maxar links, feedback, and the official Mapbox logo (vendored from Mapbox GL JS 3.17.0 CSS). Automated map tests use controlled tile responses and never consume provider quotas. Real OSM tiles, Mapbox satellite imagery and Nominatim search were checked manually with a few requests (latest on 2026-10-29).
 
 Tile caching uses the browser's HTTP memory/disk cache, honoring the provider's `Cache-Control`, `Expires`, `Age` and validators such as `ETag`. A fresh cached response can be reused without a provider request; an expired response may require revalidation or download. Cache retention also depends on the browser and available storage. There is no application-owned tile cache in IndexedDB, Cache Storage, the API or Docker, and no offline guarantee. The API's `no-store` header applies to `/api/map-config`; tile images receive their own provider headers.
 

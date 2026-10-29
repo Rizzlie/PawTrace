@@ -1,6 +1,6 @@
 # F09 — Search-area drawing and measurements
 
-Status: in_progress — implementation ready; final validation and review in progress
+Status: done — standards and spec reviews completed; review fix verified (merged in #12)
 Depends on: F07, F08
 
 ## Goal

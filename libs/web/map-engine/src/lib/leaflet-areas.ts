@@ -27,6 +27,8 @@ export class LeafletAreas {
   constructor(
     private readonly map: L.Map,
     private readonly intents: {
+      /** Positions an active point draft; false when no point is being placed. */
+      placePoint: (point: L.LatLng) => boolean;
       changed: (change: AreaGeometryChange) => void;
       selected: (id: string) => void;
       measured: (points: MapCoordinates[]) => void;
@@ -51,7 +53,8 @@ export class LeafletAreas {
         const layer = this.shape(area.geometry, true);
         layer.bindTooltip(label(area.name));
         layer.on('click', (event: L.LeafletMouseEvent) => {
-          if (!this.pick(event.latlng)) this.intents.selected(area.selectionId ?? area.id);
+          if (!this.pick(event.latlng) && !this.intents.placePoint(event.latlng))
+            this.intents.selected(area.selectionId ?? area.id);
         });
         layer.addTo(this.map);
         this.plans.set(area.id, { layer, geometry: area.geometry });

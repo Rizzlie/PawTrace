@@ -13,7 +13,7 @@ The user confirmed live Mapbox operation on 2026-10-28, closing F02's remaining 
 5. **Verify the task.** Run checks appropriate to the change and exercise the task's acceptance cases. External-service tests must be small and comply with provider policies; deterministic tests should use controlled responses. Record configuration-dependent checks that could not be completed rather than claiming they passed.
 6. **Leave a clear handoff.** Set the task to `done` only when its acceptance criteria and required validation are satisfied. Add concise completion notes with the changed behavior, commands/check results, and any remaining limitations. Update the index status for that task. A blocked external check stays visible in the task and prevents an unqualified completion claim.
 
-The user's instruction remains in effect: **do not create new commits** unless subsequently authorized. These tasks do not request pushing, PR creation, or publication. Preserve existing user changes. Paid plans, payment cards, database setup, and authentication are outside the accepted MVP scope.
+Work on a dedicated branch with Conventional Commits and open a PR against `main`, following [CONTRIBUTING.md](../../CONTRIBUTING.md); the earlier planning-stage prohibition on commits no longer applies. Preserve existing user changes. Paid plans, payment cards, database setup, and authentication are outside the accepted MVP scope.
 
 Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are prerequisites, not permission to implement all of them in one invocation. To work in order, choose the first incomplete task whose dependencies are complete.
 
@@ -27,13 +27,13 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 6. [F06 — Animal profile and escape circumstances](F06-animal-profile.md) — done. Dependencies: F04, F05.
 7. [F07 — Named map points and place roles](F07-map-points.md) — done; verified with OSM before F02's live Mapbox acceptance. Dependencies: F02, F03, F04, F05, F06.
 8. [F08 — Point history and animal identification](F08-point-history.md) — done. Dependencies: F07.
-9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — in_progress; implementation verified, independent review pending. Dependencies: F07, F08.
+9. [F09 — Search-area drawing and measurements](F09-search-areas.md) — done; independent standards and spec reviews completed and their fix verified. Dependencies: F07, F08.
 10. [F10 — Actual searches and area-check history](F10-search-checks.md) — done. Dependencies: F09.
 11. [F11 — Persistent original-photo storage](F11-photo-storage.md) — done; original-byte round-trips, container replacement, write failures and recovery verified. Dependencies: F01, F04, F10.
 12. [F12 — Image processing and HEIC previews](F12-image-processing.md) — done; native HEIC decoding, previews, retry, restart and actual OOM recovery verified. Dependencies: F11.
 13. [F13 — Photo attachments and viewing](F13-photo-interface.md) — done; uploads, viewing at 1:1, confirmation, read-only restoration, editor identity and JSON transfer verified; all 78 browser scenarios passed. Dependencies: F06, F08, F10, F11, F12.
 14. [F14 — Filters, point summaries, and interface refinement](F14-filters-and-interface.md) — done; period/role/type filters, filtered per-outcome counts, highlighted full history and filter-independent export verified at 1280 px and 390 px. Dependencies: F13.
-15. [F15 — Complete MVP acceptance and runbook](F15-mvp-acceptance.md) — planned. Dependencies: F14 and all earlier tasks complete.
+15. [F15 — Complete MVP acceptance and runbook](F15-mvp-acceptance.md) — done; full UI flow, degraded providers, production container, backup/restore and real providers verified; one F07×F09 placement defect fixed. Dependencies: F14 and all earlier tasks complete.
 
 This ordering implements the accepted stages: Docker/map, data/JSON, points/history, areas/checks, photos, filters/interface, then complete acceptance. Saving, restoration, and export are exercised as each feature lands, not postponed to F15.
 
