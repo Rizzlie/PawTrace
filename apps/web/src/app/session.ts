@@ -23,7 +23,8 @@ export class Session {
       : undefined,
   );
   readonly loading = this.identity.isLoading;
-  readonly failed = signal(false);
+  private readonly logoutFailed = signal(false);
+  readonly failed = this.logoutFailed.asReadonly();
   readonly expired = computed(() => {
     const error = this.identity.error();
     return (
@@ -35,7 +36,8 @@ export class Session {
     const error = this.identity.error();
     return !!error && !(error instanceof HttpErrorResponse && error.status === 401);
   });
-  readonly signingOut = signal(false);
+  private readonly logoutPending = signal(false);
+  readonly signingOut = this.logoutPending.asReadonly();
 
   reject(): void {
     this.rejected.set(true);
@@ -45,17 +47,17 @@ export class Session {
     this.identity.reload();
   }
   async logout(): Promise<void> {
-    this.signingOut.set(true);
-    this.failed.set(false);
+    this.logoutPending.set(true);
+    this.logoutFailed.set(false);
     try {
       await firstValueFrom(this.http.post('/api/auth/logout', {}));
       this.rejected.set(true);
       // Reload also disposes the existing case module and its in-memory document.
       location.assign('/');
     } catch {
-      this.failed.set(true);
+      this.logoutFailed.set(true);
     } finally {
-      this.signingOut.set(false);
+      this.logoutPending.set(false);
     }
   }
 }

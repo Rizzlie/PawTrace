@@ -2,7 +2,7 @@
 
 The user confirmed the product scope and chose specification and task documents in the repository. [Specification](../spec.md) defines the release; [planning](../planning.md) records the interview. This directory is the new task tracker. Earlier MVP tasks do not define the structure or quality bar of these tasks.
 
-Status: **accepted breakdown**. The user accepted the specification, task granularity, blocking edges and testing seams. P01 is implemented locally but **blocked** for required live-Google verification and parent review; see its delivery record. P02–P10 remain `planned`, with implementation not started. P09 has no blockers; other tasks become eligible when their prerequisites are delivered and verified. A later instruction to implement a task authorizes only that task, not all of its dependencies or the complete release.
+Status: **accepted breakdown**. The user accepted the specification, task granularity, blocking edges and testing seams. P01 is implemented in [PR #20](https://github.com/Rizzlie/PawTrace/pull/20), independently reviewed, but **blocked** for required live-Google and external HTTPS verification; see its delivery record. P02–P10 remain `planned`, with implementation not started. P09 has no blockers; other tasks become eligible when their prerequisites are delivered and verified. A later instruction to implement a task authorizes only that task, not all of its dependencies or the complete release.
 
 ## Task graph
 
