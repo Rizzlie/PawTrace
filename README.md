@@ -41,6 +41,7 @@ The Leaflet host and adapter live in `libs/web/map-engine`; the framework-neutra
 
 ## Documentation
 
+- [Shared-instance release specification](docs/post-mvp/spec.md) and [accepted tasks](docs/post-mvp/tasks/README.md) — accepted post-MVP plan for Google login, private relational cases, offline recovery and ZIP transfer; not yet implemented.
 - [MVP specification](docs/mvp/spec.md) — product scope and detailed decisions.
 - [Frontend architecture](docs/architecture/frontend.md) — state ownership, map integration, JSON flows, and failure-safe persistence.
 - [Case JSON v1](docs/architecture/case-json-v1.md) — implemented fields, vocabulary, validation rules, and example files.
