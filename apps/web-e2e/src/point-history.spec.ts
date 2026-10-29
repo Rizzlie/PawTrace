@@ -113,7 +113,7 @@ test('keeps different-animal sightings visible, distinguishes mixed outcomes and
   await places.getByRole('button', { name: 'Szopa przy parku', exact: true }).click();
   const marker = page.locator('.leaflet-marker-icon[title="Szopa przy parku"]');
   await expect(marker).toHaveAttribute('data-observation-tones', '#347247,#a77717,#6e6098');
-  await expect(marker).toHaveAttribute('aria-description', /Szukane: 2.*Niepewne: 1.*Inne: 1/);
+  await expect(marker).toHaveAttribute('aria-description', /Szukane: 1.*Niepewne: 1.*Inne: 1/);
   await page
     .getByRole('article', { name: 'Czarny kot sąsiada.', exact: true })
     .getByRole('button', { name: 'Edytuj wpis', exact: true })
@@ -192,6 +192,11 @@ for (const width of [1280, 390]) {
     await expect(page.getByRole('alert')).toContainText('powód odrzucenia');
     await page.getByLabel('Powód odrzucenia').fill('Błędna data');
     await saveEntry(page);
+    await expect(
+      page.getByRole('article', { name: 'Wieczorna relacja', exact: true }),
+    ).toBeHidden();
+    await expect(page.getByText('Ukryte odrzucone relacje: 1', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Pokaż odrzucone relacje', exact: true }).click();
     await expect(
       page.getByRole('article', { name: 'Wieczorna relacja', exact: true }),
     ).toContainText('Relacja odrzucona: Błędna data');

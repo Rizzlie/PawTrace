@@ -1,0 +1,78 @@
+<form class="filters" aria-label="Filtry miejsc" (submit)="$event.preventDefault()">
+  <fieldset>
+    <legend>Rola miejsca</legend>
+    <div class="options">
+      @for (role of roles; track role.key) {
+        <mat-checkbox
+          [checked]="state.filter().roles.includes(role.key)"
+          (change)="toggleRole(role.key, $event.checked)"
+          >{{ role.label }}</mat-checkbox
+        >
+      }
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Rodzaj wpisu</legend>
+    <div class="options">
+      @for (type of types; track type.value) {
+        <mat-checkbox
+          [checked]="state.filter().entryTypes.includes(type.value)"
+          (change)="toggleType(type.value, $event.checked)"
+          >{{ type.label }}</mat-checkbox
+        >
+      }
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Czas zdarzenia</legend>
+    <div class="period">
+      <mat-form-field
+        ><mat-label>Od dnia</mat-label>
+        <input
+          matInput
+          type="date"
+          #fromDay
+          [value]="state.filter().from"
+          (change)="state.updateFilter({ from: fromDay.value })"
+        />
+      </mat-form-field>
+      <mat-form-field
+        ><mat-label>Do dnia</mat-label>
+        <input
+          matInput
+          type="date"
+          #toDay
+          [value]="state.filter().to"
+          (change)="state.updateFilter({ to: toDay.value })"
+        />
+      </mat-form-field>
+    </div>
+    @if (invertedPeriod()) {
+      <p role="alert">Data początkowa jest późniejsza niż końcowa — żaden wpis nie pasuje.</p>
+    }
+    <mat-checkbox
+      [disabled]="!period()"
+      [checked]="state.filter().includeUnknownTime"
+      (change)="state.updateFilter({ includeUnknownTime: $event.checked })"
+      >Uwzględnij wpisy o nieznanym czasie</mat-checkbox
+    >
+    <p>
+      Dni liczone są w strefie sprawy. Wpis z samą datą lub przedziałem pasuje, gdy może przypadać
+      na wybrany okres.
+    </p>
+  </fieldset>
+  <mat-checkbox
+    [checked]="state.filter().showRejected"
+    (change)="state.updateFilter({ showRejected: $event.checked })"
+    >Pokaż ręcznie odrzucone relacje</mat-checkbox
+  >
+  <p>Filtry zmieniają tylko widok. Eksport zawsze obejmuje całą sprawę.</p>
+  <button
+    matButton="outlined"
+    type="button"
+    [disabled]="!state.filterActive() && !state.filter().showRejected"
+    (click)="state.resetFilter()"
+  >
+    Wyczyść filtry
+  </button>
+</form>

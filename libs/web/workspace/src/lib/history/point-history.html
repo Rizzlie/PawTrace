@@ -143,10 +143,16 @@
   </form>
 } @else {
   <p aria-label="Podsumowanie obserwacji" class="counts">
-    <span class="target">Szukane: {{ counts().target_animal }}</span> ·
-    <span class="uncertain">Niepewne: {{ counts().uncertain }}</span> ·
-    <span class="different">Inne: {{ counts().different_animal }}</span>
+    <span class="target">Szukane: {{ state.selectedPointCounts().target_animal }}</span> ·
+    <span class="uncertain">Niepewne: {{ state.selectedPointCounts().uncertain }}</span> ·
+    <span class="different">Inne: {{ state.selectedPointCounts().different_animal }}</span>
   </p>
+  @if (state.filterActive()) {
+    <p class="filter-note">
+      Liczby obejmują tylko wpisy pasujące do filtrów. Historia poniżej jest pełna; pasujące wpisy
+      są wyróżnione.
+    </p>
+  }
   <div class="actions">
     <button
       matButton="outlined"
@@ -168,6 +174,23 @@
   </div>
   @if (!collapsed()) {
     <div id="point-history">
+      @if (hiddenRejected() || state.filter().showRejected) {
+        <div class="rejected-toggle">
+          @if (hiddenRejected()) {
+            <p>Ukryte odrzucone relacje: {{ hiddenRejected() }}</p>
+          }
+          <button
+            matButton="outlined"
+            type="button"
+            [attr.aria-pressed]="state.filter().showRejected"
+            (click)="state.updateFilter({ showRejected: !state.filter().showRejected })"
+          >
+            {{
+              state.filter().showRejected ? 'Ukryj odrzucone relacje' : 'Pokaż odrzucone relacje'
+            }}
+          </button>
+        </div>
+      }
       @for (section of sections(); track section.label) {
         @if (section.entries.length) {
           <h3>{{ section.label }}</h3>
@@ -179,8 +202,20 @@
                   role="article"
                   [attr.aria-label]="item.entry.description ?? item.title"
                   [class.rejected]="item.entry.status === 'rejected'"
+                  [class.match]="item.matches"
+                  [attr.data-identification]="item.identification"
                 >
-                  <h4>{{ item.title }}</h4>
+                  <div class="entry-heading">
+                    <h4>{{ item.title }}</h4>
+                    @if (item.identification; as outcome) {
+                      <span class="outcome" [attr.data-identification]="outcome">{{
+                        identificationLabels[outcome]
+                      }}</span>
+                    }
+                    @if (item.matches) {
+                      <span class="match-label">Pasuje do filtrów</span>
+                    }
+                  </div>
                   <p class="time">{{ item.time }}</p>
                   @if (item.entry.occurredAt.description) {
                     <p>{{ item.entry.occurredAt.description }}</p>

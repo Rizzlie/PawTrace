@@ -12,6 +12,7 @@ import {
   ElementRef,
   inject,
   linkedSignal,
+  signal,
   viewChild,
   TemplateRef,
 } from '@angular/core';
@@ -22,6 +23,7 @@ import { FloatingPanel, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { CaseStore } from '../case-store/case-store';
 import { PointHistory } from '../history/point-history';
 import { pointRoles } from './point-draft';
+import { CaseFilters } from '../filters/case-filters';
 
 @Component({
   selector: 'pt-point-workspace',
@@ -36,6 +38,7 @@ import { pointRoles } from './point-draft';
     FloatingPanel,
     FormField,
     PointHistory,
+    CaseFilters,
   ],
   templateUrl: './point-workspace.html',
   styleUrl: './point-workspace.scss',
@@ -50,6 +53,11 @@ export class PointWorkspace {
     computation: (pointId, previous) =>
       pointId && this.phone ? true : (previous?.value ?? this.phone),
   });
+  protected readonly filtersOpen = signal(false);
+  protected toggleFilters(): void {
+    this.filtersOpen.set(!this.filtersOpen());
+    if (this.filtersOpen()) this.collapsed.set(false);
+  }
   private readonly router = inject(Router);
   private readonly confirmation = viewChild<TemplateRef<unknown>>('confirmation');
   private readonly details = viewChild<FloatingPanel>('details');

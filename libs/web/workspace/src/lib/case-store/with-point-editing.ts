@@ -12,6 +12,7 @@ import {
   type PointSession,
 } from '../point-workspace/point-draft';
 import { caseBusy, editorDirty, type CaseState } from './case-state';
+import { filterPlace } from '../filters/case-filter';
 import { editorEvents } from './case-events';
 import type { EditorForm, EditorTransition } from './editor-resources';
 
@@ -110,11 +111,15 @@ export function withPointEditing() {
           () =>
             store.document()?.points.find((point) => point.id === store.deletingPointId()) ?? null,
         ),
-        mapPlaces: computed(
-          () =>
-            store.document()?.points.map((point, index) => {
-              const observations = observationCounts(point.entries);
-              return {
+        mapPlaces: computed(() => {
+          const document = store.document();
+          if (!document) return [];
+          return document.points.flatMap((point, index) => {
+            const { visible, matching } = filterPlace(point, document, store.filter());
+            if (!visible) return [];
+            const observations = observationCounts(matching);
+            return [
+              {
                 id: point.id,
                 number: index + 1,
                 name: point.name,
@@ -129,9 +134,10 @@ export function withPointEditing() {
                   .filter((item) => item.count > 0)
                   .map((item) => item.color),
                 summary: `Szukane: ${observations.target_animal} · Niepewne: ${observations.uncertain} · Inne: ${observations.different_animal}`,
-              };
-            }) ?? [],
-        ),
+              },
+            ];
+          });
+        }),
         mapPointDraft: computed<MapPointDraft | null>(() => {
           const session = store.editor();
           if (session?.kind !== 'point') return null;

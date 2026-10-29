@@ -4,12 +4,27 @@
     <div panel-heading class="heading">
       <strong
         class="list-title"
-        [matBadge]="state.document()?.points?.length ?? 0"
+        [matBadge]="state.mapPlaces().length"
         matBadgePosition="after"
         [matBadgeOverlap]="false"
-        [matBadgeDescription]="'Liczba miejsc: ' + (state.document()?.points?.length ?? 0)"
+        [matBadgeDescription]="
+          (state.filterActive() ? 'Widoczne miejsca: ' : 'Liczba miejsc: ') +
+          state.mapPlaces().length
+        "
         >Miejsca</strong
       >
+      <button
+        matButton="outlined"
+        type="button"
+        [class.active-filter]="state.filterActive()"
+        [disabled]="!state.document()"
+        [attr.aria-label]="state.filterActive() ? 'Filtry (aktywne)' : 'Filtry'"
+        [attr.aria-expanded]="filtersOpen()"
+        aria-controls="place-filters"
+        (click)="toggleFilters()"
+      >
+        Filtry
+      </button>
       <button
         matButton="outlined"
         type="button"
@@ -22,8 +37,25 @@
     </div>
     @if (!collapsed()) {
       <div id="place-list">
+        @if (filtersOpen() && state.document()) {
+          <pt-case-filters id="place-filters" />
+        }
         @if (!state.document()) {
           <p>Utwórz sprawę, aby dodawać miejsca.</p>
+        } @else if (!state.document()?.points?.length) {
+          <p>Brak miejsc. Użyj „Dodaj punkt” na mapie, aby utworzyć pierwsze.</p>
+        } @else if (!state.mapPlaces().length) {
+          <div class="no-results" role="status">
+            <p>Żadne miejsce nie pasuje do filtrów.</p>
+            <button matButton="outlined" type="button" (click)="state.resetFilter()">
+              Wyczyść filtry
+            </button>
+          </div>
+        } @else if (state.filterActive()) {
+          <p role="status">
+            Widoczne miejsca: {{ state.mapPlaces().length }} z
+            {{ state.document()?.points?.length }}.
+          </p>
         }
         <mat-action-list aria-label="Lista miejsc" [hidden]="!state.mapPlaces().length">
           @for (point of state.mapPlaces(); track point.id) {
@@ -32,12 +64,19 @@
               type="button"
               [attr.aria-pressed]="state.selectedPointId() === point.id"
               (click)="selectPoint(point.id)"
-              [attr.aria-description]="'Punkt nr ' + point.number"
+              [attr.aria-description]="
+                'Punkt nr ' + point.number + (point.accents.length ? '. ' + point.summary : '')
+              "
             >
               <span class="point-number" matListItemIcon aria-hidden="true">{{
                 point.number
               }}</span>
               <span matListItemTitle class="place-name">{{ point.name }}</span>
+              @if (point.accents.length) {
+                <span matListItemLine class="place-counts" aria-hidden="true">{{
+                  point.summary
+                }}</span>
+              }
             </button>
           }
         </mat-action-list>
@@ -73,6 +112,9 @@
             </button>
           }
         </mat-action-list>
+        @if (state.document() && !state.document()?.areas?.length) {
+          <p>Brak obszarów. Narysuj koło lub wielokąt narzędziami mapy.</p>
+        }
       </div>
     }
   </pt-floating-panel>

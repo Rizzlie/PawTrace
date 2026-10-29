@@ -32,7 +32,7 @@ Task statuses: `planned`, `in_progress`, `blocked`, `done`. Dependencies are pre
 11. [F11 — Persistent original-photo storage](F11-photo-storage.md) — done; original-byte round-trips, container replacement, write failures and recovery verified. Dependencies: F01, F04, F10.
 12. [F12 — Image processing and HEIC previews](F12-image-processing.md) — done; native HEIC decoding, previews, retry, restart and actual OOM recovery verified. Dependencies: F11.
 13. [F13 — Photo attachments and viewing](F13-photo-interface.md) — done; uploads, viewing at 1:1, confirmation, read-only restoration, editor identity and JSON transfer verified; all 78 browser scenarios passed. Dependencies: F06, F08, F10, F11, F12.
-14. [F14 — Filters, point summaries, and interface refinement](F14-filters-and-interface.md) — planned. Dependencies: F13.
+14. [F14 — Filters, point summaries, and interface refinement](F14-filters-and-interface.md) — done; period/role/type filters, filtered per-outcome counts, highlighted full history and filter-independent export verified at 1280 px and 390 px. Dependencies: F13.
 15. [F15 — Complete MVP acceptance and runbook](F15-mvp-acceptance.md) — planned. Dependencies: F14 and all earlier tasks complete.
 
 This ordering implements the accepted stages: Docker/map, data/JSON, points/history, areas/checks, photos, filters/interface, then complete acceptance. Saving, restoration, and export are exercised as each feature lands, not postponed to F15.
