@@ -5,6 +5,7 @@ import type { CaseDocument } from '@pawtrace/case-domain';
 import type { Basemap } from '@pawtrace/map-engine';
 import type { PointSession } from '../point-workspace/point-draft';
 import type { AreaSession } from '../area-workspace/area-draft';
+import type { PhotoRead } from '../photos/photo-metadata';
 
 export interface ProfileSession {
   kind: 'profile';
@@ -17,6 +18,7 @@ export interface ProfileSession {
 
 export interface CaseState {
   document: CaseDocument | null;
+  photoReads: Record<string, PhotoRead>;
   emptyBasemap: Basemap;
   editor: ProfileSession | PointSession | EntrySession | AreaSession | AreaCheckSession | null;
   selectedAreaId: string | null;
@@ -48,6 +50,7 @@ export interface CaseState {
 export function createCaseState(document: CaseDocument | null = null, generation = 0): CaseState {
   return {
     document,
+    photoReads: {},
     emptyBasemap: 'osm',
     editor: null,
     selectedPointId: null,

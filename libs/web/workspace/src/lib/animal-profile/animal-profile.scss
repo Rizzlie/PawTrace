@@ -52,6 +52,7 @@ form {
 }
 .groups {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 10px;
   margin-top: 18px;
   overflow: auto;

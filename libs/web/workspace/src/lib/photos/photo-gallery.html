@@ -1,0 +1,104 @@
+<section aria-label="Zdjęcia" class="photos">
+  @if (editorId() !== null) {
+    <h3>Zdjęcia</h3>
+    <label class="file-choice"
+      >Dodaj zdjęcia
+      <input
+        #files
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+        [disabled]="state.editorBusy() || !activeTarget()"
+        (change)="select(files)"
+      />
+    </label>
+    <p>
+      JPEG, PNG, WebP lub HEIC. Zapisz formularz, aby zatwierdzić odnośniki. Odpięcie pozostawia
+      plik na serwerze.
+    </p>
+    @if (profile(); as profile) {
+      <mat-form-field
+        ><mat-label>Zdjęcie główne</mat-label>
+        <select matNativeControl [formField]="profile.fields.mainPhoto">
+          <option value="">Nie wybrano</option>
+          @for (filename of filenames(); track filename) {
+            <option [value]="filename">{{ filename }}</option>
+          }
+        </select>
+      </mat-form-field>
+    }
+    <ul class="uploads" aria-label="Przesyłanie zdjęć" aria-live="polite">
+      @for (job of jobs(); track job.id) {
+        <li>
+          <strong>{{ job.name }}</strong>
+          @switch (job.status) {
+            @case ('queued') {
+              <span>W kolejce</span>
+            }
+            @case ('uploading') {
+              <span>{{ job.progress === 100 ? 'Zapisywanie na serwerze…' : 'Przesyłanie…' }}</span
+              ><progress
+                max="100"
+                [attr.value]="job.progress"
+                [attr.aria-label]="'Postęp ' + job.name"
+              ></progress>
+            }
+            @case ('stored') {
+              <span>Oryginał zapisany</span>
+            }
+            @case ('confirming') {
+              <span>Potwierdzanie zapisanego pliku…</span>
+            }
+            @case ('unconfirmed') {
+              <p role="alert">{{ job.error }}</p>
+              @if (job.confirmationFilename) {
+                <button matButton="outlined" type="button" (click)="transfers.retry(job.id)">
+                  Ponów potwierdzenie {{ job.name }}
+                </button>
+              }
+            }
+            @case ('failed') {
+              <p role="alert">{{ job.error }}</p>
+              <button matButton="outlined" type="button" (click)="transfers.retry(job.id)">
+                Ponów przesyłanie {{ job.name }}
+              </button>
+            }
+          }
+        </li>
+      }
+    </ul>
+    @if (jobs().length) {
+      <p>
+        Zapisanie lub anulowanie formularza kończy dołączanie. Niezakończone przesyłania nie zostaną
+        dopięte później.
+      </p>
+    }
+  }
+  <div class="gallery">
+    @for (filename of filenames(); track filename) {
+      <article [attr.aria-label]="'Zdjęcie ' + filename">
+        <pt-photo-card [filename]="filename" [caption]="caption(filename)" />
+        @if (editorId(); as id) {
+          @if (captionField(filename); as field) {
+            <mat-form-field
+              ><mat-label>Podpis {{ filename }}</mat-label
+              ><input matInput [formField]="field"
+            /></mat-form-field>
+          }
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="state.editorBusy()"
+            (click)="state.unlinkPhoto(id, filename)"
+          >
+            Odepnij {{ filename }}
+          </button>
+        }
+      </article>
+    } @empty {
+      @if (editorId() !== null) {
+        <p>Brak dołączonych zdjęć.</p>
+      }
+    }
+  </div>
+</section>

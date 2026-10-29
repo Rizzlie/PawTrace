@@ -1,4 +1,5 @@
 import type { AnimalProfile, CaseDocument } from '@pawtrace/case-domain';
+import { createPhotoDraft, applyPhotoAssets, type PhotoDraft } from '../photos/photo-draft';
 import {
   createEventTimeDraft,
   applyEventTimeDraft,
@@ -75,7 +76,9 @@ export const profileTextGroups = [
 
 type TextKey = (typeof profileTextGroups)[number]['fields'][number]['key'];
 export type Answer = '' | 'yes' | 'no';
-export interface ProfileDraft {
+export interface ProfileDraft extends PhotoDraft {
+  mainPhoto: string;
+  photoCaptions: { filename: string; caption: string }[];
   animal: Record<TextKey, string> & {
     sex: '' | NonNullable<AnimalProfile['sex']>;
     neutered: Answer;
@@ -110,6 +113,12 @@ export function createProfileDraft(document: CaseDocument): ProfileDraft {
   const time = escape.occurredAt;
   const zone = document.case.timeZone;
   return {
+    ...createPhotoDraft(animal?.photos),
+    mainPhoto: animal?.mainPhoto ?? '',
+    photoCaptions: (animal?.photos ?? []).map((filename) => ({
+      filename,
+      caption: animal?.photoCaptions?.find((item) => item.filename === filename)?.caption ?? '',
+    })),
     animal: {
       ...(Object.fromEntries(textKeys.map((key) => [key, animal?.[key] ?? ''])) as Record<
         TextKey,
@@ -147,8 +156,14 @@ export function applyProfileDraft(document: CaseDocument, draft: ProfileDraft): 
   );
   return {
     ...document,
+    assets: applyPhotoAssets(document, draft),
     animal: {
       ...document.animal,
+      photos: draft.photos,
+      mainPhoto: draft.mainPhoto || null,
+      photoCaptions: draft.photoCaptions
+        .filter((item) => draft.photos.includes(item.filename) && item.caption.trim())
+        .map((item) => ({ ...item, caption: item.caption.trim() })),
       ...Object.fromEntries(textKeys.map((key) => [key, textValue(animal[key])])),
       sex: animal.sex || null,
       neutered: booleanValue(animal.neutered),

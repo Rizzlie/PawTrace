@@ -1,4 +1,5 @@
 import { presentMaterialDialog } from '@pawtrace/shared-ui';
+import { PhotoGallery } from '../photos/photo-gallery';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatInputModule } from '@angular/material/input';
@@ -34,6 +35,7 @@ import {
 @Component({
   selector: 'pt-point-history',
   imports: [
+    PhotoGallery,
     MatCardModule,
     MatCheckboxModule,
     MatInputModule,

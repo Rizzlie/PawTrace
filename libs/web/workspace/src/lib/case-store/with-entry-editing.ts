@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { applyResolvedPhotoAssets, hasResolvedPhotoChanges } from '../photos/photo-draft';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
@@ -158,6 +159,7 @@ export function withEntryEditing() {
               return false;
             if (
               !editorDirty(getState(store)) &&
+              !hasResolvedPhotoChanges(store.document(), store.photoReads()) &&
               store.document()?.points.some((p) => p.entries.some((e) => e.id === session.entryId))
             ) {
               store._entryResources.destroyBinding();
@@ -178,7 +180,9 @@ export function withEntryEditing() {
             )
               return false;
             const now = new Date().toISOString();
-            const result = validateCaseDocument(applyEntryDraft(document, session, now));
+            const result = validateCaseDocument(
+              applyResolvedPhotoAssets(applyEntryDraft(document, session, now), store.photoReads()),
+            );
             if (!result.success) {
               editorDispatch.validationFailed({
                 id,

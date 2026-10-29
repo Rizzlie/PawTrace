@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { applyResolvedPhotoAssets } from '../photos/photo-draft';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import {
@@ -136,7 +137,12 @@ export function withAreaCheckEditing() {
               ? document.areas.find((area) => area.id === session.areaId)?.plannedGeometry
               : draftGeometry(session.draft);
           const now = new Date().toISOString();
-          const result = validateCaseDocument(applyAreaCheckDraft(document, session, now));
+          const result = validateCaseDocument(
+            applyResolvedPhotoAssets(
+              applyAreaCheckDraft(document, session, now),
+              store.photoReads(),
+            ),
+          );
           if (!geometrySchema.safeParse(geometry).success || !result.success) {
             editorDispatch.validationFailed({
               id,

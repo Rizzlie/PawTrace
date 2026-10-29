@@ -1,4 +1,5 @@
 import { MatCardModule } from '@angular/material/card';
+import { PhotoGallery } from '../photos/photo-gallery';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -29,6 +30,7 @@ import { draftGeometry } from './area-draft';
 @Component({
   selector: 'pt-area-workspace',
   imports: [
+    PhotoGallery,
     MatCardModule,
     MatExpansionModule,
     MatInputModule,

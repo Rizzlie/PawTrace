@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { applyResolvedPhotoAssets, hasResolvedPhotoChanges } from '../photos/photo-draft';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import { applyProfileDraft, createProfileDraft } from '../animal-profile/profile-draft';
@@ -67,7 +68,10 @@ export function withAnimalEditing() {
           const session = store.editor();
           if (session?.kind !== 'profile' || session.id !== id || caseBusy(getState(store)))
             return false;
-          if (!editorDirty(getState(store))) {
+          if (
+            !editorDirty(getState(store)) &&
+            !hasResolvedPhotoChanges(store.document(), store.photoReads())
+          ) {
             discardEditor(id);
             return true;
           }
@@ -83,7 +87,12 @@ export function withAnimalEditing() {
             caseBusy(getState(store))
           )
             return false;
-          const result = validateCaseDocument(applyProfileDraft(document, session.draft));
+          const result = validateCaseDocument(
+            applyResolvedPhotoAssets(
+              applyProfileDraft(document, session.draft),
+              store.photoReads(),
+            ),
+          );
           if (!result.success) {
             editorDispatch.validationFailed({
               id,

@@ -1,0 +1,93 @@
+<figure>
+  @if (thumbnail(); as url) {
+    @if (!failedThumbnail()) {
+      <button
+        class="thumbnail"
+        type="button"
+        (click)="open(viewer)"
+        [attr.aria-label]="'Otwórz zdjęcie ' + filename()"
+      >
+        <img
+          [src]="url"
+          [alt]="caption() || filename()"
+          loading="lazy"
+          (error)="failedThumbnail.set(true)"
+        />
+      </button>
+    }
+  }
+  <figcaption>{{ caption() || details()?.originalName || filename() }}</figcaption>
+  <small>{{ filename() }}</small>
+  @if (metadataError()) {
+    <p role="status">Zdjęcie niedostępne. Odnośnik pozostaje w sprawie.</p>
+    <button matButton="outlined" type="button" (click)="reload()">Ponów odczyt zdjęcia</button>
+  } @else if (loading() && !details()) {
+    <p role="status">Odczytywanie zdjęcia…</p>
+  }
+  @if (failedThumbnail()) {
+    <p role="status">Miniatura niedostępna. Oryginał jest zapisany.</p>
+    <button matButton="outlined" type="button" (click)="reload()">Ponów odczyt miniatury</button>
+  }
+  @if (pending()) {
+    <p role="status">Przygotowywanie podglądu… Oryginał jest zapisany.</p>
+  }
+  @if (processingFailed()) {
+    <p role="status">Nie udało się przygotować podglądu. Oryginał jest zapisany.</p>
+    <button
+      matButton="outlined"
+      type="button"
+      [disabled]="retrying() || pending()"
+      (click)="retry()"
+    >
+      Ponów przetwarzanie
+    </button>
+  }
+  @if (retryError()) {
+    <p role="alert">{{ retryError() }}</p>
+  }
+  <div class="actions">
+    @if (preview()) {
+      <button matButton="outlined" type="button" (click)="open(viewer)">Powiększ zdjęcie</button>
+    }
+    @if (originalAvailable()) {
+      <a matButton="text" [href]="original()" [download]="filename()">Pobierz oryginał</a>
+    }
+  </div>
+</figure>
+<ng-template #viewer>
+  <h2 mat-dialog-title>Podgląd zdjęcia</h2>
+  <mat-dialog-content>
+    @if (preview(); as url) {
+      <img
+        class="full-photo"
+        [class.original-size]="originalSize()"
+        [src]="url"
+        [alt]="caption() || filename()"
+        (error)="failedPreview.set(true)"
+      />
+      @if (failedPreview()) {
+        <p role="alert">Podgląd niedostępny. Pobierz oryginał lub ponów odczyt.</p>
+        <button matButton="outlined" type="button" (click)="reload()">Ponów odczyt podglądu</button>
+      }
+    } @else {
+      <p>Podgląd nie jest jeszcze dostępny. Możesz pobrać oryginał.</p>
+    }
+    <p>{{ caption() || details()?.originalName || filename() }}</p>
+  </mat-dialog-content>
+  <mat-dialog-actions>
+    @if (preview()) {
+      <button
+        matButton="outlined"
+        type="button"
+        [attr.aria-pressed]="originalSize()"
+        (click)="originalSize.set(!originalSize())"
+      >
+        {{ originalSize() ? 'Dopasuj do okna' : 'Rozmiar oryginalny (1:1)' }}
+      </button>
+    }
+    @if (originalAvailable()) {
+      <a matButton="outlined" [href]="original()" [download]="filename()">Pobierz oryginał</a>
+    }
+    <button matButton="filled" type="button" mat-dialog-close>Zamknij podgląd</button>
+  </mat-dialog-actions>
+</ng-template>

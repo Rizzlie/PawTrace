@@ -1,4 +1,5 @@
 import type { AreaCheck, CaseDocument, SearchResult } from '@pawtrace/case-domain';
+import { createPhotoDraft, applyPhotoAssets, type PhotoDraft } from '../photos/photo-draft';
 import { createAreaDraft, draftGeometry, type AreaDraft } from './area-draft';
 import {
   applyEventTimeDraft,
@@ -6,7 +7,7 @@ import {
   type EventTimeDraft,
 } from '../event-time-draft';
 
-export interface AreaCheckDraft extends AreaDraft {
+export interface AreaCheckDraft extends AreaDraft, PhotoDraft {
   footprint: 'plan' | 'custom';
   time: EventTimeDraft;
   result: SearchResult | '';
@@ -37,6 +38,7 @@ export function createAreaCheckDraft(
   const geometry = check?.actualGeometry ?? area?.plannedGeometry;
   return {
     ...createAreaDraft(type, area),
+    ...createPhotoDraft(check?.photos),
     type: geometry?.type ?? type,
     vertices: structuredClone(
       geometry?.type === 'circle' ? [geometry.center] : (geometry?.vertices ?? []),
@@ -74,7 +76,7 @@ export function applyAreaCheckDraft(
     result: draft.result || null,
     observationEntryId:
       draft.result === 'animal_seen' ? draft.observationEntryId.trim() || null : null,
-    photos: original?.photos ?? [],
+    photos: draft.photos,
   };
   const updated = {
     ...(area ?? {
@@ -91,6 +93,7 @@ export function applyAreaCheckDraft(
   };
   return {
     ...document,
+    assets: applyPhotoAssets(document, draft),
     areas: area
       ? document.areas.map((item) => (item.id === area.id ? updated : item))
       : [...document.areas, updated],
