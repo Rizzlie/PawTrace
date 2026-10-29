@@ -1,6 +1,6 @@
 # P01 — Google login and durable private session
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: none.
 
 ## Assumptions and sources

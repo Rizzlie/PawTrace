@@ -1,6 +1,6 @@
 # P08 — Complete ZIP import and replacement
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P07 — Safe JSON import and replacement.
 
 ## Assumptions and sources

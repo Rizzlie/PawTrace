@@ -1,6 +1,6 @@
 # P03 — Private case photos
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P02 — Private case catalogue and relational save.
 
 ## Assumptions and sources

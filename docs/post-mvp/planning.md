@@ -1,6 +1,6 @@
 # PawTrace after MVP
 
-Status: product scope confirmed by the user. The user authorized specification and task preparation and selected repository documents as the tracker. The [specification](spec.md) and [task breakdown](tasks/README.md) are proposed for review; application implementation is not authorized by this planning record.
+Status: product scope, [specification](spec.md), [task breakdown](tasks/README.md), blocking edges and testing seams accepted by the user. The user selected repository documents as the tracker. Application implementation has not started and requires a separate task instruction.
 
 ## Confirmed boundaries
 
@@ -44,7 +44,7 @@ Status: product scope confirmed by the user. The user authorized specification a
 - Select concrete spacing adjustments in the existing interface without redesigning its layout.
 - Keep hosting selection and public deployment deferred. No merge mode, guest mode, shared editing, full offline startup, or offline creation/deletion/import is included.
 
-The user requires every task to include Assumptions and sources; Scope; Acceptance criteria; Verification steps; Discussion topics and decision record; Scope boundaries; Delivery and review record. Task granularity, blocking edges and testing seams are the next review point. Application code has not been changed.
+The user requires every task to include Assumptions and sources; Scope; Acceptance criteria; Verification steps; Discussion topics and decision record; Scope boundaries; Delivery and review record. After reviewing the ten-task breakdown and testing approach, the user explicitly accepted them. Application code has not been changed.
 
 ## Authentication reference findings
 

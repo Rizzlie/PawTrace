@@ -1,6 +1,6 @@
 # P07 — Safe JSON import and replacement
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P06 — Complete JSON and ZIP export.
 
 ## Assumptions and sources

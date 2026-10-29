@@ -1,6 +1,6 @@
 # P06 — Complete JSON and ZIP export
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P03 — Private case photos.
 
 ## Assumptions and sources

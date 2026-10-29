@@ -1,6 +1,6 @@
 # P09 — Light visual polish
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: none.
 
 ## Assumptions and sources

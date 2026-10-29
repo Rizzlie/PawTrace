@@ -1,6 +1,6 @@
 # P10 — Release acceptance and Compose recovery runbook
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P05 — Version conflicts and deleted-case recovery; P08 — Complete ZIP import and replacement; P09 — Light visual polish. These include P01–P04 and P06–P07 transitively.
 
 ## Assumptions and sources

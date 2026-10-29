@@ -1,6 +1,6 @@
 # P02 — Private case catalogue and relational save
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P01 — Google login and durable private session.
 
 ## Assumptions and sources

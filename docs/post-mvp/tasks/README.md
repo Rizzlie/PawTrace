@@ -2,9 +2,9 @@
 
 The user confirmed the product scope and chose specification and task documents in the repository. [Specification](../spec.md) defines the release; [planning](../planning.md) records the interview. This directory is the new task tracker. Earlier MVP tasks do not define the structure or quality bar of these tasks.
 
-Status: **proposed breakdown awaiting review**. All tasks are `proposed`, not implemented or unconditionally ready for an agent. Confirm the granularity, blocking edges and specification testing seams before promoting the breakdown to `planned`. A later instruction to implement a task authorizes only that task, not all of its dependencies or the complete release.
+Status: **accepted breakdown**. The user accepted the specification, task granularity, blocking edges and testing seams. All tasks are `planned`, with implementation not started. P01 and P09 have no blockers; other tasks become eligible when their prerequisites are delivered and verified. A later instruction to implement a task authorizes only that task, not all of its dependencies or the complete release.
 
-## Proposed task graph
+## Task graph
 
 | ID  | Task                                                                                               | Blocked by    | Demonstrable result                                                                                                   |
 | --- | -------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |

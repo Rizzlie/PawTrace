@@ -1,6 +1,6 @@
 # P05 — Version conflicts and deleted-case recovery
 
-Status: proposed; implementation not started.
+Status: planned; implementation not started.
 Blocked by: P04 — Durable offline autosave and account-safe recovery.
 
 ## Assumptions and sources

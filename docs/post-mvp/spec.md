@@ -1,6 +1,6 @@
 # PawTrace — shared-instance release
 
-Status: product scope confirmed by the user; specification and task breakdown proposed for review. Application implementation is not started by this document.
+Status: product scope, specification, task breakdown, blocking edges and testing seams accepted by the user. Application implementation has not started.
 
 ## Problem Statement
 
@@ -45,7 +45,7 @@ Require Google sign-in, provide a private My cases list, and save committed case
 
 ### Authority and scope
 
-The confirmed [planning record](planning.md) is the source of product decisions. This specification makes their technical consequences explicit. The [task index](tasks/README.md) proposes the delivery slices and verification seams; approving the product scope did not imply implementing these tasks in this documentation change. Existing MVP behavior remains the baseline except where this specification supersedes single-browser persistence and unauthenticated assets.
+The confirmed [planning record](planning.md) is the source of product decisions. This specification makes their technical consequences explicit. The accepted [task index](tasks/README.md) defines the delivery slices and verification seams; approving this plan does not start implementation in this documentation change. Existing MVP behavior remains the baseline except where this specification supersedes single-browser persistence and unauthenticated assets.
 
 ### Authentication and session
 
@@ -104,7 +104,7 @@ Visual work adjusts spacing, alignment, density, and consistency using the exist
 
 ## Testing Decisions
 
-These seams are proposed for the user's final review alongside the task graph:
+The user accepted these testing seams alongside the task graph:
 
 1. **Primary: authenticated HTTP behavior over real PostgreSQL/PostGIS and a real temporary asset directory.** Verify ownership, transactions, geometry reconstruction, version checks, import failure recovery, and original bytes through the application boundary. Use two identities and direct API calls, not only hidden UI controls. Do not replace relational/spatial semantics with mocked repositories or SQLite.
 2. **User acceptance: existing Playwright browser boundary against the actual application/API.** Extend case-persistence, profile, point/history/area, photo, and MVP acceptance scenarios. Use independent contexts for accounts/tabs/devices, real IndexedDB, real downloads, connection interruption, and storage failure injection. Stub external maps/geocoding where appropriate; the application API under acceptance is real.
@@ -127,7 +127,7 @@ Run appropriate tasks through workspace-local Nx. The task index explains how to
 
 ## Further Notes
 
-- Proposed task granularity, blocking edges, and testing seams await review; task implementation requires a separate instruction.
+- Task granularity, blocking edges, and testing seams are accepted; task implementation requires a separate instruction.
 - The existing MVP task records are historical and remain unchanged. The new task documents use exactly the seven sections requested by the user, including an unfilled delivery/review record until implementation evidence exists.
 - Manual export is intended for later analysis in ChatGPT, without an application integration or a promise that arbitrary ZIP sizes/formats will be processed there.
 - Primary references: [Google OIDC](https://developers.google.com/identity/openid-connect/openid-connect), [Google PKCE library](https://github.com/googleapis/google-auth-library-nodejs/blob/main/src/auth/oauth2client.ts), [Google audience exceptions](https://support.google.com/cloud/answer/15549945?hl=en), [OWASP session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), and PostGIS [point coordinate order](https://postgis.net/docs/ST_MakePoint.html) and [SRID semantics](https://postgis.net/docs/ST_SetSRID.html).
