@@ -55,3 +55,11 @@ Validation completed on 2026-10-28:
 Independent review against user-confirmed `07173d3`: Standards — 0 findings. Spec — 1 retry finding, fixed. A regression first reproduced silent HTTP 201 while a failed thumbnail's preview was active; it now observes explicit HTTP 409 and successful retry after processing ends. Additional visual QA found incorrect 10-bit P3 conversion: its known sRGB-red patch first produced `[234, 51, 34]`; an explicit output ICC transform now produces `[255, 0, 0]`, checked through the deployed preview.
 
 Remaining limits: no promise of identical HDR/gain-map rendering or exhaustive camera-profile support; no host power-loss guarantee; one application instance per asset directory. The asset mount and complete metadata must survive replacement. Photo attachment/viewing controls remain F13. Runtime constraints and repeatable verification are documented in the linked module guide.
+
+### CI follow-up — browser interaction setup
+
+The first GitHub Quality run passed the other 24 tasks but failed the keyboard location-tooltip scenario and reported a flaky phone-toolbar scenario. Linux Chromium reproduced the failures that the original Windows run missed. Traces showed correct keyboard focus and tooltip text while pointer hover interfered with the initial overlay. The location test now parks the pointer on the neutral map before testing keyboard focus.
+
+The phone scenario could focus the location button before automatic geolocation started after case restoration. A check for an enabled button alone could therefore pass too early, with the subsequent request disabling that button during keyboard navigation. The test now uses a controlled delayed permission denial and waits for its visible result before focusing the ready toolbar. Existing tooltip, accessible-description, arrow-navigation and canvas-size assertions remain intact; no retry or timeout increase was introduced.
+
+Validation on 2026-10-29: the two scenarios passed 20 repeated Linux runs with two workers and zero retries; the full Linux Chromium suite passed all 71 scenarios with two workers and zero retries. `web-e2e:typecheck` and `web-e2e:lint` also passed. Temporary focus/tooltip instrumentation was removed before these final checks. Only browser-test setup and this acceptance record changed; application code and dependencies are unchanged.

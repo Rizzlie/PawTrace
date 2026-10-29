@@ -214,6 +214,8 @@ test('location is requested on entry and can be refreshed manually', async ({ co
   const locate = page.getByRole('button', { name: 'Moja lokalizacja' });
   await expect(locate).toBeEnabled();
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
+  // Keep pointer hover separate from the keyboard tooltip being tested.
+  await page.getByRole('region', { name: 'Mapa poszukiwań' }).hover();
   await page.getByRole('radio', { name: 'Mapa OSM', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(locate).toBeFocused();
