@@ -125,6 +125,7 @@
           [fields]="editor.fields.time"
           [timeZone]="state.document()?.case?.timeZone ?? 'UTC'"
         />
+        <pt-photo-gallery [editorId]="editor.id" />
         <p>
           Wynik dotyczy tego przeszukania. Brak obserwacji nie wyklucza późniejszej obecności
           zwierzęcia. Odnalezienie nie zamyka sprawy.
@@ -208,7 +209,7 @@
                 <p>Powiązana obserwacja: {{ check.observationEntryId }}</p>
               }
               @if (check.photos.length) {
-                <p>Zapisane odnośniki do zdjęć: {{ check.photos.join(', ') }}</p>
+                <pt-photo-gallery [photos]="check.photos" />
               }
               <button
                 matButton="outlined"

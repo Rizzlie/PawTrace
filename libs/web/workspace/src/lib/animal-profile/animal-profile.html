@@ -230,6 +230,7 @@
             </mat-form-field>
           </div>
         </mat-expansion-panel>
+        <pt-photo-gallery [editorId]="session.id" />
       </div>
       @if (state.editorError()) {
         <p role="alert" class="error">{{ state.editorError() }}</p>

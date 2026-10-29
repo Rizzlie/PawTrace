@@ -1,5 +1,7 @@
 import { createEnvironmentInjector, EnvironmentInjector } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { BrowserSnapshot, type SnapshotStorage } from '@pawtrace/browser-persistence';
 import type { CaseDocument } from '@pawtrace/case-domain';
 const { parseCaseFile } = await import('@pawtrace/case-domain');
@@ -52,15 +54,150 @@ class Storage implements SnapshotStorage {
 
 async function setup(storage = new Storage()) {
   TestBed.configureTestingModule({
-    providers: [...provideDispatcher(), CaseStore, { provide: BrowserSnapshot, useValue: storage }],
+    providers: [
+      ...provideDispatcher(),
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      CaseStore,
+      { provide: BrowserSnapshot, useValue: storage },
+    ],
   });
   const state = TestBed.inject(CaseStore);
   await state.initialize();
+  for (const request of TestBed.inject(HttpTestingController).match(() => true))
+    request.flush({}, { status: 404, statusText: 'Not found' });
   return {
     state,
     storage,
   };
 }
+
+it('attaches stored originals only to their editor, preserves newer text and commits photos explicitly', async () => {
+  const { state } = await setup();
+  state.openProfile();
+  const editor = state.profileEditor();
+  const target = state.photoTarget();
+  if (!editor || !target) throw new Error('Expected profile photo editor');
+  const asset = {
+    filename: 'stored.jpg',
+    originalName: 'Kot.jpg',
+    mediaType: 'image/jpeg',
+    sizeBytes: 42,
+    widthPixels: null,
+    heightPixels: null,
+    thumbnailFilename: null,
+    previewFilename: null,
+  };
+  editor.fields.animal.name().value.set('Nowszy opis');
+  state.attachPhoto(target, asset);
+  expect(state.document()?.animal?.photos).not.toContain('stored.jpg');
+  expect(state.editorPhotos()).toContain('stored.jpg');
+  expect(editor.fields.animal.name().value()).toBe('Nowszy opis');
+  expect(await state.saveProfile(editor.id)).toBe(true);
+  expect(state.document()?.animal?.photos).toContain('stored.jpg');
+  expect(state.document()?.assets).toContainEqual(asset);
+  state.openProfile();
+  state.attachPhoto(target, { ...asset, filename: 'late.jpg' });
+  expect(state.editorPhotos()).not.toContain('late.jpg');
+});
+
+it('preserves photos for every history type and area checks through save, unlink and JSON transfer', async () => {
+  const { state } = await setup();
+  const asset = {
+    filename: 'new.png',
+    originalName: 'Nowe.png',
+    mediaType: 'image/png',
+    sizeBytes: 64,
+    widthPixels: 16,
+    heightPixels: 12,
+    thumbnailFilename: 'new.png.thumbnail.png',
+    previewFilename: null,
+  };
+  const point = activeDocument(state).points.find((point) => point.entries.length);
+  if (!point) throw new Error('Expected point history');
+  for (const type of ['observation', 'action', 'check', 'note'] as const) {
+    await state.editEntry(point.id);
+    const editor = historyEditor(state);
+    editor.fields.type().value.set(type);
+    editor.fields.description().value.set('Tekst ' + type);
+    const target = state.photoTarget();
+    if (!target) throw new Error('Expected photo target');
+    state.attachPhoto(target, asset);
+    expect(await state.saveEntry(editor.id)).toBe(true);
+    const entry = activeDocument(state)
+      .points.find((p) => p.id === point.id)
+      ?.entries.at(-1);
+    expect(entry?.type).toBe(type);
+    expect(entry?.photos).toEqual(['new.png']);
+    expect(entry?.description).toBe('Tekst ' + type);
+  }
+  const area = activeDocument(state).areas.find((area) => area.checks.length);
+  if (!area) throw new Error('Expected search history');
+  await state.editAreaCheck(area.id, area.checks[0].id);
+  const editor = state.areaCheckEditor();
+  const target = state.photoTarget();
+  if (!editor || !target) throw new Error('Expected area check photo editor');
+  state.attachPhoto(target, asset);
+  editor.fields.notes().value.set('Zachowaj teren i zdjęcia');
+  expect(await state.saveAreaCheck(editor.id)).toBe(true);
+  const check = activeDocument(state).areas.find((a) => a.id === area.id)?.checks[0];
+  expect(check?.photos).toContain('new.png');
+  expect(check?.actualGeometry).toEqual(area.checks[0].actualGeometry);
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
+
+it('commits resolved photo metadata with current text and cleans main-photo links on unlink', async () => {
+  const { state } = await setup();
+  state.openProfile();
+  const editor = state.profileEditor();
+  const target = state.photoTarget();
+  if (!editor || !target) throw new Error('Expected profile');
+  const filename = 'efb08652-e68f-4652-a876-38197646d125.png';
+  const asset = {
+    filename,
+    originalName: 'Kot.png',
+    mediaType: 'image/png',
+    sizeBytes: 64,
+    widthPixels: null,
+    heightPixels: null,
+    thumbnailFilename: null,
+    previewFilename: null,
+  };
+  state.attachPhoto(target, asset);
+  editor.fields.mainPhoto().value.set(filename);
+  editor.fields.animal.name().value.set('Nowsze imię');
+  const session = state.editor();
+  const saving = state.saveProfile(editor.id);
+  TestBed.inject(HttpTestingController)
+    .expectOne(`/api/assets/${filename}/metadata`)
+    .flush({
+      ...asset,
+      widthPixels: 16,
+      heightPixels: 12,
+      thumbnailFilename: 'thumbnail.png',
+      processing: {
+        thumbnail: { status: 'ready', filename: 'thumbnail.png' },
+        preview: { status: 'not_required' },
+      },
+    });
+  expect(state.editor()).toBe(session);
+  expect(await saving).toBe(true);
+  expect(activeDocument(state).animal?.name).toBe('Nowsze imię');
+  expect(activeDocument(state).assets.find((a) => a.filename === filename)?.thumbnailFilename).toBe(
+    filename + '.thumbnail.png',
+  );
+  state.openProfile();
+  const next = state.profileEditor();
+  if (!next) throw new Error('Expected reopened profile');
+  state.unlinkPhoto(next.id, filename);
+  expect(await state.saveProfile(next.id)).toBe(true);
+  expect(activeDocument(state).animal?.mainPhoto).toBeNull();
+  expect(activeDocument(state).animal?.photoCaptions?.some((c) => c.filename === filename)).toBe(
+    false,
+  );
+  expect(activeDocument(state).assets.some((a) => a.filename === filename)).toBe(true);
+  expect(parseCaseFile(await state.exportJson()).success).toBe(true);
+});
 
 it('keeps area drafts isolated, undoes geometry and preserves check footprints when a plan is removed', async () => {
   const { state } = await setup();

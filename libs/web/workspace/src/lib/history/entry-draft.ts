@@ -1,4 +1,5 @@
 import type { CaseDocument, HistoryEntry } from '@pawtrace/case-domain';
+import { createPhotoDraft, applyPhotoAssets, type PhotoDraft } from '../photos/photo-draft';
 import {
   createEventTimeDraft,
   applyEventTimeDraft,
@@ -8,7 +9,7 @@ import {
 type Observation = Extract<HistoryEntry, { type: 'observation' }>;
 type ActionDetails = NonNullable<Extract<HistoryEntry, { type: 'action' }>['details']>;
 type Check = Extract<HistoryEntry, { type: 'check' }>;
-export interface EntryDraft {
+export interface EntryDraft extends PhotoDraft {
   type: HistoryEntry['type'];
   description: string;
   time: EventTimeDraft;
@@ -45,6 +46,7 @@ export function createEntryDraft(document: CaseDocument, entry?: HistoryEntry): 
   const action = entry?.type === 'action' ? entry.details : null;
   const check = entry?.type === 'check' ? entry : null;
   return {
+    ...createPhotoDraft(entry?.photos),
     type: entry?.type ?? 'observation',
     description: entry?.description ?? '',
     time: createEventTimeDraft(time, document.case.timeZone),
@@ -84,7 +86,7 @@ export function applyEntryDraft(
     createdAt: original?.createdAt ?? now,
     updatedAt: now,
     description: text(draft.description),
-    photos: original?.photos ?? [],
+    photos: draft.photos,
   };
   const active = { ...base, status: 'active' as const, rejectionReason: null };
   // Entry type is stable on edit, so links to existing observations cannot silently change meaning.
@@ -126,6 +128,7 @@ export function applyEntryDraft(
           : { ...active, type };
   return {
     ...document,
+    assets: applyPhotoAssets(document, draft),
     points: document.points.map((point) =>
       point.id !== pointId
         ? point

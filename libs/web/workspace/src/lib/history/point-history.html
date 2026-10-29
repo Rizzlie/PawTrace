@@ -129,6 +129,7 @@
           </p>
         }
       }
+      <pt-photo-gallery [editorId]="editor.id" />
       @if (state.editorError()) {
         <p role="alert">{{ state.editorError() }}</p>
       }
@@ -189,7 +190,7 @@
                     <p>{{ detail }}</p>
                   }
                   @if (item.entry.photos.length) {
-                    <p>Zapisane odnośniki do zdjęć: {{ item.entry.photos.join(', ') }}</p>
+                    <pt-photo-gallery [photos]="item.entry.photos" />
                   }
                   <div class="actions">
                     <button

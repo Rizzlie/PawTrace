@@ -1,0 +1,50 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.photos {
+  display: grid;
+  gap: 0.75rem;
+}
+h3,
+p {
+  margin: 0;
+}
+.file-choice {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+input[type='file'] {
+  max-width: 100%;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 0.75rem;
+}
+article {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+}
+article > button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.uploads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+.uploads li {
+  display: grid;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}

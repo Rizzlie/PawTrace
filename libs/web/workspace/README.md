@@ -2,6 +2,10 @@
 
 Browser feature integration, separate from the Leaflet adapter and server code.
 
+F13 photo integration lives under `photos/`, shared by profile, history-entry and area-check editors. `withPhotoEditing` checks case/generation/editor identity before attaching an upload to the authoritative draft. `withPhotoProcessing` owns metadata reads and explicit processing retries; its results remain transient. Restoration, opening a card and metadata polling do not change the document, editor draft/version, revision or autosave. An explicit profile/history/check Save reads the latest resolved metadata, validates the complete candidate and commits it atomically. Cards derive their presentation from that transient state and have separate, explicitly sourced thumbnail/preview error signals. Missing metadata hides original-download actions; a failed preview preserves the thumbnail, original reference and available original download.
+
+`PhotoTransfers` hides the two-request upload queue, progress and confirmation state. A malformed successful response is unconfirmed rather than a failed write: retry resolves a known original filename through GET metadata and never repeats the POST. An unknown outcome without a trustworthy filename offers no automatic resubmission. Each batch is bound to the route store's `DestroyRef`; gallery closure or store destruction cancels active/queued work and releases callbacks. Already published originals remain retained on the server. Galleries project editor fields/photos only when their editor identity matches the active target. Server-local derivative names become globally unique logical filenames in JSON, while content resolves through the original filename on the current server.
+
 `CaseStore` is one NgRx SignalStore provided with a scoped Events dispatcher in the lazy workspace route. Components, child routes and guards use that same instance; sibling workspace scopes do not receive each other's events; NgRx intentionally exposes ancestor events to descendants, so a workspace store must not be nested under another workspace dispatcher. `case-store/case-state.ts` defines the plain document/editor/transfer/persistence shape and defaults. Computed projections are separate from event reducers and I/O handlers. Private form injectors, abort controllers and pending route promises are resources, not serializable state or independent stores.
 
 The composition has focused features:
@@ -10,6 +14,7 @@ The composition has focused features:
 - `withCaseView`: immutable persisted viewport/basemap changes; no Leaflet rendering or separate MapState.
 - `withEditorResources` / `withEditorLifecycle`: one discriminated active editor session, shared atomic commit/closure/revision reducers and cancellable Save / Discard / Stay. `EditorForm<T>` owns the session-scoped Signal Forms binding; `EditorTransition` owns the pending decision and aborts delayed Save.
 - `withAnimalEditing`: profile draft conversion, form projection and validated Save.
+- `withPhotoProcessing`: case-owned photo resolution, correlated metadata results and processing retries; cards only render state and dispatch user intents.
 - `withPointEditing`: point draft/scene projections, geographic placement, validated Save, selection and confirmed reference-safe removal.
 - `withCaseFiles`: file parsing/export, request-correlated candidates, editor-close coordination and explicit replacement intent.
 - `withCasePersistence`: restoration, synchronous revision observation, retries, write acknowledgements and durable replacement through `SnapshotWriter`.
@@ -32,7 +37,7 @@ Map center, zoom and the requested basemap are committed through the same writer
 
 `AddressSearchClient` calls the same-origin `/api/address-search?q=...`, validates the transport response, and performs no automatic retries. There are no direct browser requests to the geocoder.
 
-Run `npm exec nx run workspace:typecheck`, `npm exec nx run workspace:test` and `npm exec nx run workspace:lint`. Browser acceptance is in `apps/web-e2e/src/address-search.spec.ts`, `apps/web-e2e/src/case-persistence.spec.ts` and `apps/web-e2e/src/animal-profile.spec.ts`.
+Run `npm exec nx run workspace:typecheck`, `npm exec nx run workspace:test` and `npm exec nx run workspace:lint`. Browser acceptance is in `apps/web-e2e/src/address-search.spec.ts`, `apps/web-e2e/src/case-persistence.spec.ts`, `apps/web-e2e/src/animal-profile.spec.ts` and `apps/web-e2e/src/photos.spec.ts`.
 
 `map-engine` is the Angular-to-Leaflet adapter, with no case store injection or business rules. The screen derives rendering inputs and sends them through template bindings; outputs call store commands. Leaflet lifecycle, layers, restoration feedback suppression and eventual layer reconciliation belong inside the adapter. No separate `MapState` or speculative point/area APIs are introduced by this refactor.
 

@@ -1,4 +1,5 @@
 import { MatCardModule } from '@angular/material/card';
+import { PhotoGallery } from '../photos/photo-gallery';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatInputModule } from '@angular/material/input';
@@ -23,6 +24,7 @@ import { incidentMomentChoices } from './incident-time';
 @Component({
   selector: 'pt-animal-profile',
   imports: [
+    PhotoGallery,
     MatCardModule,
     MatExpansionModule,
     MatCheckboxModule,
