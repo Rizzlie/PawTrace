@@ -1,70 +1,75 @@
-import { z } from "zod";
-import { validatePolygon } from "./polygon-validation";
+import { z } from 'zod';
+import { validatePolygon } from './polygon-validation';
+
+/**
+ * PostgreSQL text cannot hold U+0000, and UTF-8 encoding would replace lone surrogates.
+ * In Unicode mode a paired surrogate is one code point, so this matches only lone halves.
+ */
+// eslint-disable-next-line no-control-regex -- detecting U+0000 is the purpose.
+const unstorableCharacter = /[\u0000\uD800-\uDFFF]/u;
 
 export const textSchema = z
   .string()
   .refine(
     (value) => value.trim().length > 0,
-    "Use null for an unknown value; text must not be empty.",
+    'Use null for an unknown value; text must not be empty.',
+  )
+  .refine(
+    (value) => !unstorableCharacter.test(value),
+    'Text must not contain a NUL character or broken Unicode.',
   );
 export const timestampSchema = z.iso.datetime({ offset: true });
 export const timeZoneSchema = textSchema.refine((value) => {
   try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
+    new Intl.DateTimeFormat('en', { timeZone: value });
     return true;
   } catch {
     return false;
   }
-}, "Expected a recognized time zone, such as Europe/Warsaw or UTC.");
+}, 'Expected a recognized time zone, such as Europe/Warsaw or UTC.');
 export const filenameSchema = textSchema.refine(
   (value) =>
     !/[\\/:?#]/u.test(value) &&
     Array.from(value).every(
-      (character) =>
-        character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
+      (character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
     ) &&
-    value !== "." &&
-    value !== "..",
-  "Expected a server filename, without a path, URL, query or image data.",
+    value !== '.' &&
+    value !== '..',
+  'Expected a server filename, without a path, URL, query or image data.',
 );
-export function validateUniqueValues(
-  values: string[],
-  context: z.RefinementCtx,
-): void {
+export function validateUniqueValues(values: string[], context: z.RefinementCtx): void {
   const seen = new Set<string>();
   values.forEach((value, index) => {
     if (seen.has(value))
       context.addIssue({
-        code: "custom",
+        code: 'custom',
         path: [index],
         message: `Duplicate value "${value}".`,
       });
     seen.add(value);
   });
 }
-export const photosSchema = z
-  .array(filenameSchema)
-  .superRefine(validateUniqueValues);
+export const photosSchema = z.array(filenameSchema).superRefine(validateUniqueValues);
 export const coordinatesSchema = z.strictObject({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
 });
 
 const timeDescription = { description: textSchema.nullable() };
-export const eventTimeSchema = z.discriminatedUnion("kind", [
+export const eventTimeSchema = z.discriminatedUnion('kind', [
   z.strictObject({
-    kind: z.literal("exact"),
+    kind: z.literal('exact'),
     at: timestampSchema,
     ...timeDescription,
   }),
   z.strictObject({
-    kind: z.literal("approximate"),
+    kind: z.literal('approximate'),
     at: timestampSchema,
     ...timeDescription,
   }),
   z
     .strictObject({
-      kind: z.literal("range"),
+      kind: z.literal('range'),
       start: timestampSchema.nullable(),
       end: timestampSchema.nullable(),
       ...timeDescription,
@@ -72,9 +77,8 @@ export const eventTimeSchema = z.discriminatedUnion("kind", [
     .superRefine((range, context) => {
       if (range.start === null && range.end === null)
         context.addIssue({
-          code: "custom",
-          message:
-            "A time range needs at least one endpoint; use unknown otherwise.",
+          code: 'custom',
+          message: 'A time range needs at least one endpoint; use unknown otherwise.',
         });
       if (
         range.start !== null &&
@@ -82,28 +86,28 @@ export const eventTimeSchema = z.discriminatedUnion("kind", [
         Date.parse(range.end) < Date.parse(range.start)
       )
         context.addIssue({
-          code: "custom",
-          path: ["end"],
-          message: "The end of the time range must not precede its start.",
+          code: 'custom',
+          path: ['end'],
+          message: 'The end of the time range must not precede its start.',
         });
     }),
   z.strictObject({
-    kind: z.literal("date"),
+    kind: z.literal('date'),
     date: z.iso.date(),
     ...timeDescription,
   }),
-  z.strictObject({ kind: z.literal("unknown"), ...timeDescription }),
+  z.strictObject({ kind: z.literal('unknown'), ...timeDescription }),
 ]);
 
-export const geometrySchema = z.discriminatedUnion("type", [
+export const geometrySchema = z.discriminatedUnion('type', [
   z.strictObject({
-    type: z.literal("circle"),
+    type: z.literal('circle'),
     center: coordinatesSchema,
     radiusMeters: z.number().positive(),
   }),
   z
     .strictObject({
-      type: z.literal("polygon"),
+      type: z.literal('polygon'),
       vertices: z.array(coordinatesSchema).min(3),
     })
     .superRefine(validatePolygon),

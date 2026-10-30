@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase, caseLocation, chooseReplacement } from './fixtures';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -13,10 +13,8 @@ test.beforeEach(async ({ page }) => {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
-  await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await createCase(page);
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 });
 
 test('routes the profile lazily and protects edits on browser Back', async ({ page }) => {
@@ -37,9 +35,9 @@ test('routes the profile lazily and protects edits on browser Back', async ({ pa
   await expect(page.getByLabel('Imię', { exact: true })).toHaveValue('Szkic w trasie');
   await page.goBack();
   await page.getByRole('button', { name: 'Odrzuć szkic' }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(caseLocation);
   await expect(page.getByRole('region', { name: 'Mapa poszukiwań' })).toBeVisible();
-  await page.goto('/profile');
+  await page.goto(new URL(page.url()).pathname + '/profile');
   await expect(page.getByRole('heading', { name: 'Profil zwierzęcia' })).toBeVisible();
 });
 
@@ -54,7 +52,7 @@ async function exportCase(page: Page) {
 }
 
 async function importCase(page: Page, file: unknown) {
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.getByRole('button', { name: 'Plik JSON', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Importuj JSON', exact: true })).toBeEnabled();
   await page.keyboard.press('Escape');
@@ -64,7 +62,8 @@ async function importCase(page: Page, file: unknown) {
     buffer: Buffer.from(JSON.stringify(file)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 }
 
 test('can reopen the profile after cancelling case replacement with a clean editor', async ({
@@ -72,9 +71,9 @@ test('can reopen the profile after cancelling case replacement with a clean edit
 }) => {
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Profil zwierzęcia' })).toBeVisible();
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
+  await chooseReplacement(page, completeFile);
   await page.getByRole('dialog').getByRole('button', { name: 'Anuluj', exact: true }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(caseLocation);
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Profil zwierzęcia' })).toBeVisible();
 });
@@ -84,7 +83,7 @@ test('Back and Stay cancel pending replacement without discarding a dirty profil
 }) => {
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await page.getByLabel('Imię', { exact: true }).fill('Zachowaj szkic');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
+  await chooseReplacement(page, completeFile);
   await expect(page.getByRole('dialog', { name: 'Niezatwierdzony profil' })).toBeVisible();
   await page.goBack();
   await page.getByRole('button', { name: 'Zostań przy edycji' }).click();
@@ -291,7 +290,7 @@ test('protects drafts, excludes them from export, validates, and offers Save / D
   await expect(page.getByRole('dialog')).toBeHidden();
   await page.getByLabel('Masa (kg)').fill('-2');
   await expect(page.getByLabel('Masa (kg)')).toHaveValue('-2');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
+  await chooseReplacement(page, completeFile);
   await page.getByRole('button', { name: 'Zapisz i kontynuuj' }).click();
   await expect(page.getByRole('dialog')).toContainText('weightKilograms');
   await page.getByRole('button', { name: 'Zostań przy edycji' }).click();
@@ -394,7 +393,7 @@ test('rejects skipped hours and lets the user disambiguate a repeated hour', asy
   await expect(page.getByRole('heading', { name: 'Profil zwierzęcia' })).toBeVisible();
   await occurrence.selectOption('2026-10-25T01:30:00.000Z');
   await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(caseLocation);
   expect((await exportCase(page)).case.escape.occurredAt).toEqual({
     kind: 'exact',
     at: '2026-10-25T01:30:00.000Z',
@@ -420,7 +419,7 @@ test.describe('device zone differs from the case', () => {
       '2026-10-15T14:00',
     );
     await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(caseLocation);
     expect((await exportCase(page)).case.escape.occurredAt).toEqual(
       completeFile.case.escape.occurredAt,
     );
@@ -446,7 +445,7 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Escape');
     await expect(menu).toBeFocused();
     const newCase = await header
-      .getByRole('button', { name: 'Nowa sprawa', exact: true })
+      .getByRole('link', { name: 'Moje sprawy', exact: true })
       .evaluate((element) => {
         const { x, y, width } = element.getBoundingClientRect();
         return { x, y, width };

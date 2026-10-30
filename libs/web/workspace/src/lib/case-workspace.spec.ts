@@ -1,10 +1,11 @@
 import { createEnvironmentInjector, EnvironmentInjector } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { BrowserSnapshot, type SnapshotStorage } from '@pawtrace/browser-persistence';
+import { CaseStorage, type SaveRequest } from './cases/case-storage';
 import type { CaseDocument } from '@pawtrace/case-domain';
 const { parseCaseFile } = await import('@pawtrace/case-domain');
+import { VersionConflict } from './cases/case-api';
 const { default: file } = await import('@pawtrace/case-domain/fixtures/complete-case-v1.json');
 import { CaseStore } from './case-store/case-store';
 import { provideDispatcher } from '@ngrx/signals/events';
@@ -37,17 +38,25 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-class Storage implements SnapshotStorage {
+const rejected = (status: number) => new HttpErrorResponse({ status });
+
+class Storage implements CaseStorage {
   saved: unknown = document();
-  jobs: { snapshot: CaseDocument; completion: ReturnType<typeof deferred> }[] = [];
+  jobs: {
+    snapshot: CaseDocument;
+    version: number;
+    key: string;
+    completion: ReturnType<typeof deferred>;
+  }[] = [];
   async read() {
-    return this.saved;
+    return this.saved === undefined ? undefined : { document: this.saved, version: 1 };
   }
-  write(snapshot: CaseDocument) {
+  write({ document: snapshot, version, key }: SaveRequest) {
     const completion = deferred();
-    this.jobs.push({ snapshot: structuredClone(snapshot), completion });
+    this.jobs.push({ snapshot: structuredClone(snapshot), version, key, completion });
     return completion.promise.then(() => {
       this.saved = snapshot;
+      return { version: version + 1 };
     });
   }
 }
@@ -59,11 +68,11 @@ async function setup(storage = new Storage()) {
       provideHttpClient(),
       provideHttpClientTesting(),
       CaseStore,
-      { provide: BrowserSnapshot, useValue: storage },
+      { provide: CaseStorage, useValue: storage },
     ],
   });
   const state = TestBed.inject(CaseStore);
-  await state.initialize();
+  await state.open(file.case.id);
   for (const request of TestBed.inject(HttpTestingController).match(() => true))
     request.flush({}, { status: 404, statusText: 'Not found' });
   return {
@@ -616,7 +625,7 @@ it('protects a dirty editor during replacement and keeps it on Stay or invalid S
   const editor = state.profileEditor();
   if (!editor) throw new Error('Expected profile editor');
   editor.fields.animal.weightKilograms().value.set('-1');
-  state.prepareNewCase();
+  await state.prepareImport(JSON.stringify(file));
   expect(state.closeRequested()).toBe(true);
   await state.resolveEditorTransition('save');
   expect(state.editorError()).toContain('weightKilograms');
@@ -625,7 +634,7 @@ it('protects a dirty editor during replacement and keeps it on Stay or invalid S
   await state.resolveEditorTransition('stay');
   expect(state.candidate()).toBeNull();
   expect(state.profileEditor()?.id).toBe(editor.id);
-  state.prepareNewCase();
+  await state.prepareImport(JSON.stringify(file));
   await state.resolveEditorTransition('discard');
   expect(state.profileEditor()).toBeNull();
   expect(state.candidate()).not.toBeNull();
@@ -669,7 +678,7 @@ it('cancels pending replacement when route exit supersedes its dirty-editor deci
   const editor = state.profileEditor();
   if (!editor) throw new Error('Expected editor');
   editor.fields.animal.name().value.set('Keep this draft');
-  state.prepareNewCase();
+  await state.prepareImport(JSON.stringify(file));
   const leaving = state.requestEditorExit();
   await state.resolveEditorTransition('stay');
   expect(await leaving).toBe(false);
@@ -800,12 +809,13 @@ it('drains an in-flight save, drops obsolete pending writes, and activates impor
   expect(activeDocument(state).mapView.zoom).toBe(9);
   storage.jobs[0].completion.resolve();
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
-  expect(storage.jobs[1].snapshot.case.id).toBe('imported');
-  expect(activeDocument(state).case.id).toBe(file.case.id);
+  // The replacement keeps the open case's server identity; only its contents change.
+  expect(storage.jobs[1].snapshot.case).toMatchObject({ id: file.case.id, title: 'Imported' });
+  expect(activeDocument(state).case.title).toBe(file.case.title);
   storage.jobs[1].completion.resolve();
   await replacement;
-  expect(activeDocument(state).case.id).toBe('imported');
-  expect(state.persistence().generation).toBe(1);
+  expect(activeDocument(state).case).toMatchObject({ id: file.case.id, title: 'Imported' });
+  expect(state.persistence().generation).toBe(2);
   expect(state.persistence().revision).toBe(0);
   expect(state.saveStatus()).toBe('saved');
   expect(storage.jobs).toHaveLength(2);
@@ -820,11 +830,11 @@ it('keeps a newer unsaved old case recoverable when replacement fails', async ()
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
-  state.prepareNewCase();
+  await state.prepareImport(JSON.stringify({ ...file, case: { ...file.case, title: 'Nowa' } }));
   const replacing = state.confirmReplacement();
   storage.jobs[0].completion.resolve();
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
-  storage.jobs[1].completion.reject(new Error('Quota'));
+  storage.jobs[1].completion.reject(rejected(400));
   await replacing;
   expect(activeDocument(state).mapView.zoom).toBe(9);
   expect(state.persistence().savedRevision).toBe(1);
@@ -848,16 +858,18 @@ it('persists a user basemap choice without changing case timestamps or other cas
   });
 });
 
-it('retains invalid startup data until explicit successful replacement', async () => {
+it('keeps invalid or missing server data unopened and never writes over it', async () => {
   const storage = new Storage();
   storage.saved = { schemaVersion: 99, data: 'recover me' };
   const { state } = await setup(storage);
   expect(state.document()).toBeNull();
-  expect(state.persistence().recovery).toContain('Zachowano');
+  expect(state.persistence().recovery).toContain('nieprawidłowa');
+  await state.prepareImport(JSON.stringify(file));
+  expect(state.candidate()).toBeNull();
+  storage.saved = undefined;
+  await state.retryRestore();
+  expect(state.persistence().recovery).toContain('Nie znaleziono');
   expect(storage.jobs).toHaveLength(0);
-  state.prepareNewCase();
-  state.cancelReplacement();
-  expect(storage.saved).toEqual({ schemaVersion: 99, data: 'recover me' });
 });
 
 it.each([
@@ -906,6 +918,8 @@ it('retries a failed autosave on the next committed change without a background 
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
   storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
+  storage.jobs[2].completion.resolve();
   await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
   expect(state.persistence().savedRevision).toBe(2);
 });
@@ -924,24 +938,29 @@ it('does not replay a failed old-session snapshot after activating an imported c
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
   await state.prepareImport(
-    JSON.stringify({ ...file, case: { ...file.case, id: 'next-session' } }),
+    JSON.stringify({ ...file, case: { ...file.case, id: 'next-session', title: 'Next session' } }),
   );
   const replacement = state.confirmReplacement();
   storage.jobs[0].completion.reject(new Error('Old-session transaction aborted'));
+  // The lost save is resolved through its own key before the import is based on its version.
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
-  expect(activeDocument(state).case.id).toBe(file.case.id);
+  expect(storage.jobs[1].key).toBe(storage.jobs[0].key);
   storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
+  expect(storage.jobs[2].version).toBe(storage.jobs[1].version + 1);
+  expect(activeDocument(state).case.title).toBe(file.case.title);
+  storage.jobs[2].completion.resolve();
   await replacement;
   expect(state.persistence().savedRevision).toBe(0);
   expect(state.saveStatus()).toBe('saved');
   state.changeViewport({ latitude: 52, longitude: 21, zoom: 10 });
-  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
-  expect(storage.jobs[2].snapshot.case.id).toBe('next-session');
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(4));
+  expect(storage.jobs[3].snapshot.case).toMatchObject({ id: file.case.id, title: 'Next session' });
   expect(state.persistence().savedRevision).toBe(0);
-  storage.jobs[2].completion.resolve();
+  storage.jobs[3].completion.resolve();
   await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
   expect(state.persistence().savedRevision).toBe(1);
-  expect(activeDocument(state).case.id).toBe('next-session');
+  expect(activeDocument(state).case.title).toBe('Next session');
   // The replacement barrier drains callbacks before activation; an old-generation
   // completion cannot legally arrive afterwards through the storage Promise seam.
 });
@@ -982,17 +1001,17 @@ it('isolates sibling workspace stores and their event dispatchers', async () => 
   const parent = TestBed.inject(EnvironmentInjector);
   const otherStorage = new Storage();
   const first = createEnvironmentInjector(
-    [...provideDispatcher(), CaseStore, { provide: BrowserSnapshot, useValue: new Storage() }],
+    [...provideDispatcher(), CaseStore, { provide: CaseStorage, useValue: new Storage() }],
     parent,
   );
   const second = createEnvironmentInjector(
-    [...provideDispatcher(), CaseStore, { provide: BrowserSnapshot, useValue: otherStorage }],
+    [...provideDispatcher(), CaseStore, { provide: CaseStorage, useValue: otherStorage }],
     parent,
   );
   try {
     const state = first.get(CaseStore);
     const other = second.get(CaseStore);
-    await Promise.all([state.initialize(), other.initialize()]);
+    await Promise.all([state.open(file.case.id), other.open(file.case.id)]);
     state.openProfile();
     const editor = state.profileEditor();
     if (!editor) throw new Error('Expected editor');
@@ -1303,4 +1322,151 @@ it('matches multi-day and open-ended ranges by overlap and keeps the rejected-re
   state.updateFilter({ showRejected: true });
   expect(state.filterActive()).toBe(false);
   expect(state.mapPlaces()).toHaveLength(2);
+});
+
+it('reports a version conflict, keeps local committed data exportable and stops automatic writes', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(new VersionConflict(7));
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('conflict'));
+  expect(await state.flush()).toBe(false);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
+  state.retrySave();
+  await Promise.resolve();
+  expect(storage.jobs).toHaveLength(1);
+  expect(JSON.parse(await state.exportJson()).mapView.zoom).toBe(9);
+  expect(storage.saved).toEqual(document());
+});
+
+it('never lets a delayed acknowledgement from a previous case mark the newly opened case saved', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.close();
+  expect(state.document()).toBeNull();
+  await state.open(file.case.id);
+  state.changeViewport({ latitude: 52, longitude: 21, zoom: 9 });
+  expect(state.saveStatus()).not.toBe('saved');
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(state.persistence().savedRevision).toBe(0);
+  expect(state.saveStatus()).toBe('saving');
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(storage.jobs[1].snapshot.mapView.zoom).toBe(9);
+});
+
+it('flushes only after the server acknowledged every committed revision', async () => {
+  const { state, storage } = await setup();
+  expect(await state.flush()).toBe(true);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  const flushed = state.flush();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  storage.jobs[1].completion.resolve();
+  expect(await flushed).toBe(true);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 10 });
+  const failing = state.flush();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
+  storage.jobs[2].completion.reject(new Error('offline'));
+  expect(await failing).toBe(false);
+});
+
+it('bases each save on the latest acknowledged version, even when it was queued earlier', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
+  expect(storage.jobs[0].version).toBe(1);
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1].version).toBe(2);
+  expect(storage.jobs[1].key).not.toBe(storage.jobs[0].key);
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(state.persistence().serverVersion).toBe(3);
+});
+
+it('replays a save whose response was lost with its key before sending newer data', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(new HttpErrorResponse({ status: 0 }));
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('error'));
+  expect(state.persistence().unresolved?.key).toBe(storage.jobs[0].key);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1]).toMatchObject({ key: storage.jobs[0].key, version: 1 });
+  expect(storage.jobs[1].snapshot.mapView.zoom).toBe(8);
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
+  expect(storage.jobs[2].version).toBe(2);
+  expect(storage.jobs[2].snapshot.mapView.zoom).toBe(9);
+  storage.jobs[2].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(state.persistence().unresolved).toBeNull();
+});
+
+it('does not replay a definite rejection', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(rejected(400));
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('error'));
+  expect(state.persistence().unresolved).toBeNull();
+  state.retrySave();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1].key).not.toBe(storage.jobs[0].key);
+});
+
+it('reports a stale replacement as a conflict and refuses to retry it', async () => {
+  const { state, storage } = await setup();
+  await state.prepareImport(JSON.stringify({ ...file, case: { ...file.case, title: 'Import' } }));
+  const replacing = state.confirmReplacement();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(new VersionConflict(7));
+  await replacing;
+  expect(state.saveStatus()).toBe('conflict');
+  expect(state.persistence().conflict).toBe(true);
+  expect(state.persistence().unresolved).toBeNull();
+  expect(state.fileError()).toContain('zmieniona w innym miejscu');
+  expect(activeDocument(state).case.title).toBe(file.case.title);
+  await state.confirmReplacement();
+  expect(storage.jobs).toHaveLength(1);
+  expect(state.persistence().replacing).toBe(false);
+});
+
+it('restores the local document on the server after a replacement with an unknown outcome', async () => {
+  const { state, storage } = await setup();
+  await state.prepareImport(JSON.stringify({ ...file, case: { ...file.case, title: 'Import' } }));
+  const replacing = state.confirmReplacement();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(new HttpErrorResponse({ status: 0 }));
+  await replacing;
+  expect(activeDocument(state).case.title).toBe(file.case.title);
+  expect(state.saveStatus()).not.toBe('saved');
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1]).toMatchObject({ key: storage.jobs[0].key, version: 1 });
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(3));
+  expect(storage.jobs[2].version).toBe(2);
+  expect(storage.jobs[2].snapshot.case.title).toBe(file.case.title);
+  storage.jobs[2].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+});
+
+it('stops waiting for pending saves as soon as the caller aborts', async () => {
+  const { state, storage } = await setup();
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  const cancellation = new AbortController();
+  const waiting = state.flush(cancellation.signal);
+  cancellation.abort();
+  expect(await waiting).toBe(false);
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(await state.flush(cancellation.signal)).toBe(false);
 });

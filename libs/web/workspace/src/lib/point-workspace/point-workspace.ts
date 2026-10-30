@@ -1,3 +1,4 @@
+import { returnToCase } from '../return-to-case';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
 import { MatBadgeModule } from '@angular/material/badge';
@@ -76,19 +77,15 @@ export class PointWorkspace {
     });
   }
   protected async recordUnplannedSearch(): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.editAreaCheck();
+    if (await returnToCase(this.router, this.state)) await this.state.editAreaCheck();
   }
   protected async edit(id: string): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.editPoint(id);
+    if (await returnToCase(this.router, this.state)) await this.state.editPoint(id);
   }
   protected async selectPoint(id: string | null): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.selectPoint(id);
+    if (await returnToCase(this.router, this.state)) await this.state.selectPoint(id);
   }
   protected async selectArea(id: string): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.selectArea(id);
+    if (await returnToCase(this.router, this.state)) await this.state.selectArea(id);
   }
 }

@@ -1,23 +1,29 @@
-import type { CaseDocument } from "@pawtrace/case-domain";
-import type { SnapshotStorage } from "@pawtrace/browser-persistence";
+import type { CaseDocument } from '@pawtrace/case-domain';
 
+/** A captured save: local bookkeeping plus the server request it becomes. */
 export interface SnapshotJob {
   document: CaseDocument;
   revision: number;
   generation: number;
+  version: number;
+  key: string;
 }
+export interface SnapshotAcknowledgement {
+  version: number;
+}
+type WriteJob = (job: SnapshotJob) => Promise<SnapshotAcknowledgement>;
 
-/** Serializes autosaves and replacement through the same transaction boundary. */
+/** Serializes autosaves and replacement through the same storage acknowledgement boundary. */
 export class SnapshotWriter {
   private pending?: SnapshotJob;
   private active?: Promise<void>;
   private replacing = false;
 
   constructor(
-    private readonly storage: SnapshotStorage,
-    private readonly started: () => void,
-    private readonly saved: (job: SnapshotJob) => void,
-    private readonly failed: () => void,
+    private readonly storage: { write: WriteJob },
+    private readonly started: (job: SnapshotJob) => void,
+    private readonly saved: (job: SnapshotJob, acknowledgement: SnapshotAcknowledgement) => void,
+    private readonly failed: (job: SnapshotJob, error: unknown) => void,
   ) {}
 
   request(job: SnapshotJob): void {
@@ -30,7 +36,7 @@ export class SnapshotWriter {
     const job = this.pending;
     if (!job || this.replacing) return;
     this.pending = undefined;
-    this.started();
+    this.started(job);
     this.active = this.write(job);
   }
 
@@ -39,27 +45,27 @@ export class SnapshotWriter {
     await Promise.resolve();
     let succeeded = false;
     try {
-      await this.storage.write(job.document);
-      this.saved(job);
+      this.saved(job, await this.storage.write(job));
       succeeded = true;
-    } catch {
+    } catch (error) {
       this.pending ??= job;
-      this.failed();
+      this.failed(job, error);
     } finally {
       this.active = undefined;
       if (succeeded) this.start();
     }
   }
 
-  async replace(document: CaseDocument): Promise<void> {
-    if (this.replacing) throw new Error("Replacement already in progress");
+  /** Drains the writer, then lets `run` perform its writes behind the replacement barrier. */
+  async replace<T>(run: (write: WriteJob) => Promise<T>): Promise<T> {
+    if (this.replacing) throw new Error('Replacement already in progress');
     this.replacing = true;
     this.pending = undefined;
     try {
       await this.active;
       // A failed in-flight job may have requeued itself; it must never follow import.
       this.pending = undefined;
-      await this.storage.write(document);
+      return await run((job) => this.storage.write(job));
     } finally {
       this.replacing = false;
     }

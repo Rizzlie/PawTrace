@@ -20,12 +20,20 @@ import {
   of,
   tap,
 } from 'rxjs';
-import { createCaseDocument } from '../case-document';
 import { caseBusy, editorDirty, type CaseState } from './case-state';
 import { fileEvents } from './case-events';
 import type { EditorCommands } from './with-editor-lifecycle';
 
 const fileError = 'Nie udało się odczytać lub pobrać pliku. Spróbuj ponownie.';
+
+/** A known conflict blocks replacement: its version check would only be rejected again. */
+const canReplace = (state: CaseState): boolean =>
+  !caseBusy(state) &&
+  !state.persistence.conflict &&
+  !state.transfer.reading &&
+  !!state.transfer.candidate &&
+  !editorDirty(state) &&
+  !state.closeRequested;
 
 export function withCaseFiles() {
   return signalStoreFeature(
@@ -88,14 +96,7 @@ export function withCaseFiles() {
         transfer: { ...state.transfer, error: payload.error },
       })),
       on(fileEvents.replacementRequested, ({ payload }, state) => {
-        if (
-          caseBusy(state) ||
-          state.transfer.reading ||
-          !state.transfer.candidate ||
-          editorDirty(state) ||
-          state.closeRequested
-        )
-          return {};
+        if (!canReplace(state)) return {};
         return {
           transfer: { ...state.transfer, replacement: payload.request },
           persistence: { ...state.persistence, replacing: true },
@@ -109,8 +110,17 @@ export function withCaseFiles() {
       parse$: events.on(fileEvents.parseRequested).pipe(
         mergeMap(({ payload }) =>
           defer(() => import('@pawtrace/case-domain')).pipe(
-            map(({ parseCaseFile }) => {
-              const result = parseCaseFile(payload.text);
+            map(({ parseCaseFile, validateCaseDocument }) => {
+              const parsed = parseCaseFile(payload.text);
+              const target = store.persistence().caseId;
+              // Replacing the open case keeps its server identity; other IDs stay case-scoped.
+              const result =
+                parsed.success && target !== null
+                  ? validateCaseDocument({
+                      ...parsed.data,
+                      case: { ...parsed.data.case, id: target },
+                    })
+                  : parsed;
               return result.success
                 ? fileEvents.candidatePrepared({
                     request: payload.request,
@@ -185,19 +195,13 @@ export function withCaseFiles() {
           return serializeCaseFile(document, exportedAt);
         };
         return {
-          prepareNewCase(): void {
-            if (caseBusy(getState(store)) || store.transfer().reading) return;
-            dispatch.candidatePrepared({
-              request: begin(false),
-              document: createCaseDocument(),
-            });
-          },
           async prepareImport(text: string): Promise<void> {
-            if (caseBusy(getState(store))) return;
+            // P02 replaces only an open server case; importing without one is P07 scope.
+            if (caseBusy(getState(store)) || !store.document()) return;
             await parse(text, begin(false));
           },
           async importFile(file: File): Promise<void> {
-            if (caseBusy(getState(store)) || store.transfer().reading) return;
+            if (caseBusy(getState(store)) || store.transfer().reading || !store.document()) return;
             const request = begin(true);
             try {
               await parse(await files.read(file), request);
@@ -214,14 +218,7 @@ export function withCaseFiles() {
             dispatch.cancelled({ request: store.transfer().request + 1 });
           },
           async confirmReplacement(): Promise<void> {
-            if (
-              caseBusy(getState(store)) ||
-              store.transfer().reading ||
-              !store.transfer().candidate ||
-              editorDirty(getState(store)) ||
-              store.closeRequested()
-            )
-              return;
+            if (!canReplace(getState(store))) return;
             const request = store.transfer().request;
             const done = firstValueFrom(
               events

@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -47,10 +47,8 @@ test.beforeEach(async ({ page }) => {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
-  await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await createCase(page);
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await expect(page.getByRole('dialog')).toBeHidden();
 });
 
@@ -66,14 +64,15 @@ async function exportCase(page: Page) {
 
 async function importCase(page: Page, file: unknown) {
   await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.getByLabel('Importuj plik JSON').setInputFiles({
     name: 'points.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(file)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
@@ -241,7 +240,7 @@ test('protects a point draft during case replacement and switching point editors
   await places.getByRole('button', { name: completeFile.points[1].name, exact: true }).click();
   await page.getByRole('button', { name: 'Edytuj punkt', exact: true }).click();
   await page.getByLabel('Nazwa punktu').fill('Zachowaj szkic');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Niezatwierdzony punkt' })).toBeVisible();
   await page.getByRole('button', { name: 'Zostań przy edycji' }).click();
   await expect(page.getByLabel('Nazwa punktu')).toHaveValue('Zachowaj szkic');
@@ -365,7 +364,7 @@ test('matches place-list numbers to markers and renumbers surviving places after
   await expect(shed.locator('.point-number')).toHaveText('1');
   await expect(shedMarker).toHaveText('1');
   expect((await exportCase(page)).points).toEqual(completeFile.points.slice(1));
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.reload();
   await expect(shed.locator('.point-number')).toHaveText('1');
   await expect(shedMarker).toHaveText('1');
@@ -391,7 +390,7 @@ test('zooms closer to 22, reuses supported tiles and restores the view after rel
     const previous = await scale.textContent();
     await page.getByRole('button', { name: 'Przybliż', exact: true }).click();
     await expect(scale).not.toHaveText(previous ?? '');
-    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
     expect((await exportCase(page)).mapView.zoom).toBe(level);
   }
   await expect(page.getByRole('button', { name: 'Przybliż', exact: true })).toHaveClass(

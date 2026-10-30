@@ -1,7 +1,7 @@
 import session from 'express-session';
 import { randomBytes } from 'node:crypto';
 import { and, eq, gt, inArray, isNull, or } from 'drizzle-orm';
-import type { Database } from './database';
+import type { Database } from '../database/database';
 import { identifiers, sessions } from './schema';
 
 declare module 'express-session' {

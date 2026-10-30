@@ -18,6 +18,7 @@ import {
 import { FormField } from '@angular/forms/signals';
 import { Router } from '@angular/router';
 import { CaseStore } from '../case-store/case-store';
+import { returnToCase } from '../return-to-case';
 import { profileTextGroups } from './profile-draft';
 import { incidentMomentChoices } from './incident-time';
 
@@ -39,7 +40,7 @@ import { incidentMomentChoices } from './incident-time';
 })
 export class AnimalProfile {
   protected readonly state = inject(CaseStore);
-  protected readonly router = inject(Router);
+  private readonly router = inject(Router);
   protected readonly groups = profileTextGroups;
   protected readonly momentInputs = computed(() => {
     const fields = this.state.profileEditor()?.fields.escape.time;
@@ -89,11 +90,15 @@ export class AnimalProfile {
   }
 
   protected async save(id: number): Promise<void> {
-    if (await this.state.saveProfile(id)) await this.router.navigateByUrl('/');
+    if (await this.state.saveProfile(id)) await this.close();
   }
 
   protected cancel(id: number): void {
     this.state.discardEditor(id);
-    void this.router.navigateByUrl('/');
+    void this.close();
+  }
+
+  protected close(): Promise<boolean> {
+    return returnToCase(this.router, this.state);
   }
 }

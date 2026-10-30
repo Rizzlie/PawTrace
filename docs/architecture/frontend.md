@@ -40,13 +40,15 @@ The framework-neutral case-domain/Zod contract lives in `libs/shared/case-domain
 
 Allowed dependencies: `apps/web` composes web libraries; workspace consumes case-domain, map-engine, and browser-persistence; map-engine and browser-persistence may consume shared contracts but never workspace. `apps/api` and API libraries may consume shared contracts, never web libraries. Shared code imports neither web nor API code. Enforce these directions with Nx project tags and module-boundary lint rules. Leaflet and its plugins stay in map-engine; IndexedDB and browser file handles stay in browser-persistence. Avoid a miscellaneous shared utility library without a concrete responsibility.
 
-Keep API transport DTOs separate from the exported case format. Address-search and upload/derivative clients belong to web feature integration as needed; they do not introduce another case store. The server still does not persist or synchronize the case in this MVP.
+Keep API transport DTOs separate from the exported case format. Address-search and upload/derivative clients belong to web feature integration as needed; they do not introduce another case store. Since P02 the server persists owned cases: `libs/web/workspace/src/lib/cases` holds the case API, storage and catalogue adapters, while the store keeps the persistence bookkeeping.
 
 ## Export
 
 Export captures the complete committed document, unaffected by active filters, and adds a fresh `exportedAt` to the file representation only. It does not change the case modification timestamp, local revision, or browser-save acknowledgement. Unconfirmed form and geometry drafts are excluded with clear interface feedback. Export remains available while a write is pending or browser persistence has failed. The shared document/file schemas should express their common structure without maintaining competing canonical case models.
 
 ## Persistence and import
+
+P02 update: committed documents now persist to the owned-case server API through the `CaseStorage` seam (`libs/web/workspace/src/lib/cases`), using the same serialized writer and revision/generation acknowledgements. `/` is My cases; `/cases/:caseId` opens one case. The IndexedDB details in this section describe the MVP adapter, which P02 removed; P04 adds account- and case-keyed local retention. Decisions: [P02 record](../post-mvp/tasks/P02-private-cases-and-relational-save.md).
 
 Use IndexedDB through a small `idb` adapter to retain one complete plain-object document snapshot in one transaction. Acknowledge persistence only after transaction completion. Local storage representation remains JSON-compatible and restoration must validate it; IndexedDB storage itself does not establish contract validity.
 

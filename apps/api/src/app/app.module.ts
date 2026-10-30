@@ -11,6 +11,8 @@ import { AssetUploads } from './assets/asset-uploads';
 import { OriginalAssets } from './assets/original-assets';
 import { ImageProcessing } from './assets/image-processing';
 import { AuthModule } from '../auth/auth.module';
+import { DatabaseModule } from '../database/database.module';
+import { CasesModule } from '../cases/cases.module';
 import type { AuthenticationDependencies } from '../auth/authentication';
 
 @Module({
@@ -78,7 +80,9 @@ export class AppModule {
           envFilePath: options.envFilePath,
           ignoreEnvFile: options.ignoreEnvFile,
         }),
+        DatabaseModule.configure(),
         AuthModule.configure(options.authentication),
+        CasesModule,
       ],
     };
   }

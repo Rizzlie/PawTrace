@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -35,10 +35,8 @@ async function start(page: Page) {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
-  await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await createCase(page);
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 }
 
 async function exportCase(page: Page) {
@@ -52,7 +50,7 @@ async function exportCase(page: Page) {
 }
 
 async function importCase(page: Page, file: unknown) {
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.getByRole('button', { name: 'Plik JSON', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Importuj JSON', exact: true })).toBeEnabled();
   await page.keyboard.press('Escape');
@@ -62,7 +60,8 @@ async function importCase(page: Page, file: unknown) {
     buffer: Buffer.from(JSON.stringify(file)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 }
 
 test('denies ownerless uploads without losing profile text', async ({ page }) => {
@@ -267,8 +266,8 @@ test('never attaches a late upload to another editor or replaced case', async ({
     (request) => request.url().endsWith('/api/assets') && request.method() === 'POST',
   );
   await page.getByRole('button', { name: 'Anuluj edycję', exact: true }).click();
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
-  await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  await createCase(page, 'Nowa sprawa', false);
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   finish();
   expect((await cancelled).failure()?.errorText).toBe('net::ERR_ABORTED');

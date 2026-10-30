@@ -1,6 +1,6 @@
 # Keep one application state with document-only persistence
 
-State ownership superseded by [ADR 0003](0003-separate-case-editor-and-file-workflows.md). Document-only persistence and replacement durability remain in force.
+State ownership superseded by [ADR 0003](0003-separate-case-editor-and-file-workflows.md). Document-only persistence and replacement durability remain in force. P02 moved committed-document persistence from the single IndexedDB snapshot to the owned-case server API ([ADR 0005](0005-store-cases-relationally-in-postgresql-and-postgis.md)); P04 reintroduces IndexedDB as account- and case-keyed local retention.
 
 Use one plain Angular signals service owning `AppState.document`, `ui`, `editor`, and `persistence`. The user chose one state owner and a direct service rather than separate feature stores or NgRx. Keeping unconfirmed edits in the editor section allows cancellation while saving/exporting only the committed document; readonly access does not itself prevent nested mutation, so Signal Forms and Leaflet work on draft data rather than committed object references.
 

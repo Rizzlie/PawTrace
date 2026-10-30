@@ -8,10 +8,9 @@ import {
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
-  type OnApplicationShutdown,
 } from '@nestjs/common';
 import type { Environment } from '../app/environment';
-import { openDatabase } from './database';
+import type { DatabaseHandle } from '../database/database';
 import { flows, users } from './schema';
 import { INACTIVITY_MS, opaque, PostgresSessions } from './session-store';
 
@@ -28,7 +27,7 @@ type Settings = Pick<
 >;
 
 /** Nest-owned module implementation: OIDC and durable session lifecycle behind HTTP. */
-export class Authentication implements OnApplicationShutdown {
+export class Authentication {
   private readonly now: () => number;
   private readonly secure: boolean;
   private readonly name: string;
@@ -37,11 +36,10 @@ export class Authentication implements OnApplicationShutdown {
   private readonly store?: PostgresSessions;
   private readonly sessionMiddleware?: RequestHandler;
   private configuration?: Configuration;
-  private closed = false;
 
   private constructor(
     private readonly env: Settings,
-    private readonly database: Awaited<ReturnType<typeof openDatabase>> | undefined,
+    private readonly database: DatabaseHandle | undefined,
     dependencies: AuthenticationDependencies,
   ) {
     this.now = dependencies.now ?? Date.now;
@@ -69,21 +67,14 @@ export class Authentication implements OnApplicationShutdown {
     }
   }
 
-  static async create(env: Settings, dependencies: AuthenticationDependencies = {}) {
+  static create(
+    env: Settings,
+    database: DatabaseHandle | undefined,
+    dependencies: AuthenticationDependencies = {},
+  ) {
     if (env.NODE_ENV === 'production' && (dependencies.provider || dependencies.now))
       throw new Error('Controlled authentication dependencies are unavailable in production');
-    return new Authentication(
-      env,
-      env.DATABASE_URL ? await openDatabase(env.DATABASE_URL) : undefined,
-      dependencies,
-    );
-  }
-
-  async onApplicationShutdown() {
-    if (!this.closed) {
-      this.closed = true;
-      await this.database?.close();
-    }
+    return new Authentication(env, database, dependencies);
   }
 
   middleware(req: Request, res: Response, next: NextFunction) {

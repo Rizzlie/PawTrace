@@ -2,14 +2,21 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideDispatcher } from '@ngrx/signals/events';
-import { BrowserSnapshot } from '@pawtrace/browser-persistence';
+const { createEmptyCase } = await import('@pawtrace/case-domain');
+import { CaseStorage } from '../cases/case-storage';
 import { CaseStore } from '../case-store/case-store';
-import { createCaseDocument } from '../case-document';
 import { PhotoCard } from './photo-card';
 import { PhotoGallery } from './photo-gallery';
 import { createEnvironmentInjector, EnvironmentInjector } from '@angular/core';
 import { PhotoTransfers } from './photo-transfers';
 
+const newCase = () =>
+  createEmptyCase({
+    id: 'case-1',
+    title: 'Nowa sprawa',
+    timeZone: 'UTC',
+    now: new Date().toISOString(),
+  });
 const filename = 'efb08652-e68f-4652-a876-38197646d123.heic';
 const metadata = {
   filename,
@@ -27,8 +34,8 @@ const metadata = {
 };
 
 async function setup() {
-  const document = { ...createCaseDocument(), animal: { photos: [filename] } };
-  const write = vi.fn(async () => undefined);
+  const document = { ...newCase(), animal: { photos: [filename] } };
+  const write = vi.fn(async () => ({ version: 2 }));
   TestBed.configureTestingModule({
     providers: [
       ...provideDispatcher(),
@@ -36,13 +43,13 @@ async function setup() {
       provideHttpClientTesting(),
       CaseStore,
       {
-        provide: BrowserSnapshot,
-        useValue: { read: async () => document, write },
+        provide: CaseStorage,
+        useValue: { read: async () => ({ document, version: 1 }), write },
       },
     ],
   });
   const state = TestBed.inject(CaseStore);
-  await state.initialize();
+  await state.open('case-1');
   return { state, http: TestBed.inject(HttpTestingController), document, write };
 }
 
@@ -162,7 +169,7 @@ it('derives retry progress and failure from the case workflow, prevents duplicat
 it('cancels an obsolete metadata read when the case is replaced and keeps photo request state out of JSON', async () => {
   const { state, http } = await setup();
   const pending = http.expectOne(`/api/assets/${filename}/metadata`);
-  state.prepareNewCase();
+  await state.prepareImport(JSON.stringify({ ...newCase(), exportedAt: new Date().toISOString() }));
   await state.confirmReplacement();
   expect(pending.cancelled).toBe(true);
   expect(state.photoReads()).toEqual({});
@@ -178,14 +185,17 @@ it('binds uploads to the route store lifetime even when no gallery performs clea
       ...provideDispatcher(),
       CaseStore,
       {
-        provide: BrowserSnapshot,
-        useValue: { read: async () => createCaseDocument(), write: async () => undefined },
+        provide: CaseStorage,
+        useValue: {
+          read: async () => ({ document: newCase(), version: 1 }),
+          write: async () => ({ version: 2 }),
+        },
       },
     ],
     TestBed.inject(EnvironmentInjector),
   );
   const state = owner.get(CaseStore);
-  await state.initialize();
+  await state.open('case-1');
   state.openProfile();
   const editor = state.profileEditor();
   if (!editor) throw new Error('Expected profile editor');

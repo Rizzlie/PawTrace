@@ -1,14 +1,8 @@
 <app-header>
   <pt-case-controls />
-  <button
-    matButton="outlined"
-    class="new-case"
-    type="button"
-    [disabled]="state.busy()"
-    (click)="state.prepareNewCase()"
-  >
-    Nowa sprawa
-  </button>
+  @if (state.persistence().caseId !== null) {
+    <a matButton="outlined" class="new-case" routerLink="/">Moje sprawy</a>
+  }
 </app-header>
 <main>
   <section class="workspace" aria-label="Przestrzeń poszukiwań">

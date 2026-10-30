@@ -10,14 +10,7 @@
         <span class="eyebrow">Zwierzę i zaginięcie</span>
         <h2 id="profile-title" #heading tabindex="-1">Profil zwierzęcia</h2>
       </div>
-      <button
-        mat-icon-button
-        type="button"
-        aria-label="Zamknij profil"
-        (click)="router.navigateByUrl('/')"
-      >
-        ×
-      </button>
+      <button mat-icon-button type="button" aria-label="Zamknij profil" (click)="close()">×</button>
     </header>
     <p id="profile-help">
       Wszystkie pola są opcjonalne. Puste odpowiedzi oznaczają „nie wiadomo”. Możesz nadal przesuwać

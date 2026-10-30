@@ -25,9 +25,10 @@ import {
   CaseControls,
   PointWorkspace,
   AreaWorkspace,
+  returnToCase,
   type AddressSearchResult,
 } from '@pawtrace/workspace';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { FloatingPanel } from '@pawtrace/shared-ui';
 
 @Component({
@@ -36,6 +37,7 @@ import { FloatingPanel } from '@pawtrace/shared-ui';
     MatButtonModule,
     AppHeader,
     RouterOutlet,
+    RouterLink,
     MapEngine,
     AddressSearch,
     CaseControls,
@@ -54,20 +56,16 @@ export class WorkspacePage {
   });
   protected readonly measuring = computed(() => this.measurementMode() && !this.state.editor());
   protected async addArea(type: 'circle' | 'polygon'): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/'))) {
+    if (await returnToCase(this.router, this.state)) {
       await this.state.editArea(type);
       if (this.state.editor()?.kind === 'area') this.measurementMode.set(false);
     }
   }
   protected async selectArea(id: string): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.selectArea(id);
+    if (await returnToCase(this.router, this.state)) await this.state.selectArea(id);
   }
   protected async measure(): Promise<void> {
-    if (
-      (this.router.url === '/' || (await this.router.navigateByUrl('/'))) &&
-      (await this.state.requestEditorExit())
-    ) {
+    if ((await returnToCase(this.router, this.state)) && (await this.state.requestEditorExit())) {
       await this.state.selectArea(null);
       this.measurementMode.set(true);
     }
@@ -76,13 +74,11 @@ export class WorkspacePage {
   private readonly router = inject(Router);
 
   protected async selectPoint(id: string): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.selectPoint(id);
+    if (await returnToCase(this.router, this.state)) await this.state.selectPoint(id);
   }
 
   protected async addPoint(): Promise<void> {
-    if (this.router.url === '/' || (await this.router.navigateByUrl('/')))
-      await this.state.editPoint();
+    if (await returnToCase(this.router, this.state)) await this.state.editPoint();
     if (this.state.editor()?.kind === 'point') this.measurementMode.set(false);
   }
   protected readonly initialLocation = computed<InitialLocation>(() =>
@@ -114,7 +110,6 @@ export class WorkspacePage {
   protected readonly mapConfig = signal<MapConfig>({ mapboxToken: '' });
   protected readonly configFailed = signal(false);
   constructor() {
-    void this.state.initialize();
     this.loadMapConfig();
   }
 
