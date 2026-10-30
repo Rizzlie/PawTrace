@@ -1,4 +1,4 @@
-import { test, createCase } from './fixtures';
+import { test, createCase, photosUrl, uploadedPhoto } from './fixtures';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -64,37 +64,30 @@ async function importCase(page: Page, file: unknown) {
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 }
 
-test('denies ownerless uploads without losing profile text', async ({ page }) => {
+test('rejects an unsupported upload without losing profile text', async ({ page }) => {
   await start(page);
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await page.getByLabel('Imię', { exact: true }).fill('Zachowany profil');
-  const denied = page.waitForResponse(
-    (response) => response.url().endsWith('/api/assets') && response.request().method() === 'POST',
-  );
+  const denied = page.waitForResponse(uploadedPhoto);
   await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
     name: 'kot.png',
     mimeType: 'image/png',
     buffer: Buffer.from('invalid image for controlled failure'),
   });
-  expect((await denied).status()).toBe(404);
-  await expect(page.getByText('Nie zapisano pliku.', { exact: false })).toBeVisible();
+  expect((await denied).status()).toBe(415);
+  await expect(page.getByText('Nieobsługiwany format.', { exact: false })).toBeVisible();
   await expect(page.getByLabel('Imię', { exact: true })).toHaveValue('Zachowany profil');
   await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
   await expect(page.getByText('Zachowany profil', { exact: true })).toBeVisible();
 });
 
-// P01 intentionally denies every ownerless photo. Restore this acceptance scenario
-// with the owner-authorized photo routes in P03; isolated storage tests remain active.
-test.fixme('[P03 ownership required] uploads originals, views thumbnails, transfers profile metadata and resolves an older export after unlinking', async ({
+test('uploads originals, views thumbnails, transfers profile metadata and resolves an older export after unlinking', async ({
   page,
-  request,
 }) => {
   await start(page);
   const bytes = await readFile(resolve('src/fixtures/photo-detail.png'));
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
-  const response = page.waitForResponse(
-    (response) => response.url().endsWith('/api/assets') && response.request().method() === 'POST',
-  );
+  const response = page.waitForResponse(uploadedPhoto);
   await page
     .getByLabel('Dodaj zdjęcia', { exact: true })
     .setInputFiles({ name: 'kot.png', mimeType: 'image/png', buffer: bytes });
@@ -115,7 +108,7 @@ test.fixme('[P03 ownership required] uploads originals, views thumbnails, transf
   await expect(viewer.getByRole('img')).toHaveJSProperty('naturalWidth', 1600);
   await expect(viewer.getByRole('button', { name: 'Dopasuj do okna', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Zamknij podgląd' }).click();
-  const original = await request.get('/api/assets/' + filename);
+  const original = await page.request.get(photosUrl(page) + '/' + filename);
   expect(await original.body()).toEqual(bytes);
   await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
   const saved = await exportCase(page);
@@ -131,7 +124,7 @@ test.fixme('[P03 ownership required] uploads originals, views thumbnails, transf
   await page.getByRole('button', { name: 'Odepnij ' + filename, exact: true }).click();
   await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
   expect((await exportCase(page)).animal?.photos).toEqual([]);
-  expect(await (await request.get('/api/assets/' + filename)).body()).toEqual(bytes);
+  expect(await (await page.request.get(photosUrl(page) + '/' + filename)).body()).toEqual(bytes);
   await importCase(page, saved);
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await expect(
@@ -147,7 +140,7 @@ test('retries mixed uploads and failed HEIC derivatives without losing text or s
   let attempts = 0;
   let ready = false;
   const secondFilename = testFilename.replace('123.heic', '124.heic');
-  await page.route(/\/api\/assets$/, (route) => {
+  await page.route(/\/api\/cases\/[^/]+\/assets$/, (route) => {
     attempts++;
     return attempts === 2
       ? route.fulfill({ status: 507, json: { message: 'Brak miejsca' } })
@@ -156,7 +149,7 @@ test('retries mixed uploads and failed HEIC derivatives without losing text or s
           json: { ...pendingMetadata, filename: attempts === 1 ? testFilename : secondFilename },
         });
   });
-  await page.route('**/api/assets/*/metadata', (route) => {
+  await page.route('**/api/cases/*/assets/*/metadata', (route) => {
     const filename = route.request().url().split('/').at(-2);
     return route.fulfill({
       json: {
@@ -177,14 +170,14 @@ test('retries mixed uploads and failed HEIC derivatives without losing text or s
       },
     });
   });
-  await page.route('**/api/assets/*/retry', (route) => {
+  await page.route('**/api/cases/*/assets/*/retry', (route) => {
     ready = true;
     return route.fulfill({ status: 201, json: {} });
   });
-  await page.route('**/api/assets/*/thumbnail', (route) =>
+  await page.route('**/api/cases/*/assets/*/thumbnail', (route) =>
     route.fulfill({ contentType: 'image/png', body: png }),
   );
-  await page.route('**/api/assets/*/preview', (route) =>
+  await page.route('**/api/cases/*/assets/*/preview', (route) =>
     route.fulfill({ contentType: 'image/png', body: png }),
   );
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
@@ -221,7 +214,7 @@ test('retains unavailable photo references through import, editing and export', 
   page,
 }) => {
   await start(page);
-  await page.route('**/api/assets/**', (route) =>
+  await page.route('**/api/cases/*/assets/**', (route) =>
     route.fulfill({ status: 404, json: { message: 'Zdjęcie niedostępne' } }),
   );
   const file = { ...completeFile, mapView: { ...completeFile.mapView, basemap: 'osm' } };
@@ -249,7 +242,7 @@ test('never attaches a late upload to another editor or replaced case', async ({
   const arrived = new Promise<void>((resolve) => {
     received = resolve;
   });
-  await page.route(/\/api\/assets$/, async (route) => {
+  await page.route(/\/api\/cases\/[^/]+\/assets$/, async (route) => {
     received();
     await gate;
     await route.fulfill({ status: 201, json: pendingMetadata });
@@ -263,7 +256,7 @@ test('never attaches a late upload to another editor or replaced case', async ({
   await arrived;
   const cancelled = page.waitForEvent(
     'requestfailed',
-    (request) => request.url().endsWith('/api/assets') && request.method() === 'POST',
+    (request) => request.url().endsWith('/assets') && request.method() === 'POST',
   );
   await page.getByRole('button', { name: 'Anuluj edycję', exact: true }).click();
   await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
@@ -282,11 +275,13 @@ test('confirms an incomplete successful upload response without posting the file
 }) => {
   await start(page);
   let uploads = 0;
-  await page.route(/\/api\/assets$/, (route) => {
+  await page.route(/\/api\/cases\/[^/]+\/assets$/, (route) => {
     uploads++;
     return route.fulfill({ status: 201, json: { filename: testFilename } });
   });
-  await page.route('**/api/assets/*/metadata', (route) => route.fulfill({ json: pendingMetadata }));
+  await page.route('**/api/cases/*/assets/*/metadata', (route) =>
+    route.fulfill({ json: pendingMetadata }),
+  );
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
     name: 'confirmed.heic',
@@ -306,7 +301,7 @@ test('confirms an incomplete successful upload response without posting the file
   expect(uploads).toBe(1);
 });
 
-test.fixme('[P03 ownership required] attaches photos to all point-entry types and area checks without duplicating their event data', async ({
+test('attaches photos to all point-entry types and area checks without duplicating their event data', async ({
   page,
 }) => {
   await start(page);
@@ -319,10 +314,7 @@ test.fixme('[P03 ownership required] attaches photos to all point-entry types an
     await page.getByRole('button', { name: 'Dodaj wpis', exact: true }).click();
     await page.getByLabel('Typ wpisu', { exact: true }).selectOption(type);
     await page.getByLabel('Opis wpisu', { exact: true }).fill('Zdjęcie: ' + type);
-    const response = page.waitForResponse(
-      (response) =>
-        response.url().endsWith('/api/assets') && response.request().method() === 'POST',
-    );
+    const response = page.waitForResponse(uploadedPhoto);
     await page
       .getByLabel('Dodaj zdjęcia', { exact: true })
       .setInputFiles({ name: type + '.png', mimeType: 'image/png', buffer: png });
@@ -337,9 +329,7 @@ test.fixme('[P03 ownership required] attaches photos to all point-entry types an
   await places.getByRole('button', { name: 'Park', exact: true }).click();
   await page.getByRole('button', { name: 'Dodaj przeszukanie', exact: true }).click();
   await page.getByLabel('Opis przeszukania', { exact: true }).fill('Obchód ze zdjęciem');
-  const response = page.waitForResponse(
-    (response) => response.url().endsWith('/api/assets') && response.request().method() === 'POST',
-  );
+  const response = page.waitForResponse(uploadedPhoto);
   await page
     .getByLabel('Dodaj zdjęcia', { exact: true })
     .setInputFiles({ name: 'park.png', mimeType: 'image/png', buffer: png });
@@ -362,4 +352,65 @@ test.fixme('[P03 ownership required] attaches photos to all point-entry types an
   expect(check?.description).toBe('Obchód ze zdjęciem');
   expect(check?.photos).toEqual([filename]);
   expect(check?.actualGeometry).toEqual(completeFile.areas[0].plannedGeometry);
+});
+
+test('explains that uploads need a connection and keeps the draft while offline', async ({
+  page,
+  context,
+}) => {
+  await start(page);
+  await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
+  await page.getByLabel('Imię', { exact: true }).fill('Bez połączenia');
+  await context.setOffline(true);
+  await expect(page.getByLabel('Dodaj zdjęcia', { exact: true })).toBeDisabled();
+  await expect(
+    page.getByText('Przesyłanie zdjęć wymaga połączenia z internetem.', { exact: false }),
+  ).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.getByLabel('Dodaj zdjęcia', { exact: true })).toBeEnabled();
+  await expect(page.getByLabel('Imię', { exact: true })).toHaveValue('Bez połączenia');
+});
+
+test('cancelling an edit leaves the upload out of the case; removing and reattaching keeps the file', async ({
+  page,
+}) => {
+  await start(page);
+  const bytes = await readFile(resolve('src/fixtures/photo-detail.png'));
+  const editProfile = () =>
+    page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
+  const upload = async () => {
+    const response = page.waitForResponse(uploadedPhoto);
+    await page
+      .getByLabel('Dodaj zdjęcia', { exact: true })
+      .setInputFiles({ name: 'kot.png', mimeType: 'image/png', buffer: bytes });
+    return ((await (await response).json()) as { filename: string }).filename;
+  };
+  await editProfile();
+  const cancelled = await upload();
+  await expect(
+    page.getByRole('button', { name: 'Odepnij ' + cancelled, exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Anuluj edycję', exact: true }).click();
+  await expect(page.getByLabel('Imię', { exact: true })).toBeHidden();
+  expect((await exportCase(page)).animal?.photos ?? []).toEqual([]);
+
+  await editProfile();
+  const kept = await upload();
+  await expect(page.getByRole('button', { name: 'Odepnij ' + kept, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
+  const saved = await exportCase(page);
+  expect(saved.animal?.photos).toEqual([kept]);
+
+  await editProfile();
+  await page.getByRole('button', { name: 'Odepnij ' + kept, exact: true }).click();
+  await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  expect((await exportCase(page)).animal?.photos).toEqual([]);
+  expect(await (await page.request.get(photosUrl(page) + '/' + kept)).body()).toEqual(bytes);
+
+  await importCase(page, saved);
+  await editProfile();
+  await expect(
+    page.getByRole('button', { name: `Otwórz zdjęcie ${kept}`, exact: true }),
+  ).toBeVisible();
 });

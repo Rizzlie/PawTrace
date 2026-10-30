@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, EMPTY, filter, map, mergeMap, of, Subject, takeUntil, tap } from 'rxjs';
 import type { PhotoAsset } from '@pawtrace/case-domain';
 import type { PhotoTarget } from './photo-draft';
-import { photoAsset, photoMetadataSchema, photoUrl } from './photo-metadata';
+import { photoAsset, photoMetadataSchema, photosUrl, photoUrl } from './photo-metadata';
 
 export interface PhotoJob {
   id: number;
@@ -16,6 +16,7 @@ export interface PhotoJob {
   error: string;
 }
 interface PendingPhoto {
+  caseId: string;
   file: File;
   stored: (asset: PhotoAsset) => void;
   cancelled: Subject<void>;
@@ -46,9 +47,9 @@ export class PhotoTransfers {
           const body = new FormData();
           body.append('file', job.file);
           const response = confirmation
-            ? this.http.get<unknown>(photoUrl(confirmation, 'metadata'))
+            ? this.http.get<unknown>(photoUrl(job.caseId, confirmation, 'metadata'))
             : this.http
-                .post<unknown>('/api/assets', body, {
+                .post<unknown>(photosUrl(job.caseId), body, {
                   observe: 'events',
                   reportUploadProgress: true,
                 })
@@ -126,6 +127,7 @@ export class PhotoTransfers {
     for (const file of files) {
       const id = ++this.sequence;
       this.files.set(id, {
+        caseId: target.caseId,
         file,
         stored,
         cancelled: new Subject<void>(),

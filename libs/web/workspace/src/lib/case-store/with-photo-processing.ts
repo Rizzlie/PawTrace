@@ -12,6 +12,7 @@ import {
   catchError,
   concat,
   defer,
+  EMPTY,
   filter,
   from,
   ignoreElements,
@@ -173,10 +174,13 @@ export function withPhotoProcessing() {
               payload.generation === store.persistence().generation,
           ),
           mergeMap(({ payload }) => {
-            const read = defer(() => server.watch(payload.filename));
+            // Same generation as the filter above, so this is the case that requested the read.
+            const caseId = store.persistence().caseId;
+            if (caseId === null) return EMPTY;
+            const read = defer(() => server.watch(caseId, payload.filename));
             const operation =
               payload.operation === 'retry'
-                ? concat(server.retry(payload.filename).pipe(ignoreElements()), read)
+                ? concat(server.retry(caseId, payload.filename).pipe(ignoreElements()), read)
                 : read;
             return operation.pipe(
               map((metadata) => processingEvents.resolved({ ...payload, metadata })),

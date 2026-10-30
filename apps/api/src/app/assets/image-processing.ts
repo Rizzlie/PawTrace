@@ -10,10 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { opendir, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { z } from 'zod';
+import type { StoredPhoto } from '../../cases/photo-repository';
 import type { Environment } from '../environment';
-import { type AssetMetadata } from './asset-metadata';
+import { type AssetMetadata, type StoredOriginal } from './asset-metadata';
 import { OriginalAssets } from './original-assets';
 
 const kinds = ['thumbnail', 'preview'] as const;
@@ -41,7 +42,6 @@ type Result = z.infer<typeof workerResult>;
 /** Disk metadata is the queue. One scan, one asset, one child at a time; no in-memory backlog. */
 @Injectable()
 export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShutdown {
-  private readonly root: string;
   private readonly timeout: number;
   private readonly worker: string;
   private timer?: ReturnType<typeof setInterval>;
@@ -56,7 +56,6 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
     config: ConfigService<Environment, true>,
     private readonly originals: OriginalAssets,
   ) {
-    this.root = resolve(config.get('ASSET_DIRECTORY', { infer: true }));
     this.timeout = config.get('IMAGE_PROCESSING_TIMEOUT_MS', { infer: true });
     this.worker =
       [
@@ -89,9 +88,10 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
     await this.running;
   }
 
-  async retry(filename: string): Promise<AssetMetadata> {
-    if (this.active === filename) {
-      const metadata = await this.originals.metadata(filename);
+  async retry(photo: StoredPhoto): Promise<AssetMetadata> {
+    const { storageId } = photo;
+    if (this.active === storageId) {
+      const metadata = await this.originals.metadata(photo);
       if (kinds.some((kind) => metadata.processing[kind].status === 'failed')) {
         throw new ConflictException(
           'Przetwarzanie zdjęcia trwa. Ponów nieudane podglądy po jego zakończeniu.',
@@ -99,45 +99,47 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
       }
       return metadata;
     }
-    if (this.retrying.has(filename)) return this.originals.metadata(filename);
-    this.retrying.add(filename);
+    if (this.retrying.has(storageId)) return this.originals.metadata(photo);
+    this.retrying.add(storageId);
     try {
-      const metadata = await this.originals.metadata(filename);
+      const metadata = await this.originals.metadata(photo);
       if (!kinds.some((kind) => metadata.processing[kind].status === 'failed')) return metadata;
       for (const kind of kinds) {
         if (metadata.processing[kind].status === 'failed')
           metadata.processing[kind] = { status: 'pending' };
       }
-      await this.originals.saveMetadata(metadata);
-      return metadata;
+      const { filename, ...record } = metadata;
+      await this.originals.saveRecord(storageId, record);
+      return { ...record, filename };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new HttpException('Nie udało się ponowić przetwarzania zdjęcia. Ponów próbę.', 503);
     } finally {
-      this.retrying.delete(filename);
+      this.retrying.delete(storageId);
     }
   }
 
   private async scan(): Promise<void> {
     let directories;
     try {
-      directories = await opendir(this.root);
+      directories = await opendir(this.originals.objects);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return;
       throw error;
     }
     for await (const entry of directories) {
       if (this.stopping) break;
-      if (!entry.isDirectory() || !/^[0-9a-f-]{36}$/u.test(entry.name)) continue;
-      // Exactly one published original belongs to this directory. Unpublished uploads are ignored.
-      const metadata = await this.originals.findMetadata(entry.name);
-      if (!metadata || this.retrying.has(metadata.filename)) continue;
-      this.active = metadata.filename;
+      if (!entry.isDirectory()) continue;
+      // Exactly one published original belongs to this directory; staging is never scanned.
+      const storageId = entry.name;
+      const record = await this.originals.findRecord(storageId);
+      if (!record || this.retrying.has(storageId)) continue;
+      this.active = storageId;
       try {
         for (const kind of kinds) {
           if (this.stopping) break;
-          if (metadata.processing[kind].status !== 'pending') continue;
-          await this.process(metadata, kind);
+          if (record.processing[kind].status !== 'pending') continue;
+          await this.process(storageId, record, kind);
         }
       } catch {
         this.logger.warn(
@@ -149,14 +151,13 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
     }
   }
 
-  private async process(metadata: AssetMetadata, kind: Kind): Promise<void> {
-    const directory = join(this.root, metadata.filename.slice(0, 36));
-    const temporary = join(directory, `${kind}.part.png`);
+  private async process(storageId: string, record: StoredOriginal, kind: Kind): Promise<void> {
+    const temporary = join(this.originals.directory(storageId), `${kind}.part.png`);
     // Clean a previous interrupted attempt before admitting another decoder.
     let result: Result;
     try {
       await rm(temporary, { force: true });
-      result = await this.decode(join(directory, metadata.filename), temporary, kind).catch(
+      result = await this.decode(this.originals.originalPath(storageId), temporary, kind).catch(
         (): Result => ({ ok: false, error: 'worker_exited' }),
       );
     } catch {
@@ -165,16 +166,16 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
     if (this.stopping) return; // Preserve pending state for restart recovery.
     if (result.ok) {
       try {
-        await this.originals.publishDerivative(metadata, kind, temporary);
-        metadata.widthPixels = result.width;
-        metadata.heightPixels = result.height;
+        await this.originals.publishDerivative(storageId, record, kind, temporary);
+        record.widthPixels = result.width;
+        record.heightPixels = result.height;
         this.logger.log(`${kind} ready; worker peak RSS ${result.peakRssKiB} KiB.`);
       } catch {
         result = { ok: false, error: 'derivative_write_failed' };
       }
     }
-    if (!result.ok) metadata.processing[kind] = { status: 'failed', error: result.error };
-    await this.originals.saveMetadata(metadata);
+    if (!result.ok) record.processing[kind] = { status: 'failed', error: result.error };
+    await this.originals.saveRecord(storageId, record);
     await rm(temporary, { force: true }).catch(() => undefined);
   }
 

@@ -57,7 +57,7 @@ it('resolves case photo metadata without a card and renders it without requests 
   const { state, http, document, write } = await setup();
   const revision = state.persistence().revision;
   const before = JSON.parse(await state.exportJson());
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
   expect(state.document()).toEqual(document);
   expect(state.persistence().revision).toBe(revision);
   const after = JSON.parse(await state.exportJson());
@@ -72,7 +72,7 @@ it('resolves case photo metadata without a card and renders it without requests 
   await fixture.whenStable();
   expect(fixture.nativeElement.textContent).toContain('Miniatura niedostępna');
   state.reloadPhoto(filename);
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
   await fixture.whenStable();
   expect(fixture.nativeElement.querySelector('img')).not.toBeNull();
   expect(state.persistence().revision).toBe(revision);
@@ -81,7 +81,7 @@ it('resolves case photo metadata without a card and renders it without requests 
 
 it('keeps a working thumbnail and original download after the full preview fails', async () => {
   const { state, http } = await setup();
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
   const fixture = TestBed.createComponent(PhotoCard);
   fixture.componentRef.setInput('filename', filename);
   await fixture.whenStable();
@@ -105,7 +105,7 @@ it('keeps a working thumbnail and original download after the full preview fails
 it('renders a filename placeholder without a download action when metadata is unavailable', async () => {
   const { http } = await setup();
   http
-    .expectOne(`/api/assets/${filename}/metadata`)
+    .expectOne(`/api/cases/case-1/assets/${filename}/metadata`)
     .flush({}, { status: 404, statusText: 'Not found' });
   const fixture = TestBed.createComponent(PhotoCard);
   fixture.componentRef.setInput('filename', filename);
@@ -118,7 +118,7 @@ it('renders a filename placeholder without a download action when metadata is un
 
 it('does not project another active editor into a gallery with a stale editor identity', async () => {
   const { state, http } = await setup();
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
   state.openProfile();
   const editor = state.profileEditor();
   if (!editor) throw new Error('Expected profile editor');
@@ -134,6 +134,34 @@ it('does not project another active editor into a gallery with a stale editor id
   http.verify();
 });
 
+it('disables new uploads offline with an explanation and restores them on reconnection', async () => {
+  const { state, http } = await setup();
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
+  state.openProfile();
+  const editor = state.profileEditor();
+  if (!editor) throw new Error('Expected profile editor');
+  const fixture = TestBed.createComponent(PhotoGallery);
+  fixture.componentRef.setInput('editorId', editor.id);
+  await fixture.whenStable();
+  const host: HTMLElement = fixture.nativeElement;
+  const input = () => host.querySelector<HTMLInputElement>('input[type=file]');
+  expect(input()?.disabled).toBe(false);
+  expect(host.textContent).not.toContain('wymaga połączenia');
+
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  window.dispatchEvent(new Event('offline'));
+  await fixture.whenStable();
+  expect(input()?.disabled).toBe(true);
+  expect(host.textContent).toContain('Przesyłanie zdjęć wymaga połączenia z internetem');
+
+  online.mockReturnValue(true);
+  window.dispatchEvent(new Event('online'));
+  await fixture.whenStable();
+  expect(input()?.disabled).toBe(false);
+  online.mockRestore();
+  http.verify();
+});
+
 it('derives retry progress and failure from the case workflow, prevents duplicate retries and resolves the refreshed preview', async () => {
   const { state, http } = await setup();
   const failed = {
@@ -145,12 +173,12 @@ it('derives retry progress and failure from the case workflow, prevents duplicat
       preview: { status: 'failed', error: 'decoder_failed' },
     },
   };
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(failed);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(failed);
   state.retryPhoto(filename);
   state.retryPhoto(filename);
   expect(state.photoReads()[filename].status).toBe('retrying');
   http
-    .expectOne(`/api/assets/${filename}/retry`)
+    .expectOne(`/api/cases/case-1/assets/${filename}/retry`)
     .flush({}, { status: 503, statusText: 'Unavailable' });
   expect(state.photoReads()[filename]).toMatchObject({
     status: 'error',
@@ -159,8 +187,8 @@ it('derives retry progress and failure from the case workflow, prevents duplicat
   });
   expect(state.photoReads()[filename].error).toContain('Nie rozpoczęto ponawiania');
   state.retryPhoto(filename);
-  http.expectOne(`/api/assets/${filename}/retry`).flush({});
-  http.expectOne(`/api/assets/${filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case-1/assets/${filename}/retry`).flush({});
+  http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`).flush(metadata);
   expect(state.photoReads()[filename]).toMatchObject({ status: 'ready', error: '', metadata });
   expect(state.document()?.assets).toEqual([]);
   http.verify();
@@ -168,7 +196,7 @@ it('derives retry progress and failure from the case workflow, prevents duplicat
 
 it('cancels an obsolete metadata read when the case is replaced and keeps photo request state out of JSON', async () => {
   const { state, http } = await setup();
-  const pending = http.expectOne(`/api/assets/${filename}/metadata`);
+  const pending = http.expectOne(`/api/cases/case-1/assets/${filename}/metadata`);
   await state.prepareImport(JSON.stringify({ ...newCase(), exportedAt: new Date().toISOString() }));
   await state.confirmReplacement();
   expect(pending.cancelled).toBe(true);
@@ -201,7 +229,7 @@ it('binds uploads to the route store lifetime even when no gallery performs clea
   if (!editor) throw new Error('Expected profile editor');
   state.uploadPhotos(editor.id, [new File(['a'], 'a.jpg')]);
   const http = TestBed.inject(HttpTestingController);
-  const upload = http.expectOne('/api/assets');
+  const upload = http.expectOne('/api/cases/case-1/assets');
   owner.destroy();
   expect(upload.cancelled).toBe(true);
   expect(TestBed.inject(PhotoTransfers).jobs()).toEqual([]);

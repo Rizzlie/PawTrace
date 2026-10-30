@@ -7,6 +7,8 @@ import {
 } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 // Switches the controlled provider's identity, so this project runs serially and alone.
 test.describe.configure({ mode: 'serial' });
@@ -293,5 +295,107 @@ test('shows saving until the server acknowledges and keeps edits recoverable aft
     expect((await exportCase(page)).mapView.zoom).toBe(zoom);
   } finally {
     await context.close();
+  }
+});
+
+test('keeps photos with their owner across direct URLs, a foreign import and an account switch during upload', async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const owner = await signedIn(browser, request, 'photo-owner');
+  const stranger = await signedIn(browser, request, 'photo-stranger');
+  const anonymous = await browser.newContext();
+  let release = () => undefined as void;
+  try {
+    const page = await owner.newPage();
+    await page.goto('/');
+    const caseId = await createFromCatalogue(page, 'Prywatne zdjęcia');
+    await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
+    const uploaded = page.waitForResponse(
+      (response) => response.url().endsWith('/assets') && response.request().method() === 'POST',
+    );
+    await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
+      name: 'kot.png',
+      mimeType: 'image/png',
+      buffer: await readFile(resolve('src/fixtures/photo-detail.png')),
+    });
+    const { filename } = (await (await uploaded).json()) as { filename: string };
+    await expect(
+      page.getByRole('button', { name: 'Odepnij ' + filename, exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    const exported = await exportCase(page);
+
+    const photo = `/api/cases/${caseId}/assets/${filename}`;
+    expect((await owner.request.get(photo)).status()).toBe(200);
+    for (const path of [photo, photo + '/metadata', photo + '/thumbnail', photo + '/preview']) {
+      expect((await stranger.request.get(path)).status()).toBe(404);
+      expect((await anonymous.request.get(path)).status()).toBe(401);
+    }
+    expect((await mutate(stranger, 'POST', photo + '/retry')).status()).toBe(404);
+    expect((await stranger.request.get('/api/assets/' + filename)).status()).toBe(404);
+    expect((await anonymous.request.get('/api/assets/' + filename)).status()).toBe(401);
+
+    // The foreign JSON keeps its reference, but the same name reaches no bytes.
+    const foreign = await stranger.newPage();
+    await foreign.goto('/');
+    const foreignId = await createFromCatalogue(foreign, 'Cudzy import');
+    await foreign.getByLabel('Importuj plik JSON').setInputFiles({
+      name: 'case.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ ...exported, exportedAt: new Date().toISOString() })),
+    });
+    await foreign
+      .getByRole('dialog', { name: 'Zastąpienie sprawy' })
+      .getByRole('button', { name: 'Zastąp sprawę', exact: true })
+      .click();
+    await expect(foreign.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    await foreign.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
+    await expect(
+      foreign
+        .getByRole('article', { name: 'Zdjęcie ' + filename, exact: true })
+        .getByText('Zdjęcie niedostępne.', { exact: false }),
+    ).toBeVisible();
+
+    // The first account leaves while its upload is held; the next account inherits nothing.
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let received = () => undefined as void;
+    const arrived = new Promise<void>((resolve) => (received = resolve));
+    await page.route('**/api/cases/*/assets', async (route) => {
+      received();
+      await held;
+      await route.fallback().catch(() => undefined);
+    });
+    await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
+    await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
+      name: 'late.png',
+      mimeType: 'image/png',
+      buffer: await readFile(resolve('src/fixtures/photo-detail.png')),
+    });
+    await arrived;
+    await request.post(`${control}/provider?subject=photo-stranger-${run}`);
+    await page.getByLabel(/^Konto: /u).click();
+    await page.getByRole('menuitem', { name: 'Wyloguj się' }).click();
+    await page.getByRole('link', { name: 'Zaloguj się przez Google' }).click();
+    await expect(page.getByLabel(/^Konto: /u)).toHaveAttribute(
+      'aria-label',
+      new RegExp('photo-stranger'),
+    );
+    await request.post(control + '/provider');
+    release();
+    const catalogue = page.getByRole('complementary', { name: 'Moje sprawy' });
+    // Only the stranger's own case is listed; the import brought the title with it.
+    await expect(catalogue.getByRole('link')).toHaveCount(1);
+    await catalogue.getByRole('link', { name: 'Prywatne zdjęcia' }).click();
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    expect(page.url()).toContain(foreignId);
+    expect((await exportCase(page)).animal?.photos).toEqual([filename]);
+  } finally {
+    release();
+    await owner.close();
+    await stranger.close();
+    await anonymous.close();
   }
 });

@@ -10,7 +10,6 @@ import {
   HttpException,
   HttpStatus,
   Inject,
-  Injectable,
   NotFoundException,
   Param,
   Patch,
@@ -19,7 +18,6 @@ import {
   Req,
   Res,
   ServiceUnavailableException,
-  type PipeTransform,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -29,7 +27,9 @@ import {
   timeZoneSchema,
   validateCaseDocument,
 } from '@pawtrace/case-domain';
+import { PhotoCleanup } from '../app/assets/photo-cleanup';
 import { CaseRepository, type Mutation, type MutationOutcome } from './case-repository';
+import { owner, StorableId } from './request-scope';
 
 const createRequest = z.strictObject({ title: textSchema, timeZone: timeZoneSchema });
 const renameRequest = z.strictObject({ title: textSchema });
@@ -51,15 +51,6 @@ const baseVersion = (header: string | undefined) => {
   return parse(ifMatch, header, 'invalid_version');
 };
 
-/** PostgreSQL cannot compare such text, and no stored case can have it: it is simply absent. */
-@Injectable()
-class StorableCaseId implements PipeTransform<string, string> {
-  transform(id: string): string {
-    if (!textSchema.safeParse(id).success) throw new NotFoundException({ error: 'not_found' });
-    return id;
-  }
-}
-
 /** Translates repository outcomes into the non-disclosing HTTP contract. */
 function acknowledge(outcome: MutationOutcome) {
   switch (outcome.kind) {
@@ -79,7 +70,10 @@ function acknowledge(outcome: MutationOutcome) {
 
 @Controller('cases')
 export class CasesController {
-  constructor(@Inject(CaseRepository) private readonly cases: CaseRepository) {}
+  constructor(
+    @Inject(CaseRepository) private readonly cases: CaseRepository,
+    @Inject(PhotoCleanup) private readonly photos: PhotoCleanup,
+  ) {}
 
   private mutation(
     request: Request,
@@ -128,7 +122,7 @@ export class CasesController {
   @Header('Cache-Control', 'no-store')
   async read(
     @Req() request: Request,
-    @Param('id', StorableCaseId) id: string,
+    @Param('id', StorableId) id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
     const stored = await this.cases.read(owner(request), id);
@@ -142,7 +136,7 @@ export class CasesController {
   @Put(':id')
   async save(
     @Req() request: Request,
-    @Param('id', StorableCaseId) id: string,
+    @Param('id', StorableId) id: string,
     @Headers('if-match') version: string | undefined,
     @Headers('idempotency-key') key: string | undefined,
     @Body() body: unknown,
@@ -164,7 +158,7 @@ export class CasesController {
   @Patch(':id')
   async rename(
     @Req() request: Request,
-    @Param('id', StorableCaseId) id: string,
+    @Param('id', StorableId) id: string,
     @Headers('if-match') version: string | undefined,
     @Headers('idempotency-key') key: string | undefined,
     @Body() body: unknown,
@@ -184,7 +178,7 @@ export class CasesController {
   @HttpCode(204)
   async delete(
     @Req() request: Request,
-    @Param('id', StorableCaseId) id: string,
+    @Param('id', StorableId) id: string,
     @Headers('if-match') version: string | undefined,
     @Headers('idempotency-key') key: string | undefined,
   ) {
@@ -192,12 +186,6 @@ export class CasesController {
     acknowledge(
       await this.cases.delete(this.mutation(request, key, 'delete', id, [id, base]), base),
     );
+    await this.photos.removeDeleted();
   }
-}
-
-/** The global guard has already authenticated the session before any handler runs. */
-function owner(request: Request): string {
-  const id = request.session.userId;
-  if (!id) throw new ServiceUnavailableException({ error: 'session_unavailable' });
-  return id;
 }

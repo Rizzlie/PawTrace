@@ -39,9 +39,12 @@ export function photoAsset(metadata: PhotoMetadata): PhotoAsset {
   };
 }
 
+export const photosUrl = (caseId: string) => `/api/cases/${encodeURIComponent(caseId)}/assets`;
+
 export function photoUrl(
+  caseId: string,
   filename: string,
   kind?: 'thumbnail' | 'preview' | 'metadata' | 'retry',
 ): string {
-  return `/api/assets/${encodeURIComponent(filename)}${kind ? '/' + kind : ''}`;
+  return `${photosUrl(caseId)}/${encodeURIComponent(filename)}${kind ? '/' + kind : ''}`;
 }

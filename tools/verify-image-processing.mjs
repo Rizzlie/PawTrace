@@ -6,6 +6,7 @@ import { resolve, join, relative } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
+import { ownedAssetRuntime } from './owned-asset-runtime.mjs';
 
 const exec = promisify(execFile);
 const fetch = (input, options = {}) =>
@@ -23,6 +24,10 @@ const fixtures = 'apps/api/tests/fixtures';
 const manifest = JSON.parse(await readFile(`${fixtures}/heic/manifest.json`, 'utf8'));
 const artifacts = join(directory, 'evidence');
 await mkdir(artifacts);
+const owned = await ownedAssetRuntime(docker);
+const assets = (runtime, path, options) => owned.assets(runtime.base, path, options);
+const objectPath = async (asset, name) =>
+  join(directory, 'objects', await owned.storageId(asset), name);
 
 async function waitFor(read, accept, timeout = 90_000) {
   const deadline = Date.now() + timeout;
@@ -51,6 +56,7 @@ async function start(extra = []) {
     '127.0.0.1::3000',
     '--mount',
     mount,
+    ...owned.environment,
     ...extra,
     image,
   );
@@ -72,13 +78,13 @@ async function stop(runtime) {
 async function upload(runtime, bytes, name = 'photo.heic') {
   const body = new FormData();
   body.append('file', new Blob([bytes]), name);
-  const response = await fetch(`${runtime.base}/assets`, { method: 'POST', body });
+  const response = await assets(runtime, '', { method: 'POST', body });
   assert.equal(response.status, 201, await response.clone().text());
   return response.json();
 }
 
 async function metadata(runtime, asset) {
-  const response = await fetch(`${runtime.base}/assets/${asset.filename}/metadata`);
+  const response = await assets(runtime, `/${asset.filename}/metadata`);
   assert.equal(response.status, 200);
   return response.json();
 }
@@ -91,23 +97,20 @@ async function settled(runtime, asset) {
 }
 
 async function original(runtime, asset, bytes) {
-  const response = await fetch(`${runtime.base}/assets/${asset.filename}`);
+  const response = await assets(runtime, `/${asset.filename}`);
   assert.equal(response.status, 200);
   assert.equal(hash(new Uint8Array(await response.arrayBuffer())), hash(bytes));
 }
 
 async function derivative(runtime, asset, kind) {
-  const response = await fetch(`${runtime.base}/assets/${asset.filename}/${kind}`);
+  const response = await assets(runtime, `/${asset.filename}/${kind}`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /^image\/png/u);
   return Buffer.from(await response.arrayBuffer());
 }
 
 async function retry(runtime, asset) {
-  assert.equal(
-    (await fetch(`${runtime.base}/assets/${asset.filename}/retry`, { method: 'POST' })).status,
-    201,
-  );
+  assert.equal((await assets(runtime, `/${asset.filename}/retry`, { method: 'POST' })).status, 201);
 }
 
 async function freezeNextWorker(runtime, afterThumbnailFailure) {
@@ -125,7 +128,7 @@ async function freezeNextWorker(runtime, afterThumbnailFailure) {
     const timer=setInterval(()=>{
       if(Date.now()>deadline)process.exit(3);
       if(watched){
-        const metadata=JSON.parse(fs.readFileSync('/app/data/assets/'+watched.slice(0,36)+'/metadata.json','utf8'));
+        const metadata=JSON.parse(fs.readFileSync('/app/data/assets/objects/'+watched+'/metadata.json','utf8'));
         if(metadata.processing.thumbnail.status!=='failed')return;
       }
       const pids=fs.readFileSync('/proc/1/task/1/children','utf8').trim().split(/\\s+/).filter(Boolean);
@@ -145,6 +148,7 @@ try {
     await docker('build', '--tag', image, '.');
   }
   let runtime = await start();
+  await owned.signIn(runtime.base);
   const versions = await docker(
     'exec',
     runtime.name,
@@ -163,14 +167,12 @@ try {
 
   const busyBytes = await readFile(`${fixtures}/heic/basic-8bit-srgb.heic`);
   const busy = await upload(runtime, busyBytes);
-  const busyObstruction = join(directory, busy.filename.slice(0, 36), 'thumbnail.png');
+  const busyObstruction = await objectPath(busy, 'thumbnail.png');
   await mkdir(busyObstruction);
-  const busyPid = await freezeNextWorker(runtime, busy.filename);
+  const busyPid = await freezeNextWorker(runtime, await owned.storageId(busy));
   assert.equal((await metadata(runtime, busy)).processing.thumbnail.status, 'failed');
   await rm(busyObstruction, { recursive: true });
-  const busyRetry = await fetch(`${runtime.base}/assets/${busy.filename}/retry`, {
-    method: 'POST',
-  });
+  const busyRetry = await assets(runtime, `/${busy.filename}/retry`, { method: 'POST' });
   assert.equal(
     busyRetry.status,
     409,
@@ -277,7 +279,7 @@ try {
 
   const basic = await readFile(`${fixtures}/heic/basic-8bit-srgb.heic`);
   const obstructed = await upload(runtime, basic);
-  const obstruction = join(directory, obstructed.filename.slice(0, 36), 'preview.png');
+  const obstruction = await objectPath(obstructed, 'preview.png');
   await mkdir(obstruction);
   const partial = await settled(runtime, obstructed);
   assert.equal(partial.processing.thumbnail.status, 'ready');
@@ -401,6 +403,7 @@ try {
   await stop(runtime);
 } finally {
   for (const name of containers) await docker('rm', '--force', name);
+  await owned.close();
   const child = relative(scratch, directory);
   assert.ok(child.startsWith('image-processing-check-') && !child.includes('..'));
   // Keep visual evidence when explicitly requested; originals and temporary test assets are disposable.

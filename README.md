@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-P01 adds Google login and PostgreSQL-backed sessions, and P02 adds private cases stored in PostgreSQL/PostGIS. This is an incomplete private integration: ownerless photo endpoints are denied, and photo ownership and account-keyed recovery arrive in P03–P04. Follow the [P01 runtime and verification notes](docs/post-mvp/p01-authentication.md) before using the historical MVP runbook below; anonymous startup instructions no longer describe this branch.
+P01 adds Google login and PostgreSQL-backed sessions, and P02 adds private cases stored in PostgreSQL/PostGIS. P03 adds private photos owned by each case. This is an incomplete private integration: account-keyed recovery arrives in P04. Follow the [P01 runtime and verification notes](docs/post-mvp/p01-authentication.md) before using the historical MVP runbook below; anonymous startup instructions no longer describe this branch.
 
 The desktop MVP (implementation tasks F01–F15) is complete: Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas and actual-search snapshots, persistent original photos with thumbnails and HEIC previews, photo attachments, and context-preserving filters. F15 verified the complete flow and its failure paths; see the [runbook](#runbook) and [known limitations](#known-tested-limitations).
 
@@ -87,11 +87,11 @@ None of these touches case or photo data. `down`, recreation and rebuilds keep t
 
 ### Where data lives
 
-| Data                   | Location                                                | Notes                                                                         |
-| ---------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Cases                  | PostgreSQL/PostGIS Docker volume                        | Private to the signed-in owner; the same cases open from any browser.         |
-| Photos and derivatives | `ASSET_DIRECTORY` on the host (default `./data/assets`) | One UUID directory per original, with `metadata.json`, thumbnail and preview. |
-| Address-search cache   | Docker volume `<project>_redis-data`                    | Disposable cache only; not part of a backup.                                  |
+| Data                   | Location                                                | Notes                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cases                  | PostgreSQL/PostGIS Docker volume                        | Private to the signed-in owner; the same cases open from any browser.                                                                        |
+| Photos and derivatives | `ASSET_DIRECTORY` on the host (default `./data/assets`) | One private directory per original under `objects/`, with `metadata.json`, thumbnail and preview. PostgreSQL holds which case owns each one. |
+| Address-search cache   | Docker volume `<project>_redis-data`                    | Disposable cache only; not part of a backup.                                                                                                 |
 
 ### Backup
 
@@ -233,15 +233,17 @@ Food placement/refill details and food-status checks remain independent records 
 
 The API can store JPEG, PNG, WebP and HEIC originals independently of case data. It generates PNG thumbnails and full-resolution HEIC previews in a separate processing process. Photo controls arrive in F13. Format recognition uses file content; it does not promise that every recognizable file can be decoded.
 
-- `POST /api/assets`: send one multipart file named `file`; HTTP 201 returns its unique `filename`, original metadata and derivative states. Send additional photos as independent requests. Only successful original filenames should enter case `photos` lists. The response's `processing` field belongs to the asset interface, not the exported case JSON schema.
-- `GET /api/assets/:filename/metadata`: fetch metadata and current derivative states without caching them.
-- `GET /api/assets/:filename`: stream the unchanged original as an attachment. Missing files return 404. Failed original writes return a retryable HTTP 507 error without a successful filename; malformed multipart requests return 400 and unsupported content 415.
-- `GET /api/assets/:filename/thumbnail` and `GET /api/assets/:filename/preview`: stream a ready PNG derivative. Thumbnails fit inside 480 × 480 pixels without enlargement; HEIC previews retain the oriented full-image dimensions. Unavailable/not-required derivatives return 404; read metadata for their state.
-- `POST /api/assets/:filename/retry`: retry failed derivatives using the same saved original. Completed derivatives remain ready; original bytes and case photo references never change. Derivative failure is a warning on a successful attachment, not an upload failure.
+All routes require the case owner's session; anonymous requests receive 401 and foreign or absent resources the same 404. The former `/api/assets` URLs serve nothing.
+
+- `POST /api/cases/:caseId/assets`: send one multipart file named `file`; HTTP 201 returns its unique `filename`, original metadata and derivative states. Send additional photos as independent requests. Only successful original filenames should enter case `photos` lists. The response's `processing` field belongs to the asset interface, not the exported case JSON schema.
+- `GET /api/cases/:caseId/assets/:filename/metadata`: fetch metadata and current derivative states without caching them.
+- `GET /api/cases/:caseId/assets/:filename`: stream the unchanged original as an attachment. Missing files return 404. Failed original writes return a retryable HTTP 507 error without a successful filename; malformed multipart requests return 400 and unsupported content 415.
+- `GET /api/cases/:caseId/assets/:filename/thumbnail` and `GET /api/cases/:caseId/assets/:filename/preview`: stream a ready PNG derivative. Thumbnails fit inside 480 × 480 pixels without enlargement; HEIC previews retain the oriented full-image dimensions. Unavailable/not-required derivatives return 404; read metadata for their state.
+- `POST /api/cases/:caseId/assets/:filename/retry`: retry failed derivatives using the same saved original. Completed derivatives remain ready; original bytes and case photo references never change. Derivative failure is a warning on a successful attachment, not an upload failure.
 
 The production Linux image builds Sharp 0.35.5 against libvips 8.18.7, libheif 1.23.7 and libde265 1.1.3. Its disk-backed queue admits one child decoder at a time and resumes pending work after restart. `IMAGE_PROCESSING_TIMEOUT_MS` defaults to 60000 per derivative. V8 heap limits do not cap native memory; worker and API share a container memory cgroup. PNG previews do not promise identical HDR rendering. See [photo processing](docs/architecture/image-processing.md) for the interface, runtime, constraints and verification.
 
-`ASSET_DIRECTORY` defaults to `./data/assets` for Node development. Compose already binds the host directory to `/app/data/assets`. Each server-generated UUID reserves one directory containing the original and `metadata.json`; incomplete writes have no final metadata marker and cannot be retrieved. Do not expose this directory with a separate static-file server. Unlinking a case photo never removes server files. To back up or transfer a case with its photos, copy its JSON **and the complete asset directory**, including metadata, while uploads are stopped. JSON alone does not copy images.
+`ASSET_DIRECTORY` defaults to `./data/assets` for Node development. Compose already binds the host directory to `/app/data/assets`. Each photo has one private directory under `objects/`, named by a server-generated storage UUID unrelated to its filename; incomplete writes stay in `staging/` and cannot be retrieved. Do not expose this directory with a separate static-file server. Unlinking a case photo never removes server files; deleting the case does. To back up the instance, copy PostgreSQL **and the complete asset directory**, including metadata, while uploads are stopped. JSON alone does not copy images.
 
 There is no product photo-count or MB cap. Actual disk/inode availability, permissions, network failure, parser header limits and Node's 300-second request/60-second header timeouts still apply. The Compose route has no buffering reverse proxy; uploads stream to disk and originals stream back. Successfully saved originals survive derivative failures. Hard kills can leave unpublished partial directories; automatic cleanup and guarantees against host power loss are outside this slice.
 

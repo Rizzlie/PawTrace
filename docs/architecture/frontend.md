@@ -50,6 +50,8 @@ Export captures the complete committed document, unaffected by active filters, a
 
 P02 update: committed documents now persist to the owned-case server API through the `CaseStorage` seam (`libs/web/workspace/src/lib/cases`), using the same serialized writer and revision/generation acknowledgements. `/` is My cases; `/cases/:caseId` opens one case. The IndexedDB details in this section describe the MVP adapter, which P02 removed; P04 adds account- and case-keyed local retention. Decisions: [P02 record](../post-mvp/tasks/P02-private-cases-and-relational-save.md).
 
+P03 update: photo requests are scoped to the open server case (`/api/cases/:caseId/assets`). Uploads carry their `PhotoTarget` (case, session generation, editor), so a late result cannot attach to another case or editor, and the file input is disabled offline with an explanation. Decisions: [P03 record](../post-mvp/tasks/P03-private-case-photos.md).
+
 Use IndexedDB through a small `idb` adapter to retain one complete plain-object document snapshot in one transaction. Acknowledge persistence only after transaction completion. Local storage representation remains JSON-compatible and restoration must validate it; IndexedDB storage itself does not establish contract validity.
 
 A supported imported file passes syntax, strict Zod validation and domain checks before replacement confirmation. Its candidate snapshot must then be stored successfully before activating it in `CaseStore.document`. Failed replacement leaves the existing case active and its successful snapshot intact.

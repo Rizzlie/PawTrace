@@ -1,72 +1,61 @@
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { NestExpressApplication } from '@nestjs/platform-express';
-import { createApplication } from '../tests/adapter-application';
+import { assetsPath, type ApiClient } from '../tests/case-client';
+import { startPhotoApplication } from '../tests/photo-application';
 
 describe('photo derivatives over HTTP', () => {
-  let app: NestExpressApplication;
-  let directory: string;
+  let harness: Awaited<ReturnType<typeof startPhotoApplication>>;
+  let client: ApiClient;
+  let caseId: string;
   let base: string;
 
-  beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), 'pawtrace-processing-'));
-    vi.stubEnv('ASSET_DIRECTORY', directory);
-    app = await createApplication({ ignoreEnvFile: true });
-    await app.listen(0, '127.0.0.1');
-    base = `${await app.getUrl()}/api/assets`;
+  beforeAll(async () => {
+    harness = await startPhotoApplication('pawtrace-processing-');
+    ({ client, caseId } = await harness.owner('processing'));
+    base = assetsPath(caseId);
   });
+  afterAll(() => harness.stop());
 
-  afterEach(async () => {
-    await app.close();
-    vi.unstubAllEnvs();
-    await rm(directory, { recursive: true, force: true });
-  });
+  const get = (path: string) => client.fetch('GET', `${base}/${path}`);
+  const metadataOf = async (filename: string) => (await get(`${filename}/metadata`)).json();
+  const originalOf = async (filename: string) =>
+    Buffer.from(await (await get(filename)).arrayBuffer());
 
   async function upload(bytes: Uint8Array, name: string) {
-    const body = new FormData();
-    body.append('file', new Blob([new Uint8Array(bytes)]), name);
-    const response = await fetch(base, { method: 'POST', body });
+    const response = await client.upload(caseId, bytes, name);
     expect(response.status).toBe(201);
-    return response.json();
+    return response.body;
   }
 
   async function settled(filename: string, status: string) {
     await vi.waitFor(
       async () => {
-        const metadata = await (await fetch(`${base}/${filename}/metadata`)).json();
-        expect(metadata.processing.thumbnail.status).toBe(status);
+        expect((await metadataOf(filename)).processing.thumbnail.status).toBe(status);
       },
       { timeout: 10_000 },
     );
-    return (await fetch(`${base}/${filename}/metadata`)).json();
+    return metadataOf(filename);
   }
 
   it('creates a thumbnail asynchronously while retaining the original bytes', async () => {
     const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));
-    const body = new FormData();
-    body.append('file', new Blob([bytes]), 'kot.jpg');
-    const response = await fetch(base, { method: 'POST', body });
-    expect(response.status).toBe(201);
-    const original = await response.json();
+    const original = await upload(bytes, 'kot.jpg');
     await vi.waitFor(
       async () => {
-        const metadata = await (await fetch(`${base}/${original.filename}/metadata`)).json();
+        const metadata = await metadataOf(original.filename);
         expect(metadata.processing.thumbnail.status).toBe('ready');
         expect(metadata.widthPixels).toBe(200);
         expect(metadata.heightPixels).toBe(133);
         expect(metadata.thumbnailFilename).toBe(metadata.processing.thumbnail.filename);
-        const thumbnail = await fetch(`${base}/${original.filename}/thumbnail`);
+        const thumbnail = await get(`${original.filename}/thumbnail`);
         expect(thumbnail.status).toBe(200);
         expect(thumbnail.headers.get('content-type')).toContain('image/png');
         expect((await thumbnail.arrayBuffer()).byteLength).toBeGreaterThan(0);
       },
       { timeout: 10_000 },
     );
-    expect(Buffer.from(await (await fetch(`${base}/${original.filename}`)).arrayBuffer())).toEqual(
-      bytes,
-    );
-    expect((await fetch(`${base}/${original.filename}/preview`)).status).toBe(404);
+    expect(await originalOf(original.filename)).toEqual(bytes);
+    expect((await get(`${original.filename}/preview`)).status).toBe(404);
   });
 
   it('exposes decoder failures per derivative and retries the same saved original', async () => {
@@ -75,82 +64,77 @@ describe('photo derivatives over HTTP', () => {
     const failed = await settled(asset.filename, 'failed');
     await vi.waitFor(
       async () => {
-        const metadata = await (await fetch(`${base}/${asset.filename}/metadata`)).json();
-        expect(metadata.processing.preview).toEqual({ status: 'failed', error: 'decoder_failed' });
+        expect((await metadataOf(asset.filename)).processing.preview).toEqual({
+          status: 'failed',
+          error: 'decoder_failed',
+        });
       },
       { timeout: 10_000 },
     );
     expect(failed.processing.thumbnail).toEqual({ status: 'failed', error: 'decoder_failed' });
-    expect((await fetch(`${base}/${asset.filename}/thumbnail`)).status).toBe(404);
-    const retry = await fetch(`${base}/${asset.filename}/retry`, { method: 'POST' });
+    expect((await get(`${asset.filename}/thumbnail`)).status).toBe(404);
+    const retry = await client.fetch('POST', `${base}/${asset.filename}/retry`);
     expect(retry.status).toBe(201);
     expect(await retry.json()).toMatchObject({
       filename: asset.filename,
       processing: { thumbnail: { status: 'pending' }, preview: { status: 'pending' } },
     });
     await settled(asset.filename, 'failed');
-    expect(Buffer.from(await (await fetch(`${base}/${asset.filename}`)).arrayBuffer())).toEqual(
-      bytes,
-    );
+    expect(await originalOf(asset.filename)).toEqual(bytes);
   }, 20_000);
 
   it('does not reprocess completed derivatives when retry is requested', async () => {
     const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));
     const asset = await upload(bytes, 'kot.jpg');
     const ready = await settled(asset.filename, 'ready');
-    const thumbnail = Buffer.from(
-      await (await fetch(`${base}/${asset.filename}/thumbnail`)).arrayBuffer(),
-    );
+    const thumbnail = Buffer.from(await (await get(`${asset.filename}/thumbnail`)).arrayBuffer());
     const retries = await Promise.all(
-      Array.from({ length: 8 }, () => fetch(`${base}/${asset.filename}/retry`, { method: 'POST' })),
+      Array.from({ length: 8 }, () => client.fetch('POST', `${base}/${asset.filename}/retry`)),
     );
     for (const retry of retries) {
       expect(retry.status).toBe(201);
       expect(await retry.json()).toEqual(ready);
     }
-    expect(
-      Buffer.from(await (await fetch(`${base}/${asset.filename}/thumbnail`)).arrayBuffer()),
-    ).toEqual(thumbnail);
+    expect(Buffer.from(await (await get(`${asset.filename}/thumbnail`)).arrayBuffer())).toEqual(
+      thumbnail,
+    );
   }, 15_000);
 
   it('recovers a published pending original when the application restarts', async () => {
     const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));
     const asset = await upload(bytes, 'kot.jpg');
-    await app.close();
-    app = await createApplication({ ignoreEnvFile: true });
-    await app.listen(0, '127.0.0.1');
-    base = `${await app.getUrl()}/api/assets`;
+    await harness.restart();
     const ready = await settled(asset.filename, 'ready');
     expect(ready.filename).toBe(asset.filename);
-    expect(Buffer.from(await (await fetch(`${base}/${asset.filename}`)).arrayBuffer())).toEqual(
-      bytes,
-    );
+    expect(await originalOf(asset.filename)).toEqual(bytes);
   }, 15_000);
 
   it('does not create processing records for unknown or unsafe filenames', async () => {
     for (const filename of ['11111111-1111-4111-8111-111111111111.png', '..%5Cpackage.json']) {
-      expect((await fetch(`${base}/${filename}/retry`, { method: 'POST' })).status).toBe(404);
-      expect((await fetch(`${base}/${filename}/thumbnail`)).status).toBe(404);
+      expect((await client.fetch('POST', `${base}/${filename}/retry`)).status).toBe(404);
+      expect((await get(`${filename}/thumbnail`)).status).toBe(404);
     }
   });
 
   it('recovers from derivative-write failure without uploading the original again', async () => {
     const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));
+    const before = await readdir(join(harness.directory, 'objects'));
     const asset = await upload(bytes, 'kot.jpg');
+    const [storageId] = (await readdir(join(harness.directory, 'objects'))).filter(
+      (id) => !before.includes(id),
+    );
     // External filesystem fault; assertions stay on HTTP.
-    const obstruction = join(directory, asset.filename.slice(0, 36), 'thumbnail.png');
+    const obstruction = join(harness.directory, 'objects', storageId, 'thumbnail.png');
     await mkdir(obstruction);
     const failed = await settled(asset.filename, 'failed');
     expect(failed.processing.thumbnail).toEqual({
       status: 'failed',
       error: 'derivative_write_failed',
     });
-    expect(Buffer.from(await (await fetch(`${base}/${asset.filename}`)).arrayBuffer())).toEqual(
-      bytes,
-    );
+    expect(await originalOf(asset.filename)).toEqual(bytes);
     await rm(obstruction, { recursive: true });
-    expect((await fetch(`${base}/${asset.filename}/retry`, { method: 'POST' })).status).toBe(201);
+    expect((await client.fetch('POST', `${base}/${asset.filename}/retry`)).status).toBe(201);
     await settled(asset.filename, 'ready');
-    expect((await fetch(`${base}/${asset.filename}/thumbnail`)).status).toBe(200);
+    expect((await get(`${asset.filename}/thumbnail`)).status).toBe(200);
   }, 20_000);
 });
