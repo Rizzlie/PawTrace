@@ -605,6 +605,32 @@ export const photoAssets = pgTable(
   ],
 );
 
+/**
+ * The only link from a case to stored bytes. `storage_id` names the private directory and
+ * `filename` is the logical name inside this case, so names are never global or access grants.
+ * It is written by uploads alone: no case document, reference or metadata row can create it.
+ */
+export const storedPhotos = pgTable(
+  'stored_photo',
+  {
+    storageId: uuid('storage_id').primaryKey(),
+    caseId: text('case_id')
+      .notNull()
+      .references(() => ownedCases.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [unique('stored_photo_filename').on(table.caseId, table.filename)],
+);
+
+/** Outbox committed with a case deletion: files go only when PostgreSQL names them here. */
+export const photoRemovals = pgTable('photo_removal', {
+  storageId: uuid('storage_id').primaryKey(),
+  requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Idempotency ledger: replaying a key returns the committed acknowledgement, never re-applies. */
 export const caseMutations = pgTable(
   'case_mutation',

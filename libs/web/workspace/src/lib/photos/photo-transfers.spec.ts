@@ -30,19 +30,19 @@ it('limits concurrent uploads, reports progress, retries failures and returns on
     (asset) => stored.push(asset.filename),
     TestBed.inject(DestroyRef),
   );
-  const requests = http.match('/api/assets');
+  const requests = http.match('/api/cases/case/assets');
   expect(requests).toHaveLength(2);
   requests[0].event({ type: HttpEventType.UploadProgress, loaded: 25, total: 100 });
   expect(transfers.jobs()[0].progress).toBe(25);
   requests[0].flush({ message: 'Brak miejsca' }, { status: 507, statusText: 'Storage full' });
   expect(transfers.jobs()[0].status).toBe('failed');
   expect(stored).toEqual([]);
-  const third = http.expectOne('/api/assets');
+  const third = http.expectOne('/api/cases/case/assets');
   requests[1].flush(metadata);
   third.flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d124.jpg' });
   transfers.retry(transfers.jobs()[0].id);
   http
-    .expectOne('/api/assets')
+    .expectOne('/api/cases/case/assets')
     .flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d125.jpg' });
   expect(stored).toEqual([
     metadata.filename,
@@ -64,12 +64,12 @@ it('confirms an invalid successful response by filename without uploading the sa
     (asset) => stored.push(asset.filename),
     TestBed.inject(DestroyRef),
   );
-  http.expectOne('/api/assets').flush({ filename: metadata.filename });
+  http.expectOne('/api/cases/case/assets').flush({ filename: metadata.filename });
   expect(transfers.jobs()[0].status).toBe('unconfirmed');
   expect(stored).toEqual([]);
   transfers.retry(transfers.jobs()[0].id);
   http.expectNone((request) => request.method === 'POST');
-  http.expectOne(`/api/assets/${metadata.filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case/assets/${metadata.filename}/metadata`).flush(metadata);
   expect(stored).toEqual([metadata.filename]);
   http.verify();
 });
@@ -86,7 +86,7 @@ it('cancels active and queued uploads when their owner is destroyed without noti
     stored,
     owner.get(DestroyRef),
   );
-  const active = http.match('/api/assets');
+  const active = http.match('/api/cases/case/assets');
   expect(active).toHaveLength(2);
   owner.destroy();
   expect(active.every((request) => request.cancelled)).toBe(true);
@@ -106,7 +106,7 @@ it('never offers an upload retry for an unidentifiable successful response', () 
     stored,
     TestBed.inject(DestroyRef),
   );
-  http.expectOne('/api/assets').flush({ unexpected: true });
+  http.expectOne('/api/cases/case/assets').flush({ unexpected: true });
   expect(transfers.jobs()[0]).toMatchObject({ status: 'unconfirmed', confirmationFilename: null });
   transfers.retry(transfers.jobs()[0].id);
   http.expectNone(() => true);

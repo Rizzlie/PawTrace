@@ -36,7 +36,10 @@ async function main() {
         return;
       }
       if (url.pathname === '/restart') {
-        await app.close();
+        // A browser's unused preconnect socket would otherwise hold server.close() open.
+        const server = app.getHttpServer();
+        const dropping = setInterval(() => server.closeAllConnections(), 100);
+        await app.close().finally(() => clearInterval(dropping));
         app = await start();
       } else if (url.pathname === '/advance') time += Number(url.searchParams.get('ms'));
       else if (url.pathname === '/provider') {

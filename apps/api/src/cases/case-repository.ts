@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { CaseDocument } from '@pawtrace/case-domain';
 import type { Database } from '../database/database';
 import { fromCaseRows, toCaseRows, type CaseRows, type StoredCaseRows } from './case-mapping';
@@ -146,6 +146,10 @@ export class CaseRepository {
   delete(mutation: Mutation, baseVersion: number) {
     return this.mutate(mutation, async (tx) => {
       await this.lock(tx, mutation, baseVersion);
+      await tx.execute(
+        sql`INSERT INTO photo_removal (storage_id)
+          SELECT storage_id FROM stored_photo WHERE case_id = ${mutation.caseId}`,
+      );
       await deleteDocumentRows(tx, mutation.caseId);
       await tx.delete(tables.ownedCases).where(eq(tables.ownedCases.id, mutation.caseId));
       return null;

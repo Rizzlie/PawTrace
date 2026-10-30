@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { CaseStore } from '../case-store/case-store';
+import { Connectivity } from '../cases/connectivity';
 import { PhotoTransfers } from './photo-transfers';
 import { PhotoCard } from './photo-card';
 import type { PhotoTarget } from './photo-draft';
@@ -27,6 +28,7 @@ export class PhotoGallery {
   readonly editorId = input<number | null>(null);
   protected readonly state = inject(CaseStore);
   protected readonly transfers = inject(PhotoTransfers);
+  protected readonly online = inject(Connectivity).online;
   private readonly targets = new Set<PhotoTarget>();
   protected readonly activeTarget = computed(() => {
     const target = this.state.photoTarget();

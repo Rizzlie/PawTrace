@@ -1,4 +1,10 @@
-import { expect, test as base, type BrowserContext, type Page } from '@playwright/test';
+import {
+  expect,
+  test as base,
+  type BrowserContext,
+  type Page,
+  type Response,
+} from '@playwright/test';
 
 export async function authenticate(context: BrowserContext) {
   const me = await context.request.get('/api/auth/me');
@@ -37,6 +43,12 @@ export async function createCase(page: Page, title = 'Nowa sprawa', navigate = t
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   return new URL(page.url()).pathname;
 }
+
+/** The open case's upload endpoint. */
+export const photosUrl = (page: Page) =>
+  '/api' + new URL(page.url()).pathname.match(/\/cases\/[^/]+/u)?.[0] + '/assets';
+export const uploadedPhoto = (response: Response) =>
+  /\/api\/cases\/[^/]+\/assets$/u.test(response.url()) && response.request().method() === 'POST';
 
 /** Location of an open case workspace (no routed panel). */
 export const caseLocation = /\/cases\/[0-9a-f-]{36}$/u;

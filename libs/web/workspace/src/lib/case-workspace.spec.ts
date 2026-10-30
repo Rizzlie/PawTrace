@@ -178,7 +178,7 @@ it('commits resolved photo metadata with current text and cleans main-photo link
   const session = state.editor();
   const saving = state.saveProfile(editor.id);
   TestBed.inject(HttpTestingController)
-    .expectOne(`/api/assets/${filename}/metadata`)
+    .expectOne(`/api/cases/${activeDocument(state).case.id}/assets/${filename}/metadata`)
     .flush({
       ...asset,
       widthPixels: 16,

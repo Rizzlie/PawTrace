@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { resolve, join, relative } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
+import { ownedAssetRuntime } from './owned-asset-runtime.mjs';
 
 const exec = promisify(execFile);
 const docker = async (...args) =>
@@ -14,6 +15,7 @@ const scratch = resolve('.scratch');
 await mkdir(scratch, { recursive: true });
 const directory = await mkdtemp(join(scratch, 'assets-check-'));
 const containers = new Set();
+const owned = await ownedAssetRuntime(docker);
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
@@ -32,8 +34,7 @@ async function start(mount) {
     '127.0.0.1::3000',
     '--mount',
     mount,
-    '--env',
-    'ASSET_DIRECTORY=/app/data/assets',
+    ...owned.environment,
     image,
   );
   const address = await docker('port', name, '3000/tcp');
@@ -60,14 +61,14 @@ async function stop(container) {
 function upload(base, bytes, filename = 'same-client-name.png') {
   const body = new FormData();
   body.append('file', new Blob([bytes], { type: 'application/octet-stream' }), filename);
-  return fetch(`${base}/assets`, { method: 'POST', body, signal: AbortSignal.timeout(30_000) });
+  return owned.assets(base, '', { method: 'POST', body, signal: AbortSignal.timeout(30_000) });
 }
 
 async function verifyOriginal(base, asset, bytes) {
-  const response = await fetch(`${base}/assets/${asset.filename}`);
+  const response = await owned.assets(base, `/${asset.filename}`);
   assert.equal(response.status, 200);
   assert.equal(hash(new Uint8Array(await response.arrayBuffer())), hash(bytes));
-  const metadata = await fetch(`${base}/assets/${asset.filename}/metadata`);
+  const metadata = await owned.assets(base, `/${asset.filename}/metadata`);
   assert.equal(metadata.status, 200);
   const current = await metadata.json();
   for (const field of ['filename', 'originalName', 'mediaType', 'sizeBytes']) {
@@ -82,6 +83,7 @@ try {
   }
   const mount = `type=bind,source=${directory},target=/app/data/assets`;
   let runtime = await start(mount);
+  await owned.signIn(runtime.base);
   const originals = [];
   for (const extension of ['png', 'jpg', 'webp', 'heic']) {
     const bytes =
@@ -108,7 +110,7 @@ try {
   runtime = await start(mount);
   for (const { asset, bytes } of originals) await verifyOriginal(runtime.base, asset, bytes);
   assert.equal(
-    (await fetch(`${runtime.base}/assets/11111111-1111-4111-8111-111111111111.png`)).status,
+    (await owned.assets(runtime.base, '/11111111-1111-4111-8111-111111111111.png')).status,
     404,
   );
   console.log(
@@ -147,6 +149,7 @@ try {
   );
 } finally {
   for (const name of containers) await docker('rm', '--force', name);
+  await owned.close();
   const child = relative(scratch, directory);
   assert.ok(child.startsWith('assets-check-') && !child.includes('..'));
   await rm(directory, { recursive: true, force: true });

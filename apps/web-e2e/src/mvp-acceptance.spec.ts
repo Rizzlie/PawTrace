@@ -1,4 +1,4 @@
-import { test, createCase } from './fixtures';
+import { test, createCase, photosUrl, uploadedPhoto } from './fixtures';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { caseFileSchema, type CaseFile } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -95,12 +95,9 @@ async function saveEntry(page: Page) {
   await expect(page.getByRole('button', { name: 'Zapisz wpis', exact: true })).toBeHidden();
 }
 
-// The legacy anonymous photo-publication flow is superseded by P01 denial.
-// Restore this integrated acceptance scenario with the owned photo implementation in P03.
-test.fixme('[P03 ownership required] completes the desktop MVP flow from an empty case through photos, filters, reload and JSON transfer', async ({
+test('completes the desktop MVP flow from an empty case through photos, filters, reload and JSON transfer', async ({
   page,
   context,
-  request,
 }) => {
   test.setTimeout(180_000);
   page.on('pageerror', (error) => {
@@ -141,9 +138,7 @@ test.fixme('[P03 ownership required] completes the desktop MVP flow from an empt
   await selectPlace(page, 'Szopa');
   await addObservation(page, 'Luna na dachu szopy', 'target_animal', '2026-10-10');
   const bytes = await readFile(resolve('src/fixtures/photo-detail.png'));
-  const uploaded = page.waitForResponse(
-    (response) => response.url().endsWith('/api/assets') && response.request().method() === 'POST',
-  );
+  const uploaded = page.waitForResponse(uploadedPhoto);
   await page
     .getByLabel('Dodaj zdjęcia', { exact: true })
     .setInputFiles({ name: 'luna-na-dachu.png', mimeType: 'image/png', buffer: bytes });
@@ -265,7 +260,7 @@ test.fixme('[P03 ownership required] completes the desktop MVP flow from an empt
   ]);
   expect(polygon.plannedGeometry).toMatchObject({ type: 'polygon' });
   expect(created.mapView.basemap).toBe('osm');
-  expect(await (await request.get('/api/assets/' + filename)).body()).toEqual(bytes);
+  expect(await (await page.request.get(photosUrl(page) + '/' + filename)).body()).toEqual(bytes);
 
   // Filters change counts and highlights, never the exported document.
   await selectPlace(page, 'Szopa');
@@ -326,7 +321,7 @@ test('keeps the restored case usable and exportable while every external provide
   await page.route('**/api/address-search?*', (route) =>
     route.fulfill({ status: 503, json: { message: 'Provider unavailable' } }),
   );
-  await page.route('**/api/assets/**', (route) =>
+  await page.route('**/api/cases/*/assets/**', (route) =>
     route.fulfill({ status: 404, json: { message: 'Zdjęcie niedostępne' } }),
   );
   await page.reload();

@@ -15,6 +15,13 @@
       "when": 1793344014393,
       "tag": "0001_owned_cases",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793390861918,
+      "tag": "0002_case_photos",
+      "breakpoints": true
     }
   ]
 }
