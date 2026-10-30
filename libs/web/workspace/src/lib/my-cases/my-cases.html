@@ -1,0 +1,126 @@
+<pt-floating-panel class="catalogue" label="Moje sprawy">
+  <div panel-heading class="heading">
+    <h2>Moje sprawy</h2>
+    <button
+      matButton="filled"
+      type="button"
+      [disabled]="!online() || pending()"
+      (click)="openDialog({ kind: 'create' })"
+    >
+      Nowa sprawa
+    </button>
+  </div>
+  @if (!online()) {
+    <p class="warning" role="status">
+      Brak połączenia z internetem. Tworzenie i usuwanie spraw wymaga połączenia z serwerem.
+    </p>
+  }
+  @if (error() && !dialog()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @switch (listState()) {
+    @case ('loading') {
+      <p role="status">Wczytywanie spraw…</p>
+    }
+    @case ('failed') {
+      <p class="error" role="alert">Nie udało się wczytać listy spraw.</p>
+      <button matButton="outlined" type="button" (click)="cases.reload()">Ponów</button>
+    }
+    @case ('empty') {
+      <p role="status">Nie masz jeszcze żadnych spraw. Utwórz pierwszą, aby zacząć.</p>
+    }
+    @case ('ready') {
+      <ul aria-label="Lista spraw">
+        @for (item of cases.value(); track item.id) {
+          <li>
+            <a class="case-link" [routerLink]="caseLocation(item.id)">{{ item.title }}</a>
+            <div class="actions">
+              <button
+                matButton="outlined"
+                type="button"
+                [attr.aria-label]="'Zmień nazwę: ' + item.title"
+                [disabled]="pending()"
+                (click)="openDialog({ kind: 'rename', item })"
+              >
+                Zmień nazwę
+              </button>
+              <button
+                matButton="outlined"
+                type="button"
+                [attr.aria-label]="'Usuń: ' + item.title"
+                [disabled]="!online() || pending()"
+                (click)="openDialog({ kind: 'delete', item })"
+              >
+                Usuń
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+</pt-floating-panel>
+
+@if (dialog(); as current) {
+  <ng-template #dialogTemplate
+    ><div class="pt-dialog-content">
+      <form (submit)="$event.preventDefault(); submit()">
+        @switch (current.kind) {
+          @case ('create') {
+            <h2 id="case-dialog-title">Nowa sprawa</h2>
+          }
+          @case ('rename') {
+            <h2 id="case-dialog-title">Zmiana nazwy sprawy</h2>
+          }
+          @case ('delete') {
+            <h2 id="case-dialog-title">Usunięcie sprawy</h2>
+          }
+        }
+        @if (current.kind === 'delete') {
+          <p>
+            Usunąć sprawę <strong>{{ current.item.title }}</strong> z serwera? Tej operacji nie
+            można cofnąć.
+          </p>
+        } @else {
+          <mat-form-field>
+            <mat-label>Nazwa sprawy</mat-label>
+            <input
+              matInput
+              cdkFocusInitial
+              [value]="title()"
+              (input)="title.set($any($event.target).value)"
+            />
+          </mat-form-field>
+        }
+        @if (error()) {
+          <p class="error" role="alert">{{ error() }}</p>
+        }
+        @if (pending()) {
+          <p role="status">Czekam na potwierdzenie serwera…</p>
+        }
+        <div class="actions">
+          <button
+            matButton="filled"
+            type="submit"
+            [disabled]="pending() || (current.kind !== 'rename' && !online())"
+          >
+            @switch (current.kind) {
+              @case ('create') {
+                Utwórz sprawę
+              }
+              @case ('rename') {
+                Zapisz nazwę
+              }
+              @case ('delete') {
+                Usuń sprawę
+              }
+            }
+          </button>
+          <button matButton="outlined" type="button" [disabled]="pending()" (click)="closeDialog()">
+            Anuluj
+          </button>
+        </div>
+      </form>
+    </div></ng-template
+  >
+}

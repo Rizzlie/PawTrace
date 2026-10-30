@@ -11,6 +11,7 @@ import {
 import { MatMenuModule } from '@angular/material/menu';
 import { CaseStore } from '../case-store/case-store';
 import { Router, RouterLink } from '@angular/router';
+import { returnToCase } from '../return-to-case';
 
 @Component({
   selector: 'pt-case-controls',
@@ -57,17 +58,17 @@ export class CaseControls {
 
   protected cancelReplacement(): void {
     this.state.cancelReplacement();
-    if (!this.state.profileEditor()) void this.router.navigateByUrl('/');
+    if (!this.state.profileEditor()) void returnToCase(this.router, this.state);
   }
 
   protected async resolveTransition(choice: 'save' | 'discard' | 'stay'): Promise<void> {
     const replacing = this.state.candidate() !== null;
     await this.state.resolveEditorTransition(choice);
-    if (replacing && !this.state.profileEditor()) await this.router.navigateByUrl('/');
+    if (replacing && !this.state.profileEditor()) await returnToCase(this.router, this.state);
   }
 
   protected async replaceCase(): Promise<void> {
     await this.state.confirmReplacement();
-    if (!this.state.profileEditor()) await this.router.navigateByUrl('/');
+    if (!this.state.profileEditor()) await returnToCase(this.router, this.state);
   }
 }

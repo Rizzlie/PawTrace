@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { resolve } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
@@ -16,10 +16,8 @@ test.beforeEach(async ({ page }) => {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
-  await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await createCase(page);
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const initial = await exportCase(page);
   initial.mapView.zoom = 15;
   await page.getByLabel('Importuj plik JSON').setInputFiles({
@@ -28,7 +26,8 @@ test.beforeEach(async ({ page }) => {
     buffer: Buffer.from(JSON.stringify(initial)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 });
 async function exportCase(page: Page) {
   await page.getByRole('button', { name: 'Plik JSON', exact: true }).click();
@@ -97,7 +96,8 @@ test('draws a circle from the shared toolbar, preserves a cancelled correction a
     buffer: Buffer.from(JSON.stringify(saved)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   expect((await exportCase(page)).areas).toEqual(saved.areas);
 });
 
@@ -144,7 +144,7 @@ test('keeps area actions in the shared toolbar on a phone and cancels both geome
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const toolbar = page.getByRole('toolbar', { name: 'Działania na mapie' });
   const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
   const size = await map.boundingBox();
@@ -237,7 +237,8 @@ test('keeps repeated search snapshots visible after a plan is edited and removed
     buffer: Buffer.from(JSON.stringify(removed)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   expect((await exportCase(page)).areas).toEqual(removed.areas);
 });
 
@@ -246,7 +247,7 @@ test('records an unplanned polygon on a phone, cancels a correction and keeps re
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.getByRole('button', { name: 'Rozwiń miejsca', exact: true }).click();
   await page.getByRole('button', { name: 'Zapisz przeszukanie bez planu', exact: true }).click();
   await page.getByLabel('Nazwa obszaru', { exact: true }).fill('Obchód bez planu');
@@ -286,7 +287,7 @@ test('records an unplanned polygon on a phone, cancels a correction and keeps re
   await page.getByRole('button', { name: 'Anuluj przeszukanie', exact: true }).click();
   expect((await exportCase(page)).areas).toEqual(saved.areas);
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   expect((await exportCase(page)).areas).toEqual(saved.areas);
   await expect(page.getByRole('button', { name: 'Dodaj punkt', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -305,7 +306,7 @@ test('links one observation to an area check and repairs the link when the obser
   await expect(page.getByRole('dialog')).toContainText(completeFile.case.title);
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const places = page.getByRole('complementary', { name: 'Miejsca', exact: true });
   await places.getByRole('button', { name: 'Park', exact: true }).click();
   await page.getByRole('button', { name: 'Dodaj przeszukanie', exact: true }).click();
@@ -340,6 +341,6 @@ test('links one observation to an area check and repairs the link when the obser
   expect(check).toMatchObject({ result: 'other_or_inconclusive', observationEntryId: null });
   expect(check?.description).toContain('observation-target');
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   expect((await exportCase(page)).areas).toEqual(removed.areas);
 });

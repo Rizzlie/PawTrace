@@ -9,23 +9,19 @@
         state.document()?.animal?.name || state.document()?.case?.title || 'Brak aktywnej sprawy'
       }}</strong
     >
-    <p
-      role="status"
-      aria-label="Stan zapisu"
-      [class.warning]="state.saveStatus() === 'error' || state.saveStatus() === 'unsaved'"
-    >
+    <p role="status" aria-label="Stan zapisu" [class.warning]="state.saveNeedsAttention()">
       @switch (state.saveStatus()) {
         @case ('loading') {
           Odczytywanie sprawy…
         }
         @case ('saved') {
-          Zapisano w przeglądarce
+          Zapisano na serwerze
         }
         @case ('saving') {
-          Zapisywanie zmian…
+          Zapisywanie na serwerze…
         }
         @case ('replacing') {
-          Zapisywanie nowej sprawy…
+          Zapisywanie zastępującej sprawy…
         }
         @case ('unsaved') {
           Niezapisane zmiany — ponów zapis lub wyeksportuj JSON.
@@ -33,8 +29,11 @@
         @case ('error') {
           {{ state.persistence().error }}
         }
+        @case ('conflict') {
+          {{ state.persistence().error }}
+        }
         @case ('empty') {
-          Utwórz sprawę lub wczytaj JSON.
+          Wybierz sprawę z listy lub utwórz nową.
         }
       }
     </p>
@@ -44,7 +43,7 @@
     type="button"
     class="edit-profile"
     [disabled]="state.busy() || !state.document() || !!state.profileEditor()"
-    routerLink="/profile"
+    [routerLink]="state.caseUrl() + '/profile'"
   >
     Edytuj profil
   </button>
@@ -52,7 +51,12 @@
     JSON <span aria-hidden="true">▾</span>
   </button>
   <mat-menu #fileMenu="matMenu" class="pt-file-menu" aria-label="Plik sprawy">
-    <button type="button" mat-menu-item [disabled]="state.busy()" (click)="fileInput.click()">
+    <button
+      type="button"
+      mat-menu-item
+      [disabled]="state.busy() || !state.document()"
+      (click)="fileInput.click()"
+    >
       Importuj JSON
     </button>
     <button
@@ -70,13 +74,12 @@
     type="file"
     accept=".json,application/json"
     aria-label="Importuj plik JSON"
-    [disabled]="state.busy()"
+    [disabled]="state.busy() || !state.document()"
     (change)="importFile($event)"
   />
   @if (
     state.persistence().recovery ||
-    state.saveStatus() === 'error' ||
-    state.saveStatus() === 'unsaved' ||
+    state.saveNeedsAttention() ||
     state.editorDirty() ||
     state.reading() ||
     (state.fileError() && !state.candidate())
@@ -93,7 +96,7 @@
           Ponów odczyt
         </button>
       }
-      @if (state.saveStatus() === 'error' || state.saveStatus() === 'unsaved') {
+      @if (state.saveNeedsAttention() && state.saveStatus() !== 'conflict') {
         <button
           matButton="outlined"
           type="button"
@@ -152,7 +155,7 @@
     ><div class="pt-dialog-content">
       <h2 id="replacement-title">Zastąpienie sprawy</h2>
       <p>
-        Nowa sprawa: <strong>{{ summary.title }}</strong>
+        Dane z pliku: <strong>{{ summary.title }}</strong>
       </p>
       <p>Zwierzę: {{ summary.animal }}</p>
       <dl>
@@ -175,9 +178,10 @@
       </dl>
       @if (state.document()) {
         <p>
-          Ta operacja zastąpi całą obecną sprawę:
+          Ta operacja zastąpi całą zawartość obecnej sprawy:
           <strong>{{ state.document()!.case.title }}</strong
-          >. Sprawy nie zostaną połączone. Przed zastąpieniem możesz wyeksportować aktualne dane.
+          >. Sprawa zachowa swoje miejsce na liście; dane nie zostaną połączone. Przed zastąpieniem
+          możesz wyeksportować aktualne dane.
         </p>
         <button matButton="outlined" type="button" (click)="state.downloadExport()">
           Eksportuj obecną sprawę
@@ -195,13 +199,13 @@
         <p role="alert" class="error">{{ state.fileError() }}</p>
       }
       @if (state.persistence().replacing) {
-        <p role="status">Zapisywanie nowej sprawy…</p>
+        <p role="status">Zapisywanie zastępującej sprawy na serwerze…</p>
       }
       <div class="actions">
         <button
           matButton="outlined"
           type="button"
-          [disabled]="state.busy()"
+          [disabled]="state.busy() || state.saveStatus() === 'conflict'"
           (click)="replaceCase()"
         >
           Zastąp sprawę

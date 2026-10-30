@@ -71,6 +71,8 @@ export function withPhotoProcessing() {
     }),
     withReducer(
       on(
+        persistenceEvents.opened,
+        persistenceEvents.closed,
         persistenceEvents.restored,
         fileEvents.replacementSucceeded,
         fileEvents.replacementFailed,
@@ -131,6 +133,8 @@ export function withPhotoProcessing() {
     withEventHandlers((store, events = inject(Events), server = inject(PhotoServer)) => {
       const resets = () =>
         events.on(
+          persistenceEvents.opened,
+          persistenceEvents.closed,
           persistenceEvents.restored,
           fileEvents.replacementSucceeded,
           fileEvents.replacementFailed,

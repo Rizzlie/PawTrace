@@ -456,6 +456,18 @@ describe('case JSON v1', () => {
     expectFileIssue({ ...minimalFile, animal: { photos: [filename] } }, ['animal', 'photos', 0]);
   });
 
+  it.each(['Zero\u0000bajt', 'Połowa\ud83d znaku', 'Tylko\udc3e dół'])(
+    'rejects text PostgreSQL cannot store faithfully: %j',
+    (title) => {
+      expectFileIssue({ ...minimalFile, case: { ...minimalFile.case, title } }, ['case', 'title']);
+    },
+  );
+
+  it('accepts a valid surrogate pair', () => {
+    const emoji = { ...minimalFile, case: { ...minimalFile.case, title: 'Kot 🐾' } };
+    expect(parseCaseFile(JSON.stringify(emoji)).success).toBe(true);
+  });
+
   it.each([
     'no_animal_or_signs',
     'possible_signs',

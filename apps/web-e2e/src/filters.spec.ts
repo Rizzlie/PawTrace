@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -36,14 +36,15 @@ test.beforeEach(async ({ page }) => {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
+  await createCase(page);
   await page.getByLabel('Importuj plik JSON').setInputFiles({
     name: 'filters.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(imported)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await expandPlaces(page);
 });
 
@@ -123,7 +124,7 @@ for (const width of [1280, 390]) {
     await expect(home).toHaveCount(0);
     expect(await exportCase(page)).toEqual(before);
     await page.reload();
-    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
     expect(await exportCase(page)).toEqual(before);
   });
 }

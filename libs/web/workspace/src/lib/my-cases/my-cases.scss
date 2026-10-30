@@ -1,0 +1,77 @@
+/* Below map messages (501) so transient map alerts stay reachable on narrow screens. */
+:host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 500;
+}
+/* The free middle column between the places column and the right-hand map panels. */
+.catalogue {
+  position: absolute;
+  pointer-events: auto;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 32px));
+  /* Keeps the map centre visible and reachable; the list scrolls inside the panel. */
+  max-height: calc(50% - 40px);
+}
+.heading,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+h2 {
+  font-size: 17px;
+  margin: 0;
+}
+p {
+  color: var(--pt-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.warning {
+  color: var(--pt-warning);
+}
+.error {
+  color: var(--pt-danger);
+}
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+li {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--pt-border);
+}
+li:last-child {
+  border-bottom: 0;
+}
+.case-link {
+  font-weight: 600;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+form {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 700px) {
+  .catalogue {
+    top: auto;
+    bottom: 80px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: 35%;
+    transform: none;
+  }
+}

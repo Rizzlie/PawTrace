@@ -25,9 +25,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'chromium',
-      testIgnore: /authentication\.spec\.ts$/,
+      // Switches provider identities and restarts the host, so it runs alone after authentication.
+      name: 'ownership',
+      testMatch: /my-cases\.spec\.ts$/,
       dependencies: ['authentication'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium',
+      testIgnore: /(authentication|my-cases)\.spec\.ts$/,
+      dependencies: ['ownership'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

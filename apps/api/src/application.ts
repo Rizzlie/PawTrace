@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { json } from 'express';
 import { resolve } from 'node:path';
 import { AppModule } from './app/app.module';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +19,10 @@ export async function createApplication(
     abortOnError: false,
   });
   app.setGlobalPrefix('api');
+  // Complete case documents are JSON transport; every other route keeps the 100 kB default.
+  // Nest omits its own parser once any JSON parser exists, so the default is registered too.
+  app.use('/api/cases', json({ limit: '10mb' }));
+  app.useBodyParser('json');
   app.enableShutdownHooks();
   const settings = app.get(ConfigService<Environment, true>);
   if (new URL(settings.get('PUBLIC_ORIGIN', { infer: true })).protocol === 'https:')

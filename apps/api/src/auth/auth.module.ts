@@ -15,6 +15,7 @@ import type { Environment } from '../app/environment';
 import { Authentication, type AuthenticationDependencies } from './authentication';
 import { AuthenticationGuard } from './auth.guard';
 import { AuthController, ReadinessController } from './auth.controller';
+import { DatabaseConnection } from '../database/database';
 
 @Injectable()
 class SessionMiddleware implements NestMiddleware {
@@ -37,8 +38,8 @@ export class AuthModule implements NestModule {
         SessionMiddleware,
         {
           provide: Authentication,
-          inject: [ConfigService],
-          useFactory: (settings: ConfigService<Environment, true>) =>
+          inject: [ConfigService, DatabaseConnection],
+          useFactory: (settings: ConfigService<Environment, true>, database: DatabaseConnection) =>
             Authentication.create(
               {
                 NODE_ENV: settings.get('NODE_ENV', { infer: true }),
@@ -49,6 +50,7 @@ export class AuthModule implements NestModule {
                 GOOGLE_CLIENT_SECRET: settings.get('GOOGLE_CLIENT_SECRET', { infer: true }),
                 AUTH_EMAIL_ALLOWLIST: settings.get('AUTH_EMAIL_ALLOWLIST', { infer: true }),
               },
+              database.handle,
               dependencies,
             ),
         },

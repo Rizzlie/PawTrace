@@ -3,6 +3,7 @@ import { eventGroup } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
 import type { Basemap, MapViewport } from '@pawtrace/map-engine';
 import type { ProfileDraft } from '../animal-profile/profile-draft';
+import type { SnapshotJob } from '../snapshot-writer';
 import type { ProfileSession } from './case-state';
 
 export const profileEvents = eventGroup({
@@ -49,19 +50,29 @@ export const fileEvents = eventGroup({
     cancelled: type<{ request: number }>(),
     failed: type<{ request: number; error: string }>(),
     replacementRequested: type<{ request: number }>(),
-    replacementSucceeded: type<{ request: number; document: CaseDocument }>(),
-    replacementFailed: type<{ request: number }>(),
+    replacementSucceeded: type<{ request: number; document: CaseDocument; version: number }>(),
+    replacementFailed: type<{
+      request: number;
+      conflict: boolean;
+      unresolved: SnapshotJob | null;
+    }>(),
   },
 });
 
 export const persistenceEvents = eventGroup({
   source: 'Case persistence',
   events: {
-    restoreRequested: type<void>(),
-    restored: type<{ document: CaseDocument | null; recovery: string }>(),
-    writeStarted: type<void>(),
-    writeSucceeded: type<{ revision: number; generation: number }>(),
-    writeFailed: type<void>(),
+    opened: type<{ caseId: string; generation: number }>(),
+    closed: type<void>(),
+    restored: type<{
+      generation: number;
+      document: CaseDocument | null;
+      version: number | null;
+      recovery: string;
+    }>(),
+    writeStarted: type<{ generation: number }>(),
+    writeSucceeded: type<{ revision: number; generation: number; version: number }>(),
+    writeFailed: type<{ generation: number; conflict: boolean; unresolved: SnapshotJob | null }>(),
     retryRequested: type<void>(),
   },
 });

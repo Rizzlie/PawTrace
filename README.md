@@ -6,7 +6,7 @@ PawTrace is a map-based workspace for organizing the search for a missing pet. I
 
 ## Project status
 
-P01 adds Google login and PostgreSQL-backed sessions for the private shell. It remains **blocked for acceptance** until the separate live-Google smoke check is recorded. This branch is an incomplete private integration: ownerless photo endpoints are denied, and private case persistence/photo ownership/account-keyed recovery arrive in P02–P04. Follow the [P01 runtime and verification notes](docs/post-mvp/p01-authentication.md) before using the historical MVP runbook below; anonymous startup instructions no longer describe this branch.
+P01 adds Google login and PostgreSQL-backed sessions, and P02 adds private cases stored in PostgreSQL/PostGIS. This is an incomplete private integration: ownerless photo endpoints are denied, and photo ownership and account-keyed recovery arrive in P03–P04. Follow the [P01 runtime and verification notes](docs/post-mvp/p01-authentication.md) before using the historical MVP runbook below; anonymous startup instructions no longer describe this branch.
 
 The desktop MVP (implementation tasks F01–F15) is complete: Angular/NestJS Docker runtime, OSM/Mapbox map, submitted address search, strict JSON v1 contract, browser autosave/transfer, animal profile, named points and history, planned search areas and actual-search snapshots, persistent original photos with thumbnails and HEIC previews, photo attachments, and context-preserving filters. F15 verified the complete flow and its failure paths; see the [runbook](#runbook) and [known limitations](#known-tested-limitations).
 
@@ -27,15 +27,15 @@ AI analysis and suggested search locations are planned for a later stage. Databa
 
 ## Architecture
 
-| Area                | Technology / responsibility                                       |
-| ------------------- | ----------------------------------------------------------------- |
-| Workspace           | Nx                                                                |
-| Frontend            | Angular, Signals, and Signal Forms                                |
-| Map                 | Leaflet with an isolated map adapter                              |
-| Backend             | NestJS with Express for photo assets and the address-search proxy |
-| Case contract       | Shared TypeScript models inferred from strict Zod schemas         |
-| Browser persistence | IndexedDB through `idb`; complete document snapshots              |
-| Local runtime       | Linux containers through Docker Compose                           |
+| Area             | Technology / responsibility                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| Workspace        | Nx                                                                |
+| Frontend         | Angular, Signals, and Signal Forms                                |
+| Map              | Leaflet with an isolated map adapter                              |
+| Backend          | NestJS with Express for photo assets and the address-search proxy |
+| Case contract    | Shared TypeScript models inferred from strict Zod schemas         |
+| Case persistence | PostgreSQL/PostGIS through the owned case API                     |
+| Local runtime    | Linux containers through Docker Compose                           |
 
 One application-state service owns committed case data, UI state, editor drafts, and save status. Only the committed document is persisted and exported. Photos remain server assets referenced by filename in the case file.
 
@@ -87,11 +87,11 @@ None of these touches case or photo data. `down`, recreation and rebuilds keep t
 
 ### Where data lives
 
-| Data                   | Location                                                                | Notes                                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| The case               | Browser IndexedDB for this origin (for example `http://localhost:8080`) | One case per browser profile and origin. Changing `APP_PORT` or the browser profile starts empty; use JSON transfer. |
-| Photos and derivatives | `ASSET_DIRECTORY` on the host (default `./data/assets`)                 | One UUID directory per original, with `metadata.json`, thumbnail and preview.                                        |
-| Address-search cache   | Docker volume `<project>_redis-data`                                    | Disposable cache only; not part of a backup.                                                                         |
+| Data                   | Location                                                | Notes                                                                         |
+| ---------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Cases                  | PostgreSQL/PostGIS Docker volume                        | Private to the signed-in owner; the same cases open from any browser.         |
+| Photos and derivatives | `ASSET_DIRECTORY` on the host (default `./data/assets`) | One UUID directory per original, with `metadata.json`, thumbnail and preview. |
+| Address-search cache   | Docker volume `<project>_redis-data`                    | Disposable cache only; not part of a backup.                                  |
 
 ### Backup
 

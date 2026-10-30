@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { expect, type Page } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -14,7 +14,7 @@ async function exportCase(page: Page) {
   return caseFileSchema.parse(JSON.parse(Buffer.concat(chunks).toString()));
 }
 async function selectHome(page: Page) {
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const toggle = page.getByRole('button', { name: /^(Rozwiń|Zwiń) miejsca$/ });
   await expect(toggle).toBeVisible();
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }) => {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>',
     }),
   );
-  await page.goto('/');
+  await createCase(page);
   await page.getByLabel('Importuj plik JSON').setInputFiles({
     name: 'history.json',
     mimeType: 'application/json',
@@ -52,6 +52,7 @@ test.beforeEach(async ({ page }) => {
     ),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
   await selectHome(page);
 });
 
@@ -93,7 +94,7 @@ test('records sighting, food placement, food present and food gone; reloads and 
     'Szukane: 1',
   );
   await expect(page.getByRole('heading', { name: 'Nieznany czas', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await page.reload();
   await selectHome(page);
   expect((await exportCase(page)).points).toEqual(saved.points);
@@ -103,6 +104,7 @@ test('records sighting, food placement, food present and food gone; reloads and 
     buffer: Buffer.from(JSON.stringify(saved)),
   });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
   expect((await exportCase(page)).points).toEqual(saved.points);
 });
 

@@ -17,7 +17,7 @@ module.exports = {
       tsConfig: './tsconfig.app.json',
       assets: [
         './src/assets',
-        { input: './src/auth/migrations', glob: '**/*', output: 'migrations' },
+        { input: './src/database/migrations', glob: '**/*', output: 'migrations' },
       ],
       optimization: false,
       outputHashing: 'none',

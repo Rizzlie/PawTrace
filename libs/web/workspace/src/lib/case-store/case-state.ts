@@ -6,6 +6,7 @@ import type { Basemap } from '@pawtrace/map-engine';
 import type { PointSession } from '../point-workspace/point-draft';
 import type { AreaSession } from '../area-workspace/area-draft';
 import type { PhotoRead } from '../photos/photo-metadata';
+import type { SnapshotJob } from '../snapshot-writer';
 import { defaultCaseFilter, type CaseFilter } from '../filters/case-filter';
 
 export interface ProfileSession {
@@ -38,19 +39,32 @@ export interface CaseState {
     replacement: number | null;
   };
   persistence: {
+    /** Server identity of the open case; `null` in the catalogue. */
+    caseId: string | null;
+    /** Last version acknowledged by the server; mutations are based on it. */
+    serverVersion: number | null;
+    /** A save whose response was lost; it is replayed with its key before anything newer. */
+    unresolved: SnapshotJob | null;
     initialized: boolean;
     revision: number;
     savedRevision: number;
     generation: number;
     writing: boolean;
     replacing: boolean;
+    /** The server rejected a write based on an outdated version; local data is retained. */
+    conflict: boolean;
     error: string;
     recovery: string;
   };
 }
 
 /** A fresh local session; restoring a snapshot does not create a case edit. */
-export function createCaseState(document: CaseDocument | null = null, generation = 0): CaseState {
+export function createCaseState(
+  document: CaseDocument | null = null,
+  generation = 0,
+  caseId: string | null = document?.case.id ?? null,
+  serverVersion: number | null = null,
+): CaseState {
   return {
     document,
     photoReads: {},
@@ -71,12 +85,16 @@ export function createCaseState(document: CaseDocument | null = null, generation
       replacement: null,
     },
     persistence: {
+      caseId,
+      serverVersion,
+      unresolved: null,
       initialized: document !== null,
       revision: 0,
       savedRevision: 0,
       generation,
       writing: false,
       replacing: false,
+      conflict: false,
       error: '',
       recovery: '',
     },
@@ -86,6 +104,7 @@ export function createCaseState(document: CaseDocument | null = null, generation
 export function saveStatus({ document, persistence }: Pick<CaseState, 'document' | 'persistence'>) {
   if (!persistence.initialized) return 'loading';
   if (persistence.replacing) return 'replacing';
+  if (persistence.conflict) return 'conflict';
   if (persistence.error) return 'error';
   if (persistence.writing) return 'saving';
   if (persistence.revision !== persistence.savedRevision) return 'unsaved';

@@ -1,4 +1,4 @@
-import { test } from './fixtures';
+import { test, createCase } from './fixtures';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { caseFileSchema, type CaseFile } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
@@ -50,17 +50,16 @@ function withoutExportTime({ exportedAt, ...document }: CaseFile) {
   return document;
 }
 
-async function replaceCase(page: Page, file?: unknown) {
-  await expect(page.getByLabel('Stan zapisu')).not.toHaveText('Zapisywanie…');
-  if (file)
-    await page.getByLabel('Importuj plik JSON').setInputFiles({
-      name: 'acceptance.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify(file)),
-    });
-  else await page.getByRole('button', { name: 'Nowa sprawa', exact: true }).click();
+async function replaceCase(page: Page, file: unknown) {
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  await page.getByLabel('Importuj plik JSON').setInputFiles({
+    name: 'acceptance.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(file)),
+  });
   await page.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByRole('dialog', { name: 'Zastąpienie sprawy' })).toBeHidden();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
@@ -108,8 +107,7 @@ test.fixme('[P03 ownership required] completes the desktop MVP flow from an empt
     throw error;
   });
   await controlProviders(context);
-  await page.goto('/');
-  await replaceCase(page);
+  await createCase(page);
   const map = page.getByRole('region', { name: 'Mapa poszukiwań' });
 
   // An incomplete profile is enough; the rest can be completed later.
@@ -223,7 +221,7 @@ test.fixme('[P03 ownership required] completes the desktop MVP flow from an empt
   await page.getByRole('button', { name: 'Zapisz obszar', exact: true }).click();
   await expect(page.getByLabel('Nazwa obszaru', { exact: true })).toBeHidden();
 
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const created = await exportCase(page);
   const [home, shed] = created.points;
   expect(created.animal?.name).toBe('Luna');
@@ -289,9 +287,14 @@ test.fixme('[P03 ownership required] completes the desktop MVP flow from an empt
 
   // Browser restoration, then a full replacement round-trip through the exported file.
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   expect(withoutExportTime(await exportCase(page))).toEqual(withoutExportTime(created));
-  await replaceCase(page);
+  await replaceCase(page, {
+    ...filtered,
+    case: { ...filtered.case, escape: { ...filtered.case.escape, escapePointId: null } },
+    points: [],
+    areas: [],
+  });
   expect((await exportCase(page)).points).toEqual([]);
   await replaceCase(page, filtered);
   expect(withoutExportTime(await exportCase(page))).toEqual(withoutExportTime(created));
@@ -311,7 +314,7 @@ test('keeps the restored case usable and exportable while every external provide
     throw error;
   });
   await controlProviders(context);
-  await page.goto('/');
+  await createCase(page);
   await replaceCase(page, completeFile);
   // Page routes take precedence over the controlled context responses.
   await page.route('**/api/map-config', (route) =>
@@ -327,12 +330,14 @@ test('keeps the restored case usable and exportable while every external provide
     route.fulfill({ status: 404, json: { message: 'Zdjęcie niedostępne' } }),
   );
   await page.reload();
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   await expect(page.getByText('Nie udało się pobrać mapy OSM.', { exact: false })).toBeVisible();
   await expect(
     page.getByText('Nie udało się pobrać konfiguracji satelity.', { exact: false }),
   ).toBeVisible();
   const restored = await exportCase(page);
+  // The open server case keeps its identity; every imported field is preserved.
+  restored.case.id = completeFile.case.id;
   expect(withoutExportTime(restored)).toEqual(
     withoutExportTime(caseFileSchema.parse(completeFile)),
   );
@@ -356,7 +361,7 @@ test('keeps the restored case usable and exportable while every external provide
   ).toBeVisible();
   await page.getByRole('button', { name: 'Anuluj edycję', exact: true }).click();
 
-  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
   const changed = await exportCase(page);
   expect(changed.points.map((point) => point.name)).toEqual([
     ...completeFile.points.map((point) => point.name),

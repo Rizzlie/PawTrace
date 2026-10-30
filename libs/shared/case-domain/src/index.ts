@@ -20,3 +20,5 @@ export {
   type AreaCheck,
   type SearchResult,
 } from './lib/history-entry';
+export { createEmptyCase } from './lib/new-case';
+export { textSchema, timeZoneSchema } from './lib/case-values';

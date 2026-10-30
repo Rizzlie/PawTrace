@@ -1,36 +1,6 @@
 import type { CaseDocument } from '@pawtrace/case-domain';
 import type { MapViewport } from '@pawtrace/map-engine';
 
-export function createCaseDocument(): CaseDocument {
-  const now = new Date().toISOString();
-  return {
-    schemaVersion: 1,
-    case: {
-      id: crypto.randomUUID(),
-      title: 'Nowa sprawa',
-      createdAt: now,
-      updatedAt: now,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      escape: {
-        occurredAt: { kind: 'unknown', description: null },
-        escapePointId: null,
-        description: null,
-        directionOfTravel: null,
-        familiarWithLocation: null,
-      },
-    },
-    animal: null,
-    points: [],
-    areas: [],
-    assets: [],
-    mapView: {
-      center: { latitude: 52.1, longitude: 19.4 },
-      zoom: 6,
-      basemap: 'osm',
-    },
-  };
-}
-
 export function summarizeCase(document: CaseDocument | null) {
   if (!document) return null;
   const { case: metadata, animal, points, areas, assets } = document;
