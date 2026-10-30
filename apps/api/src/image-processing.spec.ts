@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { createApplication } from './application';
+import { createApplication } from '../tests/adapter-application';
 
 describe('photo derivatives over HTTP', () => {
   let app: NestExpressApplication;

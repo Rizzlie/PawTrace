@@ -96,7 +96,9 @@ async function saveEntry(page: Page) {
   await expect(page.getByRole('button', { name: 'Zapisz wpis', exact: true })).toBeHidden();
 }
 
-test('completes the desktop MVP flow from an empty case through photos, filters, reload and JSON transfer', async ({
+// The legacy anonymous photo-publication flow is superseded by P01 denial.
+// Restore this integrated acceptance scenario with the owned photo implementation in P03.
+test.fixme('[P03 ownership required] completes the desktop MVP flow from an empty case through photos, filters, reload and JSON transfer', async ({
   page,
   context,
   request,

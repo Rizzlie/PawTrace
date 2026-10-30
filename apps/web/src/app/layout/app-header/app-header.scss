@@ -1,6 +1,22 @@
 :host {
   display: block;
 }
+.account-trigger {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.account-trigger:focus-visible {
+  outline: 2px solid var(--pt-primary);
+  outline-offset: 4px;
+}
+.account-email {
+  margin: 8px 16px;
+  overflow-wrap: anywhere;
+}
 mat-toolbar {
   display: flex;
   align-items: center;

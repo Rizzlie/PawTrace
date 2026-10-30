@@ -65,22 +65,28 @@ async function importCase(page: Page, file: unknown) {
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano w przeglądarce');
 }
 
-test('reports unsupported uploads without losing profile text', async ({ page }) => {
+test('denies ownerless uploads without losing profile text', async ({ page }) => {
   await start(page);
   await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
   await page.getByLabel('Imię', { exact: true }).fill('Zachowany profil');
+  const denied = page.waitForResponse(
+    (response) => response.url().endsWith('/api/assets') && response.request().method() === 'POST',
+  );
   await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
     name: 'kot.png',
     mimeType: 'image/png',
     buffer: Buffer.from('invalid image for controlled failure'),
   });
-  await expect(page.getByText('Nieobsługiwany format.', { exact: false })).toBeVisible();
+  expect((await denied).status()).toBe(404);
+  await expect(page.getByText('Nie zapisano pliku.', { exact: false })).toBeVisible();
   await expect(page.getByLabel('Imię', { exact: true })).toHaveValue('Zachowany profil');
   await page.getByRole('button', { name: 'Zapisz profil', exact: true }).click();
   await expect(page.getByText('Zachowany profil', { exact: true })).toBeVisible();
 });
 
-test('uploads originals, views thumbnails, transfers profile metadata and resolves an older export after unlinking', async ({
+// P01 intentionally denies every ownerless photo. Restore this acceptance scenario
+// with the owner-authorized photo routes in P03; isolated storage tests remain active.
+test.fixme('[P03 ownership required] uploads originals, views thumbnails, transfers profile metadata and resolves an older export after unlinking', async ({
   page,
   request,
 }) => {
@@ -301,7 +307,7 @@ test('confirms an incomplete successful upload response without posting the file
   expect(uploads).toBe(1);
 });
 
-test('attaches photos to all point-entry types and area checks without duplicating their event data', async ({
+test.fixme('[P03 ownership required] attaches photos to all point-entry types and area checks without duplicating their event data', async ({
   page,
 }) => {
   await start(page);

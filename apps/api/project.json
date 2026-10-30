@@ -5,6 +5,27 @@
   "projectType": "application",
   "tags": ["platform:api", "scope:app", "type:app"],
   "targets": {
+    "db-generate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": { "cwd": "apps/api", "command": "drizzle-kit generate --config=drizzle.config.ts" }
+    },
+    "test": { "cache": false },
+    "test-ci": { "cache": false },
+    "test-ci--src/authentication.spec.ts": { "cache": false },
+    "auth-test-build": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsc -p apps/api/tsconfig.auth-test.json && node tools/copy-auth-test-migrations.mjs"
+      }
+    },
+    "auth-test-host": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["auth-test-build", "web:build"],
+      "options": { "command": "node dist/auth-test/tests/browser-host.js" }
+    },
     "verify-images": {
       "executor": "nx:run-commands",
       "cache": false,

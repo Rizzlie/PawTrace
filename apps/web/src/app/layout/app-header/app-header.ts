@@ -1,5 +1,7 @@
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
+import { Session } from '../../session';
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -17,12 +19,13 @@ import { helpOutlineIcon } from './help-icon';
 
 @Component({
   selector: 'app-header',
-  imports: [MatToolbarModule, MatButtonModule, Brand, MatIcon],
+  imports: [MatToolbarModule, MatButtonModule, MatMenuModule, Brand, MatIcon],
   templateUrl: './app-header.html',
   styleUrl: './app-header.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppHeader {
+  protected readonly session = inject(Session);
   private readonly helpDialog = viewChild<TemplateRef<unknown>>('helpDialog');
   protected readonly helpOpen = signal(false);
 

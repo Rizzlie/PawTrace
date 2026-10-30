@@ -1,9 +1,10 @@
-import { test } from './fixtures';
+import { authenticate, test } from './fixtures';
 import { expect, type Page, type BrowserContext } from '@playwright/test';
 import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
 
 async function configureMap(context: BrowserContext, satelliteAvailable = false) {
+  await authenticate(context);
   await context.addInitScript(() => localStorage.setItem('pawtrace.map-help.seen.v1', 'true'));
   await context.route('**/api/map-config', (route) =>
     route.fulfill({

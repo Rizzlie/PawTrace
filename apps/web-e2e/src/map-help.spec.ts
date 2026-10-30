@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { authenticatedTest as test } from './fixtures';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/map-config', (route) => route.fulfill({ json: { mapboxToken: '' } }));

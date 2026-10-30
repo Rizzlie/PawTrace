@@ -10,6 +10,13 @@ const tileUrl = z.union([
     .refine((value) => !value.startsWith('//')),
 ]);
 const environmentSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  DATABASE_URL: z.union([z.literal(''), z.url({ protocol: /^postgres(ql)?$/u })]).default(''),
+  SESSION_SECRET: z.string().default(''),
+  GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().default(''),
+  PUBLIC_ORIGIN: httpUrl.default('http://127.0.0.1:4200'),
+  AUTH_EMAIL_ALLOWLIST: z.string().default(''),
   API_HOST: z.string().trim().min(1).default('127.0.0.1'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   WEB_ROOT: z.string().default(''),
@@ -41,6 +48,28 @@ export function validateEnvironment(input: Record<string, unknown>): Environment
     throw new Error(
       `Invalid API configuration: ${[...new Set(parsed.error.issues.map((issue) => issue.path.join('.')))].join(', ')}`,
     );
+  }
+  const env = parsed.data;
+  if (
+    (env.DATABASE_URL || env.NODE_ENV === 'production') &&
+    (!env.DATABASE_URL ||
+      env.SESSION_SECRET.length < 32 ||
+      !env.GOOGLE_CLIENT_ID ||
+      !env.GOOGLE_CLIENT_SECRET)
+  ) {
+    throw new Error(
+      'Authentication requires DATABASE_URL, SESSION_SECRET (32+ characters), GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET',
+    );
+  }
+  const origin = new URL(env.PUBLIC_ORIGIN);
+  if (
+    origin.origin !== env.PUBLIC_ORIGIN ||
+    origin.username ||
+    origin.password ||
+    (env.NODE_ENV === 'production' && origin.protocol !== 'https:') ||
+    (origin.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname))
+  ) {
+    throw new Error('PUBLIC_ORIGIN must be an HTTPS origin (loopback HTTP allowed in development)');
   }
   return parsed.data;
 }

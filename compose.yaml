@@ -2,6 +2,8 @@ services:
   pawtrace:
     build: .
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     init: true
@@ -11,6 +13,12 @@ services:
       - '${ASSET_DIRECTORY:-./data/assets}:/app/data/assets'
     environment:
       ASSET_DIRECTORY: /app/data/assets
+      DATABASE_URL: postgres://pawtrace:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/pawtrace
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN to an HTTPS origin}
+      AUTH_EMAIL_ALLOWLIST: ${AUTH_EMAIL_ALLOWLIST:-}
       IMAGE_PROCESSING_TIMEOUT_MS: ${IMAGE_PROCESSING_TIMEOUT_MS:-60000}
       REDIS_URL: redis://redis:6379
       MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-}
@@ -28,12 +36,27 @@ services:
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:3000/api/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s
       start_period: 10s
       retries: 3
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: pawtrace
+      POSTGRES_DB: pawtrace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pawtrace -d pawtrace']
+      interval: 5s
+      timeout: 3s
+      retries: 10
   redis:
     image: redis:7.4.6-alpine
     ports:
@@ -57,4 +80,5 @@ services:
       retries: 5
 
 volumes:
+  postgres-data:
   redis-data:
