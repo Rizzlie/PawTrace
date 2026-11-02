@@ -1,6 +1,6 @@
 # P01 authentication runtime and verification
 
-P01 is an incomplete private integration. It does not deliver P02 case persistence, P03 photo ownership or P04 account-keyed local recovery. The former ownerless `/api/assets` URLs (uploads, metadata, retry, original, preview and thumbnail) remain inaccessible even to signed-in users; P03 serves photos only under `/api/cases/:caseId/assets`. Nothing automatically claims anonymous files. Keep the instance private until P10 acceptance.
+These notes describe P01 authentication in the current incomplete private integration. P01–P03 are merged into `main`, including private relational case persistence and case-owned photos. P04 account-keyed local recovery remains planned. The former ownerless `/api/assets` URLs (uploads, metadata, retry, original, preview and thumbnail) remain inaccessible even to signed-in users; P03 serves photos only under `/api/cases/:caseId/assets`. Nothing automatically claims anonymous files. Keep the instance private until P10 acceptance.
 
 ## Technology and module interface
 
