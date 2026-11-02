@@ -1,6 +1,6 @@
 # PawTrace after MVP
 
-Status: product scope, [specification](spec.md), [task breakdown](tasks/README.md), blocking edges and testing seams accepted by the user. The user selected repository documents as the tracker. Application implementation has not started and requires a separate task instruction.
+Status: product scope, [specification](spec.md), [task breakdown](tasks/README.md), blocking edges and testing seams accepted by the user. The user selected repository documents as the tracker. P01–P03 are merged into `main`; P04–P10 remain planned. P04, P06 and P09 are eligible to start; see the task breakdown for delivery evidence and remaining dependencies. Each implementation task still requires a separate instruction.
 
 ## Confirmed boundaries
 
@@ -28,7 +28,9 @@ Status: product scope, [specification](spec.md), [task breakdown](tasks/README.m
 - Limit design work to light visual polish, including spacing. A redesign or mobile-specific expansion has not been requested.
 - Continue using Docker Compose for the shared deployment. No hosting/server has been selected; hosting selection and public deployment are deferred.
 
-## Existing behavior relevant to the change
+## MVP baseline recorded during planning
+
+This section records the pre-P01 baseline, not the current application. P01–P03 replace its authentication, case persistence and photo-access behavior.
 
 - IndexedDB holds one current case per browser profile and origin.
 - JSON import replaces the current case; export contains committed case data.
@@ -44,7 +46,7 @@ Status: product scope, [specification](spec.md), [task breakdown](tasks/README.m
 - Select concrete spacing adjustments in the existing interface without redesigning its layout.
 - Keep hosting selection and public deployment deferred. No merge mode, guest mode, shared editing, full offline startup, or offline creation/deletion/import is included.
 
-The user requires every task to include Assumptions and sources; Scope; Acceptance criteria; Verification steps; Discussion topics and decision record; Scope boundaries; Delivery and review record. After reviewing the ten-task breakdown and testing approach, the user explicitly accepted them. Application code has not been changed.
+The user requires every task to include Assumptions and sources; Scope; Acceptance criteria; Verification steps; Discussion topics and decision record; Scope boundaries; Delivery and review record. After reviewing the ten-task breakdown and testing approach, the user explicitly accepted them. At the time of planning, application code had not been changed; the current delivery status is recorded at the top of this document.
 
 ## Authentication reference findings
 

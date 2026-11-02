@@ -1,7 +1,7 @@
 # P04 — Durable offline autosave and account-safe recovery
 
 Status: planned; implementation not started.
-Blocked by: P02 — Private case catalogue and relational save.
+Blocked by: none remaining; P02 — Private case catalogue and relational save is merged through [PR #21](https://github.com/Rizzlie/PawTrace/pull/21).
 
 ## Assumptions and sources
 

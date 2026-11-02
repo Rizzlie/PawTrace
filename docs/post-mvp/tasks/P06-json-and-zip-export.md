@@ -1,7 +1,7 @@
 # P06 — Complete JSON and ZIP export
 
 Status: planned; implementation not started.
-Blocked by: P03 — Private case photos.
+Blocked by: none remaining; P03 — Private case photos is merged through [PR #22](https://github.com/Rizzlie/PawTrace/pull/22), with acceptance verified.
 
 ## Assumptions and sources
 
