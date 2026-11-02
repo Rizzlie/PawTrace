@@ -52,6 +52,8 @@ P02 update: committed documents now persist to the owned-case server API through
 
 P03 update: photo requests are scoped to the open server case (`/api/cases/:caseId/assets`). Uploads carry their `PhotoTarget` (case, session generation, editor), so a late result cannot attach to another case or editor, and the file input is disabled offline with an explanation. A queued job that reaches its turn offline sends nothing and ends as a retryable failure. Every editor (profile, point, history entry, area, area check) owns an isolated photo draft through the same `pt-photo-gallery`. Decisions: [P03 record](../post-mvp/tasks/P03-private-case-photos.md).
 
+P04 update: `DurableCaseStorage` checkpoints every committed revision through `CaseCopies` before server synchronization. Native strict IndexedDB transactions retain independent owner/case/tab branches, outstanding mutation keys and logout epochs; the legacy anonymous database stays untouched. Store state distinguishes local and server acknowledgements and persistent device failures. Web Locks protect tab identities and synchronize server requests; divergent branches pause with JSON export available. Expiry retains copies; confirmed, acknowledged server logout fences all tabs and clears them, with an independent cleanup intent that keeps access closed on failure. See [P04 decisions and verification](../post-mvp/tasks/P04-offline-autosave-and-account-recovery.md). The remaining MVP-oriented paragraphs describe the original replacement seam; the P04 adapter now supplies local durability plus server transport behind it.
+
 Use IndexedDB through a small `idb` adapter to retain one complete plain-object document snapshot in one transaction. Acknowledge persistence only after transaction completion. Local storage representation remains JSON-compatible and restoration must validate it; IndexedDB storage itself does not establish contract validity.
 
 A supported imported file passes syntax, strict Zod validation and domain checks before replacement confirmation. Its candidate snapshot must then be stored successfully before activating it in `CaseStore.document`. Failed replacement leaves the existing case active and its successful snapshot intact.
@@ -74,7 +76,7 @@ Capture the document, revision, and case-session generation together. A successf
 
 On autosave failure, preserve current memory and the previous successful stored snapshot. Keep the writer recoverable, expose explicit retry and export, and retry on the next committed change. There is no continuous background retry timer. Import/new-case replacement uses the same writer and the confirmed transition rules above.
 
-A map move commits to the document at once, but its save waits until the map has been quiet for `MAP_VIEW_SETTLE_MS` (2 s), shown as saving. A committed edit or basemap change saves immediately and carries the waiting view, and leaving a case flushes it. A reload inside that window loses only the last map position.
+A map move commits to the document and P04 local checkpoint at once; its server save waits until the map has been quiet for `MAP_VIEW_SETTLE_MS` (2 s). A committed edit or basemap change sends immediately and carries the waiting view. Leaving a case waits for the local transaction, retaining the server queue rather than requiring connectivity. Device failure keeps the current memory/export and blocks leaving until recovery.
 
 ## Interfaces and command flow
 

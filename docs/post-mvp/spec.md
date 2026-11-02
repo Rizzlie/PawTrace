@@ -1,6 +1,6 @@
 # PawTrace — shared-instance release
 
-Status: product scope, specification, task breakdown, blocking edges and testing seams accepted by the user. P01–P03 are merged into `main`; P04–P10 remain planned. See the [task tracker](tasks/README.md) for delivery evidence and dependencies. The shared-instance release remains incomplete; P10 acceptance and public deployment are still pending.
+Status: product scope, specification, task breakdown, blocking edges and testing seams accepted by the user. P01–P03 are merged into `main`; P04 is implemented and verified on its task branch with parent reviews pending and is not merged; P05–P10 remain planned. See the [task tracker](tasks/README.md) for delivery evidence and dependencies. The shared-instance release remains incomplete; P10 acceptance and public deployment are still pending.
 
 ## Problem Statement
 
