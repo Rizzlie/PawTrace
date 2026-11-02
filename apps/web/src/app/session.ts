@@ -6,7 +6,8 @@ import {
   httpResource,
   type HttpInterceptorFn,
 } from '@angular/common/http';
-import { firstValueFrom, tap, timeout } from 'rxjs';
+import { firstValueFrom, tap, timeout, filter, take } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { z } from 'zod';
 
 const user = z.object({ id: z.uuid(), email: z.email() });
@@ -34,6 +35,17 @@ export class Session {
       : undefined,
   );
   readonly loading = this.identity.isLoading;
+  private readonly authentication = toObservable(
+    computed(() => (this.loading() ? null : !!this.user())),
+  );
+  ready(): Promise<boolean> {
+    return firstValueFrom(
+      this.authentication.pipe(
+        filter((value): value is boolean => value !== null),
+        take(1),
+      ),
+    );
+  }
   private readonly logoutFailed = signal(false);
   readonly failed = this.logoutFailed.asReadonly();
   readonly expired = computed(() => {

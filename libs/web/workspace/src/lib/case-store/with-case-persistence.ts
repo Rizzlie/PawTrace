@@ -184,13 +184,14 @@ export function withCasePersistence() {
           .then(() => storage.retryPending?.(store.persistence().caseId))
           .catch(() => undefined);
         if (identity) {
-          let observedIdentity = `${identity.owner()}:${identity.generation()}`;
+          let owner = identity.owner();
+          let generation = identity.generation();
           effect(() => {
-            const next = `${identity.owner()}:${identity.generation()}`;
-            if (next !== observedIdentity) {
-              observedIdentity = next;
-              dispatch.closed();
-            }
+            const nextOwner = identity.owner();
+            const nextGeneration = identity.generation();
+            if (nextGeneration !== generation || (owner && owner !== nextOwner)) dispatch.closed();
+            owner = nextOwner;
+            generation = nextGeneration;
           });
         }
         const writer = new SnapshotWriter(

@@ -5,6 +5,7 @@ import type { CaseDocument } from '@pawtrace/case-domain';
 export const CASE_IDENTITY = new InjectionToken<{
   owner(): string | undefined;
   generation(): number;
+  ready?(): Promise<boolean>;
 }>('CASE_IDENTITY');
 
 export interface LocalAttempt {

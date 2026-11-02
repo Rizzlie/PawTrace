@@ -1,4 +1,5 @@
-import { createEnvironmentInjector, EnvironmentInjector } from '@angular/core';
+import { createEnvironmentInjector, EnvironmentInjector, signal } from '@angular/core';
+import { CASE_IDENTITY } from '@pawtrace/browser-persistence';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -150,6 +151,17 @@ it('rejects an invalid offline case name before it changes committed data or its
   await state.renameCase('Invalid\u0000name');
   expect(JSON.parse(await state.exportJson()).case.title).toBe(original);
   expect(state.persistence().revision).toBe(0);
+});
+
+it('does not treat initial identity resolution as an account switch that clears the open case', async () => {
+  const owner = signal<string | undefined>(undefined);
+  TestBed.overrideProvider(CASE_IDENTITY, { useValue: { owner, generation: () => 0 } });
+  const { state } = await setup();
+  TestBed.tick();
+  owner.set('first-authenticated-owner');
+  TestBed.tick();
+  expect(state.document()?.case.id).toBe(file.case.id);
+  expect(state.saveStatus()).toBe('saved');
 });
 
 it('attaches stored originals only to their editor, preserves newer text and commits photos explicitly', async () => {

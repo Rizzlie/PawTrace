@@ -450,3 +450,23 @@ test('renames a cached case offline through the durable committed queue', async 
     .poll(async () => (await (await context.request.get('/api' + path)).json()).document.case.title)
     .toBe('Nazwa zapisana offline');
 });
+
+test('restores the routed case after a delayed initial identity response', async ({ page }) => {
+  const path = await createCase(page, 'Opóźniona tożsamość');
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/auth/me', async (route) => {
+    const response = await route.fetch();
+    await held;
+    await route.fulfill({ response });
+  });
+  await page.reload();
+  await expect(page.getByText('Sprawdzanie sesji…', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mapa poszukiwań' })).toHaveCount(0);
+  release();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  await expect(page).toHaveURL(new RegExp(path + '$'));
+  expect((await exported(page)).case.title).toBe('Opóźniona tożsamość');
+});

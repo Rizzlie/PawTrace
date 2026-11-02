@@ -32,6 +32,12 @@ export class DurableCaseStorage extends CaseStorage {
   private scope(): Promise<Scope> {
     const owner = this.identity.owner();
     const generation = this.identity.generation();
+    if (!owner && this.identity.ready)
+      return this.identity.ready().then((authenticated) => {
+        if (!authenticated || generation !== this.identity.generation() || !this.identity.owner())
+          throw new CopyFenced();
+        return this.scope();
+      });
     if (!owner) return Promise.reject(new CopyFenced());
     const key = owner + ':' + generation;
     let scope = this.scopes.get(key);

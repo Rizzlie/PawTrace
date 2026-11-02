@@ -18,7 +18,11 @@ export const appConfig: ApplicationConfig = {
       provide: CASE_IDENTITY,
       useFactory: () => {
         const session = inject(Session);
-        return { owner: () => session.user()?.id, generation: session.generation };
+        return {
+          owner: () => session.user()?.id,
+          generation: session.generation,
+          ready: () => session.ready(),
+        };
       },
     },
     {
