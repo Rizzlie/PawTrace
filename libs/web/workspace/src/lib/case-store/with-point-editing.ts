@@ -1,5 +1,6 @@
 import { observationCounts } from '@pawtrace/case-domain/history';
 import { computed } from '@angular/core';
+import { applyResolvedPhotoAssets, hasResolvedPhotoChanges } from '../photos/photo-draft';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
@@ -223,6 +224,7 @@ export function withPointEditing() {
               return false;
             if (
               !editorDirty(getState(store)) &&
+              !hasResolvedPhotoChanges(store.document(), store.photoReads()) &&
               store.document()?.points.some((point) => point.id === session.pointId)
             ) {
               store._pointResources.destroyBinding();
@@ -242,7 +244,9 @@ export function withPointEditing() {
               caseBusy(getState(store))
             )
               return false;
-            const result = validateCaseDocument(applyPointDraft(document, session));
+            const result = validateCaseDocument(
+              applyResolvedPhotoAssets(applyPointDraft(document, session), store.photoReads()),
+            );
             if (!result.success) {
               editorDispatch.validationFailed({
                 id,

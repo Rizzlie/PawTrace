@@ -1,5 +1,6 @@
 import type { AreaCheckDraft } from '../area-workspace/check-draft';
 import { computed } from '@angular/core';
+import { applyResolvedPhotoAssets } from '../photos/photo-draft';
 import { getState, signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signals';
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument, SearchGeometry } from '@pawtrace/case-domain';
@@ -259,7 +260,9 @@ export function withAreaEditing() {
           )
             return false;
           const geometry = geometrySchema.safeParse(draftGeometry(session.draft));
-          const result = validateCaseDocument(applyAreaDraft(document, session));
+          const result = validateCaseDocument(
+            applyResolvedPhotoAssets(applyAreaDraft(document, session), store.photoReads()),
+          );
           if (!geometry.success || !result.success) {
             editorDispatch.validationFailed({
               id,

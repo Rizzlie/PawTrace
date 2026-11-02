@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { createEnvironmentInjector, DestroyRef, EnvironmentInjector } from '@angular/core';
+import { createEnvironmentInjector, DestroyRef, EnvironmentInjector, signal } from '@angular/core';
 import { provideHttpClient, HttpEventType } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { Connectivity } from '../cases/connectivity';
 import { PhotoTransfers } from './photo-transfers';
 
 const metadata = {
@@ -111,5 +112,43 @@ it('never offers an upload retry for an unidentifiable successful response', () 
   transfers.retry(transfers.jobs()[0].id);
   http.expectNone(() => true);
   expect(stored).not.toHaveBeenCalled();
+  http.verify();
+});
+
+it('sends nothing for a job that starts offline and leaves it retryable', () => {
+  const online = signal(true);
+  TestBed.configureTestingModule({
+    providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      { provide: Connectivity, useValue: { online } },
+    ],
+  });
+  const transfers = TestBed.inject(PhotoTransfers);
+  const http = TestBed.inject(HttpTestingController);
+  const stored: string[] = [];
+  transfers.add(
+    [new File(['a'], 'a.jpg'), new File(['b'], 'b.jpg'), new File(['c'], 'c.jpg')],
+    { caseId: 'case', generation: 0, editorId: 1 },
+    (asset) => stored.push(asset.filename),
+    TestBed.inject(DestroyRef),
+  );
+  const [first, second] = http.match('/api/cases/case/assets');
+  online.set(false);
+  first.flush(metadata);
+  http.expectNone('/api/cases/case/assets');
+  const third = transfers.jobs()[2];
+  expect(third).toMatchObject({
+    status: 'failed',
+    error: 'Nie wysłano pliku: brak połączenia z internetem. Ponów po jego odzyskaniu.',
+  });
+
+  online.set(true);
+  transfers.retry(third.id);
+  http
+    .expectOne('/api/cases/case/assets')
+    .flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d124.jpg' });
+  expect(stored).toEqual([metadata.filename, 'efb08652-e68f-4652-a876-38197646d124.jpg']);
+  second.flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d125.jpg' });
   http.verify();
 });

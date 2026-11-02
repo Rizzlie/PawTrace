@@ -1,6 +1,7 @@
 import type { CaseDocument, Coordinates, SearchArea, SearchGeometry } from '@pawtrace/case-domain';
+import { applyPhotoAssets, createPhotoDraft, type PhotoDraft } from '../photos/photo-draft';
 
-export interface AreaDraft {
+export interface AreaDraft extends PhotoDraft {
   name: string;
   description: string;
   type: SearchGeometry['type'];
@@ -21,6 +22,7 @@ export interface AreaSession {
 export function createAreaDraft(type: SearchGeometry['type'], area?: SearchArea): AreaDraft {
   const geometry = area?.plannedGeometry;
   return {
+    ...createPhotoDraft(area?.photos),
     name: area?.name ?? '',
     description: area?.description ?? '',
     type: geometry?.type ?? type,
@@ -39,13 +41,15 @@ export function draftGeometry(draft: AreaDraft): SearchGeometry | null {
 export function applyAreaDraft(document: CaseDocument, session: AreaSession): CaseDocument {
   const existing = document.areas.find((area) => area.id === session.areaId);
   const area: SearchArea = {
-    ...(existing ?? { id: session.areaId, photos: [], checks: [] }),
+    ...(existing ?? { id: session.areaId, checks: [] }),
+    photos: session.draft.photos,
     name: session.draft.name.trim(),
     description: session.draft.description.trim() || null,
     plannedGeometry: draftGeometry(session.draft),
   };
   return {
     ...document,
+    assets: applyPhotoAssets(document, session.draft),
     areas: existing
       ? document.areas.map((item) => (item.id === area.id ? area : item))
       : [...document.areas, area],

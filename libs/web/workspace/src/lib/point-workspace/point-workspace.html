@@ -146,6 +146,9 @@
           }
         </mat-chip-set>
         <p>{{ point.description }}</p>
+        @if (point.photos.length) {
+          <pt-photo-gallery [photos]="point.photos" />
+        }
         <p>Wpisy w historii: {{ point.entries.length }}</p>
         @if (!state.editor()) {
           <div class="actions">
@@ -210,6 +213,7 @@
             role.label
           }}</mat-checkbox>
         }
+        <pt-photo-gallery [editorId]="editor.id" />
         @if (state.editorError()) {
           <p role="alert">{{ state.editorError() }}</p>
         }

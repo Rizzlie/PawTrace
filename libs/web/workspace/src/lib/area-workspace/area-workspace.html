@@ -21,6 +21,7 @@
           <textarea matInput [formField]="editor.fields.description"></textarea>
         </mat-form-field>
         <ng-container [ngTemplateOutlet]="geometryControls" />
+        <pt-photo-gallery [editorId]="editor.id" />
         @if (state.editorError()) {
           <p role="alert">{{ state.editorError() }}</p>
         }
@@ -160,6 +161,9 @@
       <p aria-label="Pomiary obszaru">{{ areaSize() }}</p>
       @if (area.plannedGeometry?.type === 'circle') {
         <p>Promień: {{ area.plannedGeometry.radiusMeters }} m</p>
+      }
+      @if (area.photos.length) {
+        <pt-photo-gallery [photos]="area.photos" />
       }
       <div class="actions">
         <button
