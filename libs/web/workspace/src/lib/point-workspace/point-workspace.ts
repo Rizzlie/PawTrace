@@ -23,6 +23,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { FloatingPanel, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { CaseStore } from '../case-store/case-store';
 import { PointHistory } from '../history/point-history';
+import { PhotoGallery } from '../photos/photo-gallery';
 import { pointRoles } from './point-draft';
 import { CaseFilters } from '../filters/case-filters';
 
@@ -39,6 +40,7 @@ import { CaseFilters } from '../filters/case-filters';
     FloatingPanel,
     FormField,
     PointHistory,
+    PhotoGallery,
     CaseFilters,
   ],
   templateUrl: './point-workspace.html',

@@ -2,13 +2,14 @@ import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { createApplication } from '../src/application';
 import { startProvider } from './oidc-provider';
+import { DATABASE_URL } from './test-database';
 
 /** Separate test executable. Never included in the production tsconfig/webpack entry. */
 async function main() {
   if (process.env.NODE_ENV === 'production') throw new Error('Test host cannot run in production');
   Object.assign(process.env, {
     NODE_ENV: 'test',
-    DATABASE_URL: 'postgres://pawtrace_test:local-test-only@127.0.0.1:55432/pawtrace_test',
+    DATABASE_URL,
     SESSION_SECRET: 'test-session-secret-at-least-32-characters',
     GOOGLE_CLIENT_ID: 'test-client',
     GOOGLE_CLIENT_SECRET: 'test-secret',
@@ -36,7 +37,10 @@ async function main() {
         return;
       }
       if (url.pathname === '/restart') {
-        await app.close();
+        // A browser's unused preconnect socket would otherwise hold server.close() open.
+        const server = app.getHttpServer();
+        const dropping = setInterval(() => server.closeAllConnections(), 100);
+        await app.close().finally(() => clearInterval(dropping));
         app = await start();
       } else if (url.pathname === '/advance') time += Number(url.searchParams.get('ms'));
       else if (url.pathname === '/provider') {

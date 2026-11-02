@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { createEnvironmentInjector, DestroyRef, EnvironmentInjector } from '@angular/core';
+import { createEnvironmentInjector, DestroyRef, EnvironmentInjector, signal } from '@angular/core';
 import { provideHttpClient, HttpEventType } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { Connectivity } from '../cases/connectivity';
 import { PhotoTransfers } from './photo-transfers';
 
 const metadata = {
@@ -30,19 +31,19 @@ it('limits concurrent uploads, reports progress, retries failures and returns on
     (asset) => stored.push(asset.filename),
     TestBed.inject(DestroyRef),
   );
-  const requests = http.match('/api/assets');
+  const requests = http.match('/api/cases/case/assets');
   expect(requests).toHaveLength(2);
   requests[0].event({ type: HttpEventType.UploadProgress, loaded: 25, total: 100 });
   expect(transfers.jobs()[0].progress).toBe(25);
   requests[0].flush({ message: 'Brak miejsca' }, { status: 507, statusText: 'Storage full' });
   expect(transfers.jobs()[0].status).toBe('failed');
   expect(stored).toEqual([]);
-  const third = http.expectOne('/api/assets');
+  const third = http.expectOne('/api/cases/case/assets');
   requests[1].flush(metadata);
   third.flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d124.jpg' });
   transfers.retry(transfers.jobs()[0].id);
   http
-    .expectOne('/api/assets')
+    .expectOne('/api/cases/case/assets')
     .flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d125.jpg' });
   expect(stored).toEqual([
     metadata.filename,
@@ -64,12 +65,12 @@ it('confirms an invalid successful response by filename without uploading the sa
     (asset) => stored.push(asset.filename),
     TestBed.inject(DestroyRef),
   );
-  http.expectOne('/api/assets').flush({ filename: metadata.filename });
+  http.expectOne('/api/cases/case/assets').flush({ filename: metadata.filename });
   expect(transfers.jobs()[0].status).toBe('unconfirmed');
   expect(stored).toEqual([]);
   transfers.retry(transfers.jobs()[0].id);
   http.expectNone((request) => request.method === 'POST');
-  http.expectOne(`/api/assets/${metadata.filename}/metadata`).flush(metadata);
+  http.expectOne(`/api/cases/case/assets/${metadata.filename}/metadata`).flush(metadata);
   expect(stored).toEqual([metadata.filename]);
   http.verify();
 });
@@ -86,7 +87,7 @@ it('cancels active and queued uploads when their owner is destroyed without noti
     stored,
     owner.get(DestroyRef),
   );
-  const active = http.match('/api/assets');
+  const active = http.match('/api/cases/case/assets');
   expect(active).toHaveLength(2);
   owner.destroy();
   expect(active.every((request) => request.cancelled)).toBe(true);
@@ -106,10 +107,48 @@ it('never offers an upload retry for an unidentifiable successful response', () 
     stored,
     TestBed.inject(DestroyRef),
   );
-  http.expectOne('/api/assets').flush({ unexpected: true });
+  http.expectOne('/api/cases/case/assets').flush({ unexpected: true });
   expect(transfers.jobs()[0]).toMatchObject({ status: 'unconfirmed', confirmationFilename: null });
   transfers.retry(transfers.jobs()[0].id);
   http.expectNone(() => true);
   expect(stored).not.toHaveBeenCalled();
+  http.verify();
+});
+
+it('sends nothing for a job that starts offline and leaves it retryable', () => {
+  const online = signal(true);
+  TestBed.configureTestingModule({
+    providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      { provide: Connectivity, useValue: { online } },
+    ],
+  });
+  const transfers = TestBed.inject(PhotoTransfers);
+  const http = TestBed.inject(HttpTestingController);
+  const stored: string[] = [];
+  transfers.add(
+    [new File(['a'], 'a.jpg'), new File(['b'], 'b.jpg'), new File(['c'], 'c.jpg')],
+    { caseId: 'case', generation: 0, editorId: 1 },
+    (asset) => stored.push(asset.filename),
+    TestBed.inject(DestroyRef),
+  );
+  const [first, second] = http.match('/api/cases/case/assets');
+  online.set(false);
+  first.flush(metadata);
+  http.expectNone('/api/cases/case/assets');
+  const third = transfers.jobs()[2];
+  expect(third).toMatchObject({
+    status: 'failed',
+    error: 'Nie wysłano pliku: brak połączenia z internetem. Ponów po jego odzyskaniu.',
+  });
+
+  online.set(true);
+  transfers.retry(third.id);
+  http
+    .expectOne('/api/cases/case/assets')
+    .flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d124.jpg' });
+  expect(stored).toEqual([metadata.filename, 'efb08652-e68f-4652-a876-38197646d124.jpg']);
+  second.flush({ ...metadata, filename: 'efb08652-e68f-4652-a876-38197646d125.jpg' });
   http.verify();
 });

@@ -17,6 +17,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { users } from '../auth/schema';
+import type { StorageId } from '../app/assets/storage-id';
 import type { Coordinates } from '@pawtrace/case-domain';
 import { decodePoint, decodePolygon } from './geometry-codec';
 
@@ -604,6 +605,32 @@ export const photoAssets = pgTable(
     unique('photo_asset_position').on(table.caseId, table.position),
   ],
 );
+
+/**
+ * The only link from a case to stored bytes. `storage_id` names the private directory and
+ * `filename` is the logical name inside this case, so names are never global or access grants.
+ * It is written by uploads alone: no case document, reference or metadata row can create it.
+ */
+export const storedPhotos = pgTable(
+  'stored_photo',
+  {
+    storageId: uuid('storage_id').$type<StorageId>().primaryKey(),
+    caseId: text('case_id')
+      .notNull()
+      .references(() => ownedCases.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [unique('stored_photo_filename').on(table.caseId, table.filename)],
+);
+
+/** Removal outbox, written with a case deletion: files go only when PostgreSQL names them here. */
+export const photoRemovals = pgTable('photo_removal', {
+  storageId: uuid('storage_id').$type<StorageId>().primaryKey(),
+  requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+});
 
 /** Idempotency ledger: replaying a key returns the committed acknowledgement, never re-applies. */
 export const caseMutations = pgTable(

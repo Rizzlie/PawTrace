@@ -12,6 +12,7 @@ import {
   catchError,
   concat,
   defer,
+  EMPTY,
   filter,
   from,
   ignoreElements,
@@ -27,6 +28,7 @@ import { editorEvents, fileEvents, persistenceEvents } from './case-events';
 import { photoEvents } from './with-photo-editing';
 
 interface PhotoRequest {
+  caseId: string;
   filename: string;
   generation: number;
   request: number;
@@ -44,7 +46,6 @@ const processingEvents = eventGroup({
 function referencedPhotos(state: CaseState): string[] {
   const document = state.document;
   if (!document) return [];
-  const editor = state.editor;
   return [
     ...new Set([
       ...(document.animal?.photos ?? []),
@@ -56,7 +57,7 @@ function referencedPhotos(state: CaseState): string[] {
         ...area.photos,
         ...area.checks.flatMap((check) => check.photos),
       ]),
-      ...(editor && 'photos' in editor.draft ? editor.draft.photos : []),
+      ...(state.editor?.draft.photos ?? []),
     ]),
   ];
 }
@@ -150,21 +151,26 @@ export function withPhotoProcessing() {
           )
           .pipe(
             filter(() => !caseBusy(getState(store))),
-            mergeMap(() =>
-              from(
-                referencedPhotos(getState(store)).filter(
-                  (filename) => !store.photoReads()[filename],
-                ),
-              ),
-            ),
-            map((filename) =>
-              processingEvents.requested({
-                filename,
-                generation: store.persistence().generation,
-                request: store._nextPhotoRequest(),
-                operation: 'read',
-              }),
-            ),
+            mergeMap(() => {
+              const { caseId, generation } = store.persistence();
+              return caseId === null
+                ? EMPTY
+                : from(
+                    referencedPhotos(getState(store)).filter(
+                      (filename) => !store.photoReads()[filename],
+                    ),
+                  ).pipe(
+                    map((filename) =>
+                      processingEvents.requested({
+                        caseId,
+                        filename,
+                        generation,
+                        request: store._nextPhotoRequest(),
+                        operation: 'read',
+                      }),
+                    ),
+                  );
+            }),
           ),
         read$: events.on(processingEvents.requested).pipe(
           filter(
@@ -173,10 +179,11 @@ export function withPhotoProcessing() {
               payload.generation === store.persistence().generation,
           ),
           mergeMap(({ payload }) => {
-            const read = defer(() => server.watch(payload.filename));
+            const { caseId, filename } = payload;
+            const read = defer(() => server.watch(caseId, filename));
             const operation =
               payload.operation === 'retry'
-                ? concat(server.retry(payload.filename).pipe(ignoreElements()), read)
+                ? concat(server.retry(caseId, filename).pipe(ignoreElements()), read)
                 : read;
             return operation.pipe(
               map((metadata) => processingEvents.resolved({ ...payload, metadata })),
@@ -194,7 +201,7 @@ export function withPhotoProcessing() {
               takeUntil(
                 events
                   .on(processingEvents.requested)
-                  .pipe(filter((event) => event.payload.filename === payload.filename)),
+                  .pipe(filter((event) => event.payload.filename === filename)),
               ),
               takeUntil(resets()),
             );
@@ -205,20 +212,30 @@ export function withPhotoProcessing() {
     withMethods((store, dispatch = injectDispatch(processingEvents)) => ({
       reloadPhoto(filename: string): void {
         const current = store.photoReads()[filename];
-        if (caseBusy(getState(store)) || !current) return;
+        const { caseId, generation } = store.persistence();
+        if (caseBusy(getState(store)) || !current || caseId === null) return;
         dispatch.requested({
+          caseId,
           filename,
-          generation: store.persistence().generation,
+          generation,
           request: store._nextPhotoRequest(),
           operation: 'read',
         });
       },
       retryPhoto(filename: string): void {
         const current = store.photoReads()[filename];
-        if (caseBusy(getState(store)) || !current || current.status === 'retrying') return;
+        const { caseId, generation } = store.persistence();
+        if (
+          caseBusy(getState(store)) ||
+          !current ||
+          current.status === 'retrying' ||
+          caseId === null
+        )
+          return;
         dispatch.requested({
+          caseId,
           filename,
-          generation: store.persistence().generation,
+          generation,
           request: store._nextPhotoRequest(),
           operation: 'retry',
         });

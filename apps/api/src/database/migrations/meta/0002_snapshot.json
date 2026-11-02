@@ -1,0 +1,2045 @@
+{
+  "id": "83099ebc-f224-4b0d-9da3-66add704d435",
+  "prevId": "a983388c-35f8-49f8-a9e5-5c529d4cadf7",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.oidc_flow": {
+      "name": "oidc_flow",
+      "schema": "",
+      "columns": {
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nonce": {
+          "name": "nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verifier": {
+          "name": "verifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.session_identifier": {
+      "name": "session_identifier",
+      "schema": "",
+      "columns": {
+        "sid": {
+          "name": "sid",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "session_identifier_family": {
+          "name": "session_identifier_family",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "session_identifier_session_id_app_session_id_fk": {
+          "name": "session_identifier_session_id_app_session_id_fk",
+          "tableFrom": "session_identifier",
+          "tableTo": "app_session",
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.app_session": {
+      "name": "app_session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "csrf": {
+          "name": "csrf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_sid": {
+          "name": "current_sid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rotated_at": {
+          "name": "rotated_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revoked": {
+          "name": "revoked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "app_session_user_id_app_user_id_fk": {
+          "name": "app_session_user_id_app_user_id_fk",
+          "tableFrom": "app_session",
+          "tableTo": "app_user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.app_user": {
+      "name": "app_user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "app_user_issuer_subject_unique": {
+          "name": "app_user_issuer_subject_unique",
+          "nullsNotDistinct": false,
+          "columns": ["issuer", "subject"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.action_detail": {
+      "name": "action_detail",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'action'"
+        },
+        "details_fields": {
+          "name": "details_fields",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_kind": {
+          "name": "action_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "food_type": {
+          "name": "food_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "food_quantity_value": {
+          "name": "food_quantity_value",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "food_quantity_unit": {
+          "name": "food_quantity_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "action_detail_entry_fk": {
+          "name": "action_detail_entry_fk",
+          "tableFrom": "action_detail",
+          "tableTo": "history_entry",
+          "columnsFrom": ["case_id", "entry_id", "type"],
+          "columnsTo": ["case_id", "id", "type"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "action_detail_case_id_entry_id_pk": {
+          "name": "action_detail_case_id_entry_id_pk",
+          "columns": ["case_id", "entry_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "action_entry_type": {
+          "name": "action_entry_type",
+          "value": "\"action_detail\".\"type\" = 'action'"
+        },
+        "action_detail_fields": {
+          "name": "action_detail_fields",
+          "value": "\"action_detail\".\"details_fields\" <@ ARRAY['kind', 'foodType', 'foodQuantity']::text[]"
+        },
+        "action_quantity_pair": {
+          "name": "action_quantity_pair",
+          "value": "(\"action_detail\".\"food_quantity_value\" IS NULL) = (\"action_detail\".\"food_quantity_unit\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.animal_profile": {
+      "name": "animal_profile",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "present_fields": {
+          "name": "present_fields",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "species": {
+          "name": "species",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "breed": {
+          "name": "breed",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coat_color": {
+          "name": "coat_color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coat_pattern": {
+          "name": "coat_pattern",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size": {
+          "name": "size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "distinguishing_features": {
+          "name": "distinguishing_features",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "collar_harness": {
+          "name": "collar_harness",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "microchip_number": {
+          "name": "microchip_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "illnesses": {
+          "name": "illnesses",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "injuries": {
+          "name": "injuries",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mobility_limitations": {
+          "name": "mobility_limitations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sensory_limitations": {
+          "name": "sensory_limitations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medication": {
+          "name": "medication",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "temperament": {
+          "name": "temperament",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reactions_to_people": {
+          "name": "reactions_to_people",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reactions_to_animals": {
+          "name": "reactions_to_animals",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fears": {
+          "name": "fears",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_to_calls": {
+          "name": "response_to_calls",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attraction_methods": {
+          "name": "attraction_methods",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "favorite_food": {
+          "name": "favorite_food",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usual_routes": {
+          "name": "usual_routes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usual_places": {
+          "name": "usual_places",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previous_escapes": {
+          "name": "previous_escapes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additional_information": {
+          "name": "additional_information",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neutered": {
+          "name": "neutered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "microchipped": {
+          "name": "microchipped",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "familiar_with_area": {
+          "name": "familiar_with_area",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sex": {
+          "name": "sex",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outdoor_access": {
+          "name": "outdoor_access",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_value": {
+          "name": "age_value",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_unit": {
+          "name": "age_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_approximate": {
+          "name": "age_approximate",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weight_kilograms": {
+          "name": "weight_kilograms",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "main_photo": {
+          "name": "main_photo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "animal_profile_record_fk": {
+          "name": "animal_profile_record_fk",
+          "tableFrom": "animal_profile",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "record_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "animal_profile_main_photo_fk": {
+          "name": "animal_profile_main_photo_fk",
+          "tableFrom": "animal_profile",
+          "tableTo": "photo_reference",
+          "columnsFrom": ["case_id", "record_id", "main_photo"],
+          "columnsTo": ["case_id", "record_id", "filename"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "animal_profile_case_record": {
+          "name": "animal_profile_case_record",
+          "value": "\"animal_profile\".\"record_id\" = \"animal_profile\".\"case_id\""
+        },
+        "animal_profile_fields": {
+          "name": "animal_profile_fields",
+          "value": "\"animal_profile\".\"present_fields\" <@ ARRAY['name', 'species', 'breed', 'coatColor', 'coatPattern', 'size', 'distinguishingFeatures', 'collarHarness', 'microchipNumber', 'illnesses', 'injuries', 'mobilityLimitations', 'sensoryLimitations', 'medication', 'temperament', 'reactionsToPeople', 'reactionsToAnimals', 'fears', 'responseToCalls', 'attractionMethods', 'favoriteFood', 'usualRoutes', 'usualPlaces', 'previousEscapes', 'additionalInformation', 'neutered', 'microchipped', 'familiarWithArea', 'sex', 'outdoorAccess', 'age', 'weightKilograms', 'photos', 'mainPhoto', 'photoCaptions']::text[]"
+        },
+        "animal_profile_age": {
+          "name": "animal_profile_age",
+          "value": "(\"animal_profile\".\"age_value\" IS NULL) = (\"animal_profile\".\"age_unit\" IS NULL) AND (\"animal_profile\".\"age_unit\" IS NULL) = (\"animal_profile\".\"age_approximate\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.area_check": {
+      "name": "area_check",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'area_check'"
+        },
+        "area_id": {
+          "name": "area_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation_entry_id": {
+          "name": "observation_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation_type": {
+          "name": "observation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'observation'"
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_shape": {
+          "name": "actual_shape",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actual_center": {
+          "name": "actual_center",
+          "type": "geometry(Point,4326)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_radius_meters": {
+          "name": "actual_radius_meters",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_vertices": {
+          "name": "actual_vertices",
+          "type": "geometry(Polygon,4326)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "area_check_record_fk": {
+          "name": "area_check_record_fk",
+          "tableFrom": "area_check",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "id", "kind"],
+          "columnsTo": ["case_id", "id", "kind"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "area_check_area_fk": {
+          "name": "area_check_area_fk",
+          "tableFrom": "area_check",
+          "tableTo": "search_area",
+          "columnsFrom": ["case_id", "area_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "area_check_observation_fk": {
+          "name": "area_check_observation_fk",
+          "tableFrom": "area_check",
+          "tableTo": "history_entry",
+          "columnsFrom": ["case_id", "observation_entry_id", "observation_type"],
+          "columnsTo": ["case_id", "id", "type"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "area_check_case_id_id_pk": {
+          "name": "area_check_case_id_id_pk",
+          "columns": ["case_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "area_check_position": {
+          "name": "area_check_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "area_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "area_check_kind": {
+          "name": "area_check_kind",
+          "value": "\"area_check\".\"kind\" = 'area_check'"
+        },
+        "area_check_observation_type": {
+          "name": "area_check_observation_type",
+          "value": "\"area_check\".\"observation_type\" = 'observation'"
+        },
+        "area_check_result_known": {
+          "name": "area_check_result_known",
+          "value": "\"area_check\".\"result\" IS NULL OR \"area_check\".\"result\" IN ('no_animal_or_signs', 'possible_signs', 'animal_seen', 'animal_secured', 'unable_to_check', 'other_or_inconclusive')"
+        },
+        "area_check_animal_seen_link": {
+          "name": "area_check_animal_seen_link",
+          "value": "(\"area_check\".\"result\" IS NOT DISTINCT FROM 'animal_seen') = (\"area_check\".\"observation_entry_id\" IS NOT NULL)"
+        },
+        "area_check_actual_geometry": {
+          "name": "area_check_actual_geometry",
+          "value": "CASE \"area_check\".\"actual_shape\"\n      WHEN 'circle' THEN \"area_check\".\"actual_center\" IS NOT NULL AND \"area_check\".\"actual_radius_meters\" IS NOT NULL AND \"area_check\".\"actual_vertices\" IS NULL\n      WHEN 'polygon' THEN \"area_check\".\"actual_vertices\" IS NOT NULL AND \"area_check\".\"actual_center\" IS NULL AND \"area_check\".\"actual_radius_meters\" IS NULL\n      ELSE false END"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.case_escape": {
+      "name": "case_escape",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "escape_point_id": {
+          "name": "escape_point_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direction_of_travel": {
+          "name": "direction_of_travel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "familiar_with_location": {
+          "name": "familiar_with_location",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "case_escape_record_fk": {
+          "name": "case_escape_record_fk",
+          "tableFrom": "case_escape",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "record_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "case_escape_point_fk": {
+          "name": "case_escape_point_fk",
+          "tableFrom": "case_escape",
+          "tableTo": "point",
+          "columnsFrom": ["case_id", "escape_point_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "case_escape_case_record": {
+          "name": "case_escape_case_record",
+          "value": "\"case_escape\".\"record_id\" = \"case_escape\".\"case_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.case_mutation": {
+      "name": "case_mutation",
+      "schema": "",
+      "columns": {
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result_version": {
+          "name": "result_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "committed_at": {
+          "name": "committed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "case_mutation_owner_id_app_user_id_fk": {
+          "name": "case_mutation_owner_id_app_user_id_fk",
+          "tableFrom": "case_mutation",
+          "tableTo": "app_user",
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "case_mutation_owner_id_idempotency_key_pk": {
+          "name": "case_mutation_owner_id_idempotency_key_pk",
+          "columns": ["owner_id", "idempotency_key"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "case_mutation_operation": {
+          "name": "case_mutation_operation",
+          "value": "\"case_mutation\".\"operation\" IN ('create', 'save', 'rename', 'delete')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.case_record": {
+      "name": "case_record",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "case_record_case_id_owned_case_id_fk": {
+          "name": "case_record_case_id_owned_case_id_fk",
+          "tableFrom": "case_record",
+          "tableTo": "owned_case",
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "case_record_case_id_id_pk": {
+          "name": "case_record_case_id_id_pk",
+          "columns": ["case_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "case_record_kind": {
+          "name": "case_record_kind",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "id", "kind"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "case_record_kind_known": {
+          "name": "case_record_kind_known",
+          "value": "\"case_record\".\"kind\" IN ('case', 'point', 'entry', 'area', 'area_check')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.event_time": {
+      "name": "event_time",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "range_start": {
+          "name": "range_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "range_end": {
+          "name": "range_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "event_time_record_fk": {
+          "name": "event_time_record_fk",
+          "tableFrom": "event_time",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "record_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "event_time_case_id_record_id_pk": {
+          "name": "event_time_case_id_record_id_pk",
+          "columns": ["case_id", "record_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "event_time_variant": {
+          "name": "event_time_variant",
+          "value": "CASE \"event_time\".\"kind\"\n        WHEN 'exact' THEN \"event_time\".\"at\" IS NOT NULL AND \"event_time\".\"range_start\" IS NULL AND \"event_time\".\"range_end\" IS NULL AND \"event_time\".\"date\" IS NULL\n        WHEN 'approximate' THEN \"event_time\".\"at\" IS NOT NULL AND \"event_time\".\"range_start\" IS NULL AND \"event_time\".\"range_end\" IS NULL AND \"event_time\".\"date\" IS NULL\n        WHEN 'range' THEN \"event_time\".\"at\" IS NULL AND \"event_time\".\"date\" IS NULL AND (\"event_time\".\"range_start\" IS NOT NULL OR \"event_time\".\"range_end\" IS NOT NULL)\n        WHEN 'date' THEN \"event_time\".\"date\" IS NOT NULL AND \"event_time\".\"at\" IS NULL AND \"event_time\".\"range_start\" IS NULL AND \"event_time\".\"range_end\" IS NULL\n        WHEN 'unknown' THEN \"event_time\".\"at\" IS NULL AND \"event_time\".\"range_start\" IS NULL AND \"event_time\".\"range_end\" IS NULL AND \"event_time\".\"date\" IS NULL\n        ELSE false END"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.history_entry": {
+      "name": "history_entry",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'entry'"
+        },
+        "point_id": {
+          "name": "point_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "history_entry_record_fk": {
+          "name": "history_entry_record_fk",
+          "tableFrom": "history_entry",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "id", "kind"],
+          "columnsTo": ["case_id", "id", "kind"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "history_entry_point_fk": {
+          "name": "history_entry_point_fk",
+          "tableFrom": "history_entry",
+          "tableTo": "point",
+          "columnsFrom": ["case_id", "point_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "history_entry_case_id_id_pk": {
+          "name": "history_entry_case_id_id_pk",
+          "columns": ["case_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "history_entry_type": {
+          "name": "history_entry_type",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "id", "type"]
+        },
+        "history_entry_position": {
+          "name": "history_entry_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "point_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "history_entry_kind": {
+          "name": "history_entry_kind",
+          "value": "\"history_entry\".\"kind\" = 'entry'"
+        },
+        "history_entry_type_known": {
+          "name": "history_entry_type_known",
+          "value": "\"history_entry\".\"type\" IN ('observation', 'action', 'check', 'note')"
+        },
+        "history_entry_status": {
+          "name": "history_entry_status",
+          "value": "(\"history_entry\".\"status\" = 'active' AND \"history_entry\".\"rejection_reason\" IS NULL)\n        OR (\"history_entry\".\"type\" = 'observation' AND \"history_entry\".\"status\" = 'rejected' AND \"history_entry\".\"rejection_reason\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.observation_detail": {
+      "name": "observation_detail",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'observation'"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_description": {
+          "name": "source_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "uncertainty_radius_meters": {
+          "name": "uncertainty_radius_meters",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "identification": {
+          "name": "identification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "observation_detail_entry_fk": {
+          "name": "observation_detail_entry_fk",
+          "tableFrom": "observation_detail",
+          "tableTo": "history_entry",
+          "columnsFrom": ["case_id", "entry_id", "type"],
+          "columnsTo": ["case_id", "id", "type"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "observation_detail_case_id_entry_id_pk": {
+          "name": "observation_detail_case_id_entry_id_pk",
+          "columns": ["case_id", "entry_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "observation_entry_type": {
+          "name": "observation_entry_type",
+          "value": "\"observation_detail\".\"type\" = 'observation'"
+        },
+        "observation_source_known": {
+          "name": "observation_source_known",
+          "value": "\"observation_detail\".\"source\" IS NULL OR \"observation_detail\".\"source\" IN ('personal_observation', 'another_person', 'surveillance', 'other')"
+        },
+        "observation_identification_known": {
+          "name": "observation_identification_known",
+          "value": "\"observation_detail\".\"identification\" IN ('target_animal', 'different_animal', 'uncertain')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.owned_case": {
+      "name": "owned_case",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "map_center": {
+          "name": "map_center",
+          "type": "geometry(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "map_zoom": {
+          "name": "map_zoom",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "map_basemap": {
+          "name": "map_basemap",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "owned_case_owner": {
+          "name": "owned_case_owner",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "saved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "owned_case_owner_id_app_user_id_fk": {
+          "name": "owned_case_owner_id_app_user_id_fk",
+          "tableFrom": "owned_case",
+          "tableTo": "app_user",
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "owned_case_version_positive": {
+          "name": "owned_case_version_positive",
+          "value": "\"owned_case\".\"version\" > 0"
+        },
+        "owned_case_basemap": {
+          "name": "owned_case_basemap",
+          "value": "\"owned_case\".\"map_basemap\" IN ('osm', 'satellite')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.photo_asset": {
+      "name": "photo_asset",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_name": {
+          "name": "original_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "width_pixels": {
+          "name": "width_pixels",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height_pixels": {
+          "name": "height_pixels",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_filename": {
+          "name": "thumbnail_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "preview_filename": {
+          "name": "preview_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "photo_asset_case_id_owned_case_id_fk": {
+          "name": "photo_asset_case_id_owned_case_id_fk",
+          "tableFrom": "photo_asset",
+          "tableTo": "owned_case",
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "photo_asset_case_id_filename_pk": {
+          "name": "photo_asset_case_id_filename_pk",
+          "columns": ["case_id", "filename"]
+        }
+      },
+      "uniqueConstraints": {
+        "photo_asset_position": {
+          "name": "photo_asset_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.photo_caption": {
+      "name": "photo_caption",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "caption": {
+          "name": "caption",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "photo_caption_photo_fk": {
+          "name": "photo_caption_photo_fk",
+          "tableFrom": "photo_caption",
+          "tableTo": "photo_reference",
+          "columnsFrom": ["case_id", "record_id", "filename"],
+          "columnsTo": ["case_id", "record_id", "filename"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "photo_caption_case_id_filename_pk": {
+          "name": "photo_caption_case_id_filename_pk",
+          "columns": ["case_id", "filename"]
+        }
+      },
+      "uniqueConstraints": {
+        "photo_caption_position": {
+          "name": "photo_caption_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "photo_caption_case_record": {
+          "name": "photo_caption_case_record",
+          "value": "\"photo_caption\".\"record_id\" = \"photo_caption\".\"case_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.photo_reference": {
+      "name": "photo_reference",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "photo_reference_record_fk": {
+          "name": "photo_reference_record_fk",
+          "tableFrom": "photo_reference",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "record_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "photo_reference_case_id_record_id_position_pk": {
+          "name": "photo_reference_case_id_record_id_position_pk",
+          "columns": ["case_id", "record_id", "position"]
+        }
+      },
+      "uniqueConstraints": {
+        "photo_reference_filename": {
+          "name": "photo_reference_filename",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "record_id", "filename"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.photo_removal": {
+      "name": "photo_removal",
+      "schema": "",
+      "columns": {
+        "storage_id": {
+          "name": "storage_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.point_check_detail": {
+      "name": "point_check_detail",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'check'"
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation_entry_id": {
+          "name": "observation_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation_type": {
+          "name": "observation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'observation'"
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details_fields": {
+          "name": "details_fields",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "food_status": {
+          "name": "food_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "check_detail_entry_fk": {
+          "name": "check_detail_entry_fk",
+          "tableFrom": "point_check_detail",
+          "tableTo": "history_entry",
+          "columnsFrom": ["case_id", "entry_id", "type"],
+          "columnsTo": ["case_id", "id", "type"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "point_check_observation_fk": {
+          "name": "point_check_observation_fk",
+          "tableFrom": "point_check_detail",
+          "tableTo": "history_entry",
+          "columnsFrom": ["case_id", "observation_entry_id", "observation_type"],
+          "columnsTo": ["case_id", "id", "type"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "point_check_detail_case_id_entry_id_pk": {
+          "name": "point_check_detail_case_id_entry_id_pk",
+          "columns": ["case_id", "entry_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "check_entry_type": {
+          "name": "check_entry_type",
+          "value": "\"point_check_detail\".\"type\" = 'check'"
+        },
+        "point_check_observation_type": {
+          "name": "point_check_observation_type",
+          "value": "\"point_check_detail\".\"observation_type\" = 'observation'"
+        },
+        "point_check_result_known": {
+          "name": "point_check_result_known",
+          "value": "\"point_check_detail\".\"result\" IS NULL OR \"point_check_detail\".\"result\" IN ('no_animal_or_signs', 'possible_signs', 'animal_seen', 'animal_secured', 'unable_to_check', 'other_or_inconclusive')"
+        },
+        "point_check_animal_seen_link": {
+          "name": "point_check_animal_seen_link",
+          "value": "(\"point_check_detail\".\"result\" IS NOT DISTINCT FROM 'animal_seen') = (\"point_check_detail\".\"observation_entry_id\" IS NOT NULL)"
+        },
+        "point_check_detail_fields": {
+          "name": "point_check_detail_fields",
+          "value": "\"point_check_detail\".\"details_fields\" <@ ARRAY['foodStatus']::text[]"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.point_role": {
+      "name": "point_role",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "point_id": {
+          "name": "point_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "point_role_point_fk": {
+          "name": "point_role_point_fk",
+          "tableFrom": "point_role",
+          "tableTo": "point",
+          "columnsFrom": ["case_id", "point_id"],
+          "columnsTo": ["case_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "point_role_case_id_point_id_position_pk": {
+          "name": "point_role_case_id_point_id_position_pk",
+          "columns": ["case_id", "point_id", "position"]
+        }
+      },
+      "uniqueConstraints": {
+        "point_role_unique": {
+          "name": "point_role_unique",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "point_id", "role"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "point_role_known": {
+          "name": "point_role_known",
+          "value": "\"point_role\".\"role\" IN ('potential_hiding_place', 'feeding_location', 'trail_camera', 'other')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.point": {
+      "name": "point",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'point'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location": {
+          "name": "location",
+          "type": "geometry(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "point_record_fk": {
+          "name": "point_record_fk",
+          "tableFrom": "point",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "id", "kind"],
+          "columnsTo": ["case_id", "id", "kind"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "point_case_id_id_pk": {
+          "name": "point_case_id_id_pk",
+          "columns": ["case_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "point_position": {
+          "name": "point_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "point_kind": {
+          "name": "point_kind",
+          "value": "\"point\".\"kind\" = 'point'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.search_area": {
+      "name": "search_area",
+      "schema": "",
+      "columns": {
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'area'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planned_shape": {
+          "name": "planned_shape",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planned_center": {
+          "name": "planned_center",
+          "type": "geometry(Point,4326)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planned_radius_meters": {
+          "name": "planned_radius_meters",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planned_vertices": {
+          "name": "planned_vertices",
+          "type": "geometry(Polygon,4326)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "search_area_record_fk": {
+          "name": "search_area_record_fk",
+          "tableFrom": "search_area",
+          "tableTo": "case_record",
+          "columnsFrom": ["case_id", "id", "kind"],
+          "columnsTo": ["case_id", "id", "kind"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "search_area_case_id_id_pk": {
+          "name": "search_area_case_id_id_pk",
+          "columns": ["case_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "search_area_position": {
+          "name": "search_area_position",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "position"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "search_area_kind": {
+          "name": "search_area_kind",
+          "value": "\"search_area\".\"kind\" = 'area'"
+        },
+        "search_area_planned_geometry": {
+          "name": "search_area_planned_geometry",
+          "value": "CASE \"search_area\".\"planned_shape\"\n      WHEN 'circle' THEN \"search_area\".\"planned_center\" IS NOT NULL AND \"search_area\".\"planned_radius_meters\" IS NOT NULL AND \"search_area\".\"planned_vertices\" IS NULL\n      WHEN 'polygon' THEN \"search_area\".\"planned_vertices\" IS NOT NULL AND \"search_area\".\"planned_center\" IS NULL AND \"search_area\".\"planned_radius_meters\" IS NULL\n      ELSE \"search_area\".\"planned_shape\" IS NULL AND \"search_area\".\"planned_center\" IS NULL AND \"search_area\".\"planned_radius_meters\" IS NULL AND \"search_area\".\"planned_vertices\" IS NULL END"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stored_photo": {
+      "name": "stored_photo",
+      "schema": "",
+      "columns": {
+        "storage_id": {
+          "name": "storage_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "case_id": {
+          "name": "case_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stored_photo_case_id_owned_case_id_fk": {
+          "name": "stored_photo_case_id_owned_case_id_fk",
+          "tableFrom": "stored_photo",
+          "tableTo": "owned_case",
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "stored_photo_filename": {
+          "name": "stored_photo_filename",
+          "nullsNotDistinct": false,
+          "columns": ["case_id", "filename"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

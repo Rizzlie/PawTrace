@@ -1,5 +1,5 @@
 import type { AreaCheck, CaseDocument, SearchResult } from '@pawtrace/case-domain';
-import { createPhotoDraft, applyPhotoAssets, type PhotoDraft } from '../photos/photo-draft';
+import { createPhotoDraft, applyPhotoAssets } from '../photos/photo-draft';
 import { createAreaDraft, draftGeometry, type AreaDraft } from './area-draft';
 import {
   applyEventTimeDraft,
@@ -7,7 +7,7 @@ import {
   type EventTimeDraft,
 } from '../event-time-draft';
 
-export interface AreaCheckDraft extends AreaDraft, PhotoDraft {
+export interface AreaCheckDraft extends AreaDraft {
   footprint: 'plan' | 'custom';
   time: EventTimeDraft;
   result: SearchResult | '';

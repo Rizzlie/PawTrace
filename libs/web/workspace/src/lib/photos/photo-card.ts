@@ -36,18 +36,21 @@ export class PhotoCard {
   protected readonly retryError = computed(() =>
     this.read()?.status === 'error' && this.read()?.operation === 'retry' ? this.read()?.error : '',
   );
+  private url(kind?: 'thumbnail' | 'preview'): string | null {
+    const caseId = this.state.persistence().caseId;
+    return caseId === null ? null : photoUrl(caseId, this.filename(), kind);
+  }
+  protected readonly original = computed(() => this.url());
   protected readonly thumbnail = computed(() =>
-    this.details()?.processing.thumbnail.status === 'ready'
-      ? photoUrl(this.filename(), 'thumbnail')
-      : null,
+    this.details()?.processing.thumbnail.status === 'ready' ? this.url('thumbnail') : null,
   );
   protected readonly preview = computed(() => {
     const metadata = this.details();
     if (!metadata) return null;
     return metadata.processing.preview.status === 'ready'
-      ? photoUrl(this.filename(), 'preview')
+      ? this.url('preview')
       : metadata.processing.preview.status === 'not_required'
-        ? photoUrl(this.filename())
+        ? this.original()
         : null;
   });
   protected readonly failedThumbnail = linkedSignal({
@@ -68,7 +71,6 @@ export class PhotoCard {
   protected readonly pending = computed(() =>
     Object.values(this.details()?.processing ?? {}).some((item) => item.status === 'pending'),
   );
-  protected readonly original = computed(() => photoUrl(this.filename()));
 
   protected reload(): void {
     this.state.reloadPhoto(this.filename());

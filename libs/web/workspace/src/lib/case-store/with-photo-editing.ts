@@ -4,7 +4,7 @@ import { signalStoreFeature, type, withComputed, withMethods } from '@ngrx/signa
 import { eventGroup, injectDispatch, on, withReducer } from '@ngrx/signals/events';
 import type { PhotoAsset } from '@pawtrace/case-domain';
 import { caseBusy, type CaseState } from './case-state';
-import { mergePhotoAssets, type PhotoTarget } from '../photos/photo-draft';
+import { mergePhotoAssets, type PhotoDraft, type PhotoTarget } from '../photos/photo-draft';
 
 export const photoEvents = eventGroup({
   source: 'Photo editor',
@@ -14,10 +14,12 @@ export const photoEvents = eventGroup({
   },
 });
 
-function photoEditor(editor: CaseState['editor']) {
-  return editor?.kind === 'profile' || editor?.kind === 'entry' || editor?.kind === 'area-check'
-    ? editor
-    : null;
+/** Every editor session owns a photo draft; attaching or unlinking is one revision of it. */
+function revised<T extends { version: number; draft: PhotoDraft }>(
+  session: T,
+  draft: T['draft'],
+): T {
+  return { ...session, version: session.version + 1, draft };
 }
 
 export function withPhotoEditing() {
@@ -25,7 +27,7 @@ export function withPhotoEditing() {
     { state: type<CaseState>() },
     withReducer(
       on(photoEvents.attached, ({ payload: { target, asset } }, state) => {
-        const editor = photoEditor(state.editor);
+        const { editor } = state;
         if (
           caseBusy(state) ||
           !editor ||
@@ -36,69 +38,45 @@ export function withPhotoEditing() {
           return {};
         const photos = [...new Set([...editor.draft.photos, asset.filename])];
         const photoAssets = mergePhotoAssets(editor.draft.photoAssets, [asset]);
-        if (editor.kind === 'profile')
-          return {
-            editor: {
-              ...editor,
-              version: editor.version + 1,
-              draft: {
-                ...editor.draft,
-                photos,
-                photoAssets,
-                photoCaptions: editor.draft.photoCaptions.some(
-                  (item) => item.filename === asset.filename,
-                )
-                  ? editor.draft.photoCaptions
-                  : [...editor.draft.photoCaptions, { filename: asset.filename, caption: '' }],
-              },
-            },
-          };
-        if (editor.kind === 'entry')
-          return {
-            editor: {
-              ...editor,
-              version: editor.version + 1,
-              draft: { ...editor.draft, photos, photoAssets },
-            },
-          };
         return {
-          editor: {
-            ...editor,
-            version: editor.version + 1,
-            draft: { ...editor.draft, photos, photoAssets },
-          },
+          editor:
+            editor.kind === 'profile'
+              ? revised(editor, {
+                  ...editor.draft,
+                  photos,
+                  photoAssets,
+                  photoCaptions: editor.draft.photoCaptions.some(
+                    (item) => item.filename === asset.filename,
+                  )
+                    ? editor.draft.photoCaptions
+                    : [...editor.draft.photoCaptions, { filename: asset.filename, caption: '' }],
+                })
+              : revised(editor, { ...editor.draft, photos, photoAssets }),
         };
       }),
       on(photoEvents.unlinked, ({ payload }, state) => {
-        const editor = photoEditor(state.editor);
+        const { editor } = state;
         if (!editor || editor.id !== payload.id || caseBusy(state)) return {};
-        const draft = {
-          ...editor.draft,
-          photos: editor.draft.photos.filter((f) => f !== payload.filename),
-        };
+        const photos = editor.draft.photos.filter((f) => f !== payload.filename);
         return {
-          editor: {
-            ...editor,
-            version: editor.version + 1,
-            draft:
-              editor.kind === 'profile'
-                ? {
-                    ...editor.draft,
-                    ...draft,
-                    mainPhoto:
-                      editor.draft.mainPhoto === payload.filename ? '' : editor.draft.mainPhoto,
-                    photoCaptions: editor.draft.photoCaptions.filter(
-                      (c) => c.filename !== payload.filename,
-                    ),
-                  }
-                : draft,
-          } as CaseState['editor'],
+          editor:
+            editor.kind === 'profile'
+              ? revised(editor, {
+                  ...editor.draft,
+                  photos,
+                  mainPhoto:
+                    editor.draft.mainPhoto === payload.filename ? '' : editor.draft.mainPhoto,
+                  photoCaptions: editor.draft.photoCaptions.filter(
+                    (c) => c.filename !== payload.filename,
+                  ),
+                })
+              : revised(editor, { ...editor.draft, photos }),
         };
       }),
     ),
     withComputed((store) => ({
       photoTarget: computed(() => {
-        const editor = photoEditor(store.editor());
+        const editor = store.editor();
         const document = store.document();
         return editor && document
           ? {
@@ -108,7 +86,7 @@ export function withPhotoEditing() {
             }
           : null;
       }),
-      editorPhotos: computed(() => photoEditor(store.editor())?.draft.photos ?? []),
+      editorPhotos: computed(() => store.editor()?.draft.photos ?? []),
     })),
     withMethods(
       (

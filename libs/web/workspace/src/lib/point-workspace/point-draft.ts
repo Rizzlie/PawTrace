@@ -1,5 +1,6 @@
 import { unlinkRemovedObservations } from '@pawtrace/case-domain/history';
 import type { CaseDocument, MapPoint } from '@pawtrace/case-domain';
+import { applyPhotoAssets, createPhotoDraft, type PhotoDraft } from '../photos/photo-draft';
 
 export const pointRoles = [
   { key: 'potential_hiding_place', label: 'Potencjalna kryjówka' },
@@ -8,7 +9,7 @@ export const pointRoles = [
   { key: 'other', label: 'Inne' },
 ] as const;
 
-export interface PointDraft {
+export interface PointDraft extends PhotoDraft {
   name: string;
   description: string;
   latitude: string;
@@ -30,6 +31,7 @@ export interface PointSession {
 
 export function createPointDraft(document: CaseDocument, point?: MapPoint): PointDraft {
   return {
+    ...createPhotoDraft(point?.photos),
     name: point?.name ?? '',
     description: point?.description ?? '',
     latitude: point ? String(point.coordinates.latitude) : '',
@@ -48,7 +50,8 @@ export function applyPointDraft(document: CaseDocument, session: PointSession): 
   const { draft, pointId } = session;
   const existing = document.points.find((point) => point.id === pointId);
   const point: MapPoint = {
-    ...(existing ?? { id: pointId, photos: [], entries: [] }),
+    ...(existing ?? { id: pointId, entries: [] }),
+    photos: draft.photos,
     name: draft.name.trim(),
     description: draft.description.trim() || null,
     coordinates: {
@@ -59,6 +62,7 @@ export function applyPointDraft(document: CaseDocument, session: PointSession): 
   };
   return {
     ...document,
+    assets: applyPhotoAssets(document, draft),
     case: {
       ...document.case,
       escape: {

@@ -50,6 +50,8 @@ export interface CaseState {
     savedRevision: number;
     generation: number;
     writing: boolean;
+    /** The revision of a map move waiting for the map to settle; any newer one saves at once. */
+    settlingRevision: number | null;
     replacing: boolean;
     /** The server rejected a write based on an outdated version; local data is retained. */
     conflict: boolean;
@@ -93,6 +95,7 @@ export function createCaseState(
       savedRevision: 0,
       generation,
       writing: false,
+      settlingRevision: null,
       replacing: false,
       conflict: false,
       error: '',
@@ -101,12 +104,16 @@ export function createCaseState(
   };
 }
 
+export function mapViewSettling(persistence: CaseState['persistence']): boolean {
+  return persistence.settlingRevision === persistence.revision;
+}
+
 export function saveStatus({ document, persistence }: Pick<CaseState, 'document' | 'persistence'>) {
   if (!persistence.initialized) return 'loading';
   if (persistence.replacing) return 'replacing';
   if (persistence.conflict) return 'conflict';
   if (persistence.error) return 'error';
-  if (persistence.writing) return 'saving';
+  if (persistence.writing || mapViewSettling(persistence)) return 'saving';
   if (persistence.revision !== persistence.savedRevision) return 'unsaved';
   return document ? 'saved' : 'empty';
 }

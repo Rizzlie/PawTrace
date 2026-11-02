@@ -3,6 +3,8 @@ import { signIn } from './oidc-provider';
 
 export const ORIGIN = 'http://127.0.0.1:4200';
 
+export const assetsPath = (caseId: string) => `/api/cases/${encodeURIComponent(caseId)}/assets`;
+
 /** A signed-in browser-like HTTP peer: cookie jar, CSRF echo and explicit idempotency keys. */
 export class ApiClient {
   private readonly cookies = new Map<string, string>();
@@ -59,6 +61,29 @@ export class ApiClient {
     this.remember(response);
     const text = await response.text();
     return { status: response.status, body: text ? JSON.parse(text) : undefined, response };
+  }
+
+  cookieHeader() {
+    return this.headers().cookie;
+  }
+
+  csrfToken() {
+    return this.cookies.get('XSRF-TOKEN') ?? '';
+  }
+
+  /** Unparsed response, for binary bodies and multipart uploads. */
+  async fetch(method: string, path: string, body?: FormData) {
+    const response = await fetch(this.base + path, { method, headers: this.headers(), body });
+    this.remember(response);
+    return response;
+  }
+
+  async upload(caseId: string, bytes: Uint8Array, name = 'kot.png', type = 'image/png') {
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(bytes)], { type }), name);
+    const response = await this.fetch('POST', assetsPath(caseId), body);
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : undefined };
   }
 
   async create(title: string, key?: string) {

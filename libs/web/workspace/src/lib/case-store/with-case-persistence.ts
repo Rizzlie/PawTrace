@@ -1,9 +1,10 @@
-import { inject } from '@angular/core';
+import { inject, InjectionToken } from '@angular/core';
 import { getState, signalStoreFeature, type, watchState, withMethods } from '@ngrx/signals';
 import { Events, injectDispatch, on, withEventHandlers, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
 import {
   catchError,
+  debounceTime,
   defer,
   exhaustMap,
   filter,
@@ -20,8 +21,13 @@ import {
 import { SnapshotWriter, type SnapshotJob } from '../snapshot-writer';
 import { CaseStorage } from '../cases/case-storage';
 import { isUncertainOutcome, VersionConflict } from '../cases/case-api';
-import { createCaseState, type CaseState } from './case-state';
-import { fileEvents, persistenceEvents } from './case-events';
+import { createCaseState, mapViewSettling, type CaseState } from './case-state';
+import { caseViewEvents, fileEvents, persistenceEvents } from './case-events';
+
+/** Quiet time after the last map move before its view is saved; other edits never wait. */
+export const MAP_VIEW_SETTLE_MS = new InjectionToken<number>('MAP_VIEW_SETTLE_MS', {
+  factory: () => 2000,
+});
 
 const saveFailed =
   'Nie zapisano zmian na serwerze. Zmiany są tylko w tej karcie — wyeksportuj JSON lub ponów zapis.';
@@ -63,7 +69,9 @@ export function withCasePersistence() {
       ),
       on(
         persistenceEvents.writeStarted,
-        forSession((_, state) => ({ persistence: { ...state.persistence, writing: true } })),
+        forSession((_, state) => ({
+          persistence: { ...state.persistence, writing: true, settlingRevision: null },
+        })),
       ),
       on(
         persistenceEvents.writeSucceeded,
@@ -85,6 +93,7 @@ export function withCasePersistence() {
             ...state.persistence,
             unresolved,
             writing: false,
+            settlingRevision: null,
             conflict,
             error: conflict ? conflictDetected : saveFailed,
           },
@@ -115,6 +124,7 @@ export function withCasePersistence() {
                 ...state.persistence,
                 replacing: false,
                 writing: false,
+                settlingRevision: null,
                 conflict: state.persistence.conflict || payload.conflict,
                 error: payload.conflict ? conflictDetected : state.persistence.error,
                 unresolved: payload.conflict
@@ -139,6 +149,7 @@ export function withCasePersistence() {
         events = inject(Events),
         dispatch = injectDispatch(persistenceEvents),
         storage = inject(CaseStorage),
+        settleMs = inject(MAP_VIEW_SETTLE_MS),
       ) => {
         const writer = new SnapshotWriter(
           storage,
@@ -179,7 +190,13 @@ export function withCasePersistence() {
           const key = `${p.generation}:${p.revision}`;
           if (observed === key) return;
           observed = key;
-          if (p.initialized && !p.replacing && p.revision !== p.savedRevision) requestSnapshot();
+          if (
+            p.initialized &&
+            !p.replacing &&
+            !mapViewSettling(p) &&
+            p.revision !== p.savedRevision
+          )
+            requestSnapshot();
         });
         return {
           restore$: events.on(persistenceEvents.opened).pipe(
@@ -219,8 +236,15 @@ export function withCasePersistence() {
             ),
           ),
           retry$: events
-            .on(persistenceEvents.retryRequested)
+            .on(persistenceEvents.retryRequested, persistenceEvents.flushRequested)
             .pipe(tap(requestSnapshot), ignoreElements()),
+          settle$: events.on(caseViewEvents.viewportChanged).pipe(
+            debounceTime(settleMs),
+            // Over once a write carried the move, a newer revision did, or the case session ended.
+            filter(() => mapViewSettling(store.persistence())),
+            tap(requestSnapshot),
+            ignoreElements(),
+          ),
           replace$: events.on(fileEvents.replacementRequested).pipe(
             filter(
               ({ payload }) =>
@@ -315,6 +339,7 @@ export function withCasePersistence() {
             const p = store.persistence();
             if (signal?.aborted || p.error || p.conflict) return false;
             if (!p.writing && p.revision === p.savedRevision) return true;
+            if (mapViewSettling(p)) dispatch.flushRequested();
             await firstValueFrom(
               events
                 .on(persistenceEvents.writeSucceeded, persistenceEvents.writeFailed)

@@ -6,18 +6,14 @@ import { validateEnvironment, type Environment } from './environment';
 import { AppController } from './app.controller';
 import { MapConfigController } from './map-config.controller';
 import { AddressSearch, AddressSearchController } from './address-search';
-import { AssetsController } from './assets/assets.controller';
-import { AssetUploads } from './assets/asset-uploads';
-import { OriginalAssets } from './assets/original-assets';
-import { ImageProcessing } from './assets/image-processing';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { CasesModule } from '../cases/cases.module';
 import type { AuthenticationDependencies } from '../auth/authentication';
 
 @Module({
-  controllers: [AppController, MapConfigController, AddressSearchController, AssetsController],
-  providers: [AddressSearch, AssetUploads, OriginalAssets, ImageProcessing],
+  controllers: [AppController, MapConfigController, AddressSearchController],
+  providers: [AddressSearch],
 })
 export class WorkspaceModule {
   static async configure(

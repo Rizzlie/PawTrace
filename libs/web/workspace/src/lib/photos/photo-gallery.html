@@ -8,10 +8,16 @@
         type="file"
         multiple
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-        [disabled]="state.editorBusy() || !activeTarget()"
+        [disabled]="state.editorBusy() || !activeTarget() || !online()"
         (change)="select(files)"
       />
     </label>
+    @if (!online()) {
+      <p role="status">
+        Przesyłanie zdjęć wymaga połączenia z internetem. Dołączone zdjęcia i tekst pozostają w
+        formularzu.
+      </p>
+    }
     <p>
       JPEG, PNG, WebP lub HEIC. Zapisz formularz, aby zatwierdzić odnośniki. Odpięcie pozostawia
       plik na serwerze.
@@ -59,7 +65,12 @@
             }
             @case ('failed') {
               <p role="alert">{{ job.error }}</p>
-              <button matButton="outlined" type="button" (click)="transfers.retry(job.id)">
+              <button
+                matButton="outlined"
+                type="button"
+                [disabled]="!online()"
+                (click)="transfers.retry(job.id)"
+              >
                 Ponów przesyłanie {{ job.name }}
               </button>
             }
