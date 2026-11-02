@@ -19,7 +19,7 @@ The initial release targets a desktop browser, local Docker deployment, and sear
 - Maintain multiple dated observations, actions, checks, and notes at each point.
 - Distinguish confirmed sightings, uncertain sightings, and sightings of a different animal.
 - Draw search areas and preserve the history of actual searches.
-- Attach photos to observations, retaining originals on the local server.
+- Attach photos to the animal profile, places, history entries, search areas and area checks, retaining originals on the local server.
 - Switch between standard OpenStreetMap tiles and Mapbox satellite imagery.
 - Automatically save one case in the browser and export or import its complete JSON document.
 
@@ -213,7 +213,7 @@ Temporary working files belong in `.scratch/`, which is ignored by Git. Durable 
 
 Use **Dodaj punkt** in the right map toolbar beside **Moja lokalizacja**, click the map or submit an address search, and name the place. Drag the orange draft marker or correct its geographic coordinates, select zero or more predefined roles, and choose **Zapisz punkt** or **Anuluj punkt**. Address search outside point editing only moves the map. Saved points can be selected from markers or the collapsible **Miejsca** list; overlapping markers offer a choice of names. List rows and markers show matching numbers derived from the place order; deleting a place renumbers the remaining display labels without changing their IDs. The phone list starts collapsed.
 
-Edit a selected place to rename/reposition it without changing its ID or imported history/photos. **Miejsce ucieczki** updates the same single incident reference used by the profile. Switching dirty editors or replacing the case offers Save / Discard / Stay. Export includes committed data only.
+Edit a selected place to rename or reposition it and to attach or unlink its photos, without changing its ID or imported history. **Miejsce ucieczki** updates the same single incident reference used by the profile. Switching dirty editors or replacing the case offers Save / Discard / Stay. Export includes committed data only.
 
 Removal asks for confirmation with the history-entry count. It removes the point and its history, clears its escape assignment, and retains unrelated places, areas and all asset filenames. Checks linked to deleted observations retain their records, geometry and photos; their result becomes `other_or_inconclusive`, with the prior sighting and removed observation ID recorded in the description. No server photo file is deleted.
 
@@ -245,7 +245,7 @@ The production Linux image builds Sharp 0.35.5 against libvips 8.18.7, libheif 1
 
 `ASSET_DIRECTORY` defaults to `./data/assets` for Node development. Compose already binds the host directory to `/app/data/assets`. Each photo has one private directory under `objects/`, named by a server-generated storage UUID unrelated to its filename; incomplete writes stay in `staging/` and cannot be retrieved. Do not expose this directory with a separate static-file server. Unlinking a case photo never removes server files; deleting the case does. To back up the instance, copy PostgreSQL **and the complete asset directory**, including metadata, while uploads are stopped. JSON alone does not copy images.
 
-There is no product photo-count or MB cap. Actual disk/inode availability, permissions, network failure, parser header limits and Node's 300-second request/60-second header timeouts still apply. The Compose route has no buffering reverse proxy; uploads stream to disk and originals stream back. Successfully saved originals survive derivative failures. Hard kills can leave unpublished partial directories; automatic cleanup and guarantees against host power loss are outside this slice.
+There is no product photo-count or MB cap. Actual disk/inode availability, permissions, network failure, parser header limits and Node's 300-second request/60-second header timeouts still apply. The Compose route has no buffering reverse proxy; uploads stream to disk and originals stream back. Successfully saved originals survive derivative failures. Hard kills can leave partial directories in `staging/`, which is emptied at every start; guarantees against host power loss are outside this slice.
 
 With Docker running, `npm exec nx run api:verify-assets` builds the production image and checks original hashes, container-replacement persistence, read-only storage, real disk-full failures and recovery. It uses isolated temporary containers and preserves the ordinary Compose deployment.
 
