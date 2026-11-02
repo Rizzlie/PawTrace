@@ -52,19 +52,29 @@ export class MyCases {
   private readonly identity = inject(CASE_IDENTITY);
   private readonly copies = inject(CaseCopies);
   private readonly local = resource({
-    params: () => this.identity.owner(),
-    loader: ({ params }) => this.copies.list(params),
+    params: () => ({ owner: this.identity.owner(), online: this.online() }),
+    loader: ({ params }) => (params.owner ? this.copies.list(params.owner) : Promise.resolve([])),
   });
   protected readonly items = computed(() => {
-    if (this.cases.hasValue()) return this.cases.value();
-    const unique = new Map<string, CaseSummary>();
-    for (const copy of this.local.hasValue() ? this.local.value() : [])
+    const unique = new Map<string, CaseSummary>(
+      (this.cases.hasValue() ? this.cases.value() : []).map((item) => [item.id, item]),
+    );
+    for (const copy of this.local.hasValue() ? this.local.value() : []) {
+      if (
+        this.cases.hasValue() &&
+        (this.online() || unique.has(copy.caseId)) &&
+        copy.revision === copy.savedRevision &&
+        !copy.attempt &&
+        !copy.paused
+      )
+        continue;
       unique.set(copy.caseId, {
         id: copy.caseId,
         title: copy.document.case.title,
         version: copy.version,
         savedAt: copy.document.case.updatedAt,
       });
+    }
     return [...unique.values()];
   });
   protected readonly cases = httpResource(() => '/api/cases', {
@@ -107,20 +117,37 @@ export class MyCases {
     const dialog = this.dialog();
     if (!dialog || this.pending()) return;
     const title = this.title();
+    const owner = this.identity.owner();
+    const generation = this.identity.generation();
+    const current = () =>
+      owner === this.identity.owner() && generation === this.identity.generation();
     if (dialog.kind !== 'delete' && !title.trim()) {
       this.error.set(messages.invalid);
       return;
     }
     this.pending.set(true);
     this.error.set('');
-    if (dialog.kind === 'rename' && !this.online()) {
+    if (dialog.kind === 'rename') {
       await this.state.open(dialog.item.id);
+      if (!current()) return;
       if (this.state.document()) {
-        this.state.renameCase(title);
-        if (await this.state.flush()) {
+        if (!(await this.state.renameCase(title))) {
+          this.error.set(messages.invalid);
+          this.pending.set(false);
+          return;
+        }
+        const acknowledged = await this.state.flush(undefined, this.online());
+        const p = this.state.persistence();
+        if (acknowledged || p.localRevision === p.revision) {
+          if (!current()) return;
           this.state.close();
           this.local.reload();
+          if (this.online()) this.cases.reload();
           this.dialog.set(null);
+          if (!acknowledged)
+            this.error.set(
+              'Nazwę zapisano na urządzeniu. Serwer nie potwierdził zapisu; otwórz sprawę, aby ponowić lub wyeksportować JSON.',
+            );
         } else this.error.set('Nie zapisano nazwy lokalnie. Wyeksportuj otwartą sprawę.');
       } else this.error.set('Ta sprawa nie jest dostępna lokalnie.');
       this.pending.set(false);
@@ -129,6 +156,7 @@ export class MyCases {
     const outcome = await this.catalogue.submit(
       dialog.kind === 'delete' ? dialog : { ...dialog, title },
     );
+    if (!current()) return;
     this.pending.set(false);
     if (outcome.status === 'created') {
       this.dialog.set(null);
@@ -142,6 +170,7 @@ export class MyCases {
     ) {
       this.dialog.set(null);
       this.cases.reload();
+      this.local.reload();
     }
     if (outcome.status !== 'done') this.error.set(messages[outcome.status]);
   }

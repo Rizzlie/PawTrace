@@ -18,8 +18,8 @@ export interface SaveRequest {
 }
 
 /**
- * Snapshot persistence seam of the workspace store. Implementations hold no bookkeeping: the
- * acknowledged version and any unresolved attempt belong to `CaseState.persistence`.
+ * Snapshot persistence seam of the workspace store. The active revision/version belong to
+ * `CaseState.persistence`; a durable adapter also retains their recoverable storage metadata.
  */
 export abstract class CaseStorage {
   checkpoint?(document: CaseDocument, revision: number, version: number): Promise<void>;

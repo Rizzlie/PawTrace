@@ -184,21 +184,24 @@ test('preserves expired-session work, resumes only for the same account and hide
 }) => {
   const path = await createCase(page, 'Odzyskanie po wygaśnięciu');
   const eightDays = 8 * 24 * 60 * 60 * 1000;
+  let advanced = 0;
   try {
     await context.setOffline(true);
     await edit(page, 'Luna po wygaśnięciu');
     await expect(page.getByLabel('Stan zapisu')).toContainText('Zapisano na urządzeniu');
     await request.post('http://127.0.0.1:3902/advance?ms=' + eightDays);
+    advanced += eightDays;
     await context.setOffline(false);
     await expect(page.getByText('Sesja wygasła.', { exact: false })).toBeVisible();
     await page.getByRole('link', { name: 'Zaloguj się przez Google' }).click();
-    await page.getByRole('link', { name: 'Odzyskanie po wygaśnięciu', exact: true }).click();
+    await page.locator(`a[href="${path}"]`).click();
     await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
     expect((await exported(page)).animal.name).toBe('Luna po wygaśnięciu');
     await context.setOffline(true);
     await edit(page, 'Tylko konto Alice');
     await expect(page.getByLabel('Stan zapisu')).toContainText('Zapisano na urządzeniu');
     await request.post('http://127.0.0.1:3902/advance?ms=' + eightDays);
+    advanced += eightDays;
     await context.setOffline(false);
     await expect(page.getByRole('link', { name: 'Zaloguj się przez Google' })).toBeVisible();
     await request.post('http://127.0.0.1:3902/provider?subject=p04-other-' + Date.now());
@@ -210,7 +213,7 @@ test('preserves expired-session work, resumes only for the same account and hide
     await expect(page.getByRole('button', { name: 'Edytuj profil', exact: true })).toBeDisabled();
   } finally {
     await request.post('http://127.0.0.1:3902/provider');
-    await request.post('http://127.0.0.1:3902/advance?ms=' + -2 * eightDays);
+    await request.post('http://127.0.0.1:3902/advance?ms=' + -advanced);
   }
 });
 
@@ -305,7 +308,7 @@ test('keeps access closed and reports device cleanup failure after actual server
   await page.reload();
   await expect(page.getByText('Sesja została odwołana.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Ponów usuwanie lokalnych kopii', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Zaloguj się przez Google' })).toBeVisible();
+  await expect(page.getByLabel(/^Konto: /u)).toBeVisible();
 });
 
 test('pauses a remotely deleted case and preserves the local JSON without recreating it', async ({
@@ -421,4 +424,29 @@ test('recovers from an actual aborted IndexedDB transaction while keeping the la
   await page.evaluate(() => Reflect.get(globalThis, 'restoreP04Transaction')());
   await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+});
+
+test('renames a cached case offline through the durable committed queue', async ({
+  page,
+  context,
+}) => {
+  const path = await createCase(page, 'Nazwa przed odłączeniem');
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  const link = page.locator(`a[href="${path}"]`);
+  await expect(link).toBeVisible();
+  await context.setOffline(true);
+  await page
+    .getByRole('listitem')
+    .filter({ has: link })
+    .getByRole('button', { name: 'Zmień nazwę: Nazwa przed odłączeniem', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Zmiana nazwy sprawy' });
+  await dialog.getByLabel('Nazwa sprawy').fill('Nazwa zapisana offline');
+  await dialog.getByRole('button', { name: 'Zapisz nazwę', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(link).toHaveText('Nazwa zapisana offline');
+  await context.setOffline(false);
+  await expect
+    .poll(async () => (await (await context.request.get('/api' + path)).json()).document.case.title)
+    .toBe('Nazwa zapisana offline');
 });

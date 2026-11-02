@@ -437,15 +437,16 @@ export function withCasePersistence() {
             void storage.retryPending?.(p.caseId).catch(() => undefined);
           },
           /**
-           * Waits for pending committed changes. `false` means they are not on the server, or the
-           * caller stopped waiting through `signal`.
+           * Waits for committed local durability, or server acknowledgement when requested.
+           * `false` means that boundary failed or the caller stopped waiting through `signal`.
            */
-          async flush(signal?: AbortSignal): Promise<boolean> {
+          async flush(signal?: AbortSignal, waitForServer = false): Promise<boolean> {
             const aborted = signal ? fromEvent(signal, 'abort') : NEVER;
             for (;;) {
               const p = store.persistence();
               if (signal?.aborted || p.localError) return false;
-              if (storage.checkpoint && p.localRevision === p.revision) return true;
+              if (!waitForServer && storage.checkpoint && p.localRevision === p.revision)
+                return true;
               if (p.error || p.conflict) return false;
               if (!p.writing && p.revision === p.savedRevision) return true;
               if (mapViewSettling(p)) dispatch.flushRequested();

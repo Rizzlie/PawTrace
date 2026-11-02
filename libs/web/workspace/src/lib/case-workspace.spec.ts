@@ -144,6 +144,14 @@ it('does not let a failed old case block a queued save for the newly opened case
   await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
 });
 
+it('rejects an invalid offline case name before it changes committed data or its recovery JSON', async () => {
+  const { state } = await setup();
+  const original = activeDocument(state).case.title;
+  await state.renameCase('Invalid\u0000name');
+  expect(JSON.parse(await state.exportJson()).case.title).toBe(original);
+  expect(state.persistence().revision).toBe(0);
+});
+
 it('attaches stored originals only to their editor, preserves newer text and commits photos explicitly', async () => {
   const { state } = await setup();
   state.openProfile();

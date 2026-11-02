@@ -69,10 +69,23 @@ export function withCaseView() {
         };
       }),
     ),
-    withMethods((_, dispatch = injectDispatch(caseViewEvents)) => ({
+    withMethods((store, dispatch = injectDispatch(caseViewEvents)) => ({
       changeViewport: (view: MapViewport) => dispatch.viewportChanged(view),
       changeBasemap: (basemap: Basemap) => dispatch.basemapChanged(basemap),
-      renameCase: (title: string) => dispatch.renamed(title),
+      async renameCase(title: string): Promise<boolean> {
+        const generation = store.persistence().generation;
+        const { textSchema } = await import('@pawtrace/case-domain');
+        if (
+          !textSchema.safeParse(title.trim()).success ||
+          !title.trim() ||
+          !store.document() ||
+          generation !== store.persistence().generation ||
+          caseBusy({ persistence: store.persistence() })
+        )
+          return false;
+        dispatch.renamed(title);
+        return true;
+      },
     })),
   );
 }
