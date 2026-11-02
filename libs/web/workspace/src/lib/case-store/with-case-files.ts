@@ -12,6 +12,7 @@ import { BrowserFiles, CaseCopies, CASE_IDENTITY } from '@pawtrace/browser-persi
 import {
   catchError,
   defer,
+  EMPTY,
   filter,
   firstValueFrom,
   ignoreElements,
@@ -19,6 +20,7 @@ import {
   mergeMap,
   of,
   tap,
+  takeUntil,
 } from 'rxjs';
 import { caseBusy, editorDirty, type CaseState } from './case-state';
 import { fileEvents, persistenceEvents } from './case-events';
@@ -142,12 +144,14 @@ export function withCaseFiles() {
                   });
             }),
             catchError(() =>
-              of(
-                fileEvents.failed({
-                  request: payload.request,
-                  error: fileError,
-                }),
-              ),
+              payload.generation !== store.persistence().generation
+                ? EMPTY
+                : of(
+                    fileEvents.failed({
+                      request: payload.request,
+                      error: fileError,
+                    }),
+                  ),
             ),
           ),
         ),
@@ -251,9 +255,11 @@ export function withCaseFiles() {
             if (!navigator.onLine || !canReplace(getState(store))) return;
             const request = store.transfer().request;
             const done = firstValueFrom(
-              events
-                .on(fileEvents.replacementSucceeded, fileEvents.replacementFailed)
-                .pipe(filter((event) => event.payload.request === request)),
+              events.on(fileEvents.replacementSucceeded, fileEvents.replacementFailed).pipe(
+                filter((event) => event.payload.request === request),
+                takeUntil(events.on(persistenceEvents.opened, persistenceEvents.closed)),
+              ),
+              { defaultValue: undefined },
             );
             dispatch.replacementRequested({ request });
             await done;
@@ -262,14 +268,21 @@ export function withCaseFiles() {
           async downloadRecovery(): Promise<void> {
             const owner = identity?.owner();
             const generation = identity?.generation();
+            const caseGeneration = store.persistence().generation;
+            const current = store.document();
+            const active = () =>
+              owner === identity?.owner() &&
+              generation === identity?.generation() &&
+              caseGeneration === store.persistence().generation;
             if (!owner) return;
             try {
               const rows = await copies.list(owner);
               const branch = await copies.branch();
               const { serializeCaseFile } = await import('@pawtrace/case-domain');
-              if (owner !== identity?.owner() || generation !== identity.generation()) return;
-              const current = store.document();
-              if (current) files.download(await exportJson(), `pawtrace-${current.case.id}.json`);
+              if (!active()) return;
+              const json = current ? await exportJson() : undefined;
+              if (!active()) return;
+              if (current && json) files.download(json, `pawtrace-${current.case.id}.json`);
               for (const row of rows.filter(
                 (row) => row.caseId !== current?.case.id || row.branch !== branch,
               ))
@@ -278,16 +291,24 @@ export function withCaseFiles() {
                   `pawtrace-${row.caseId}-${row.branch}.json`,
                 );
             } catch {
-              dispatch.exportFailed({ error: fileError });
+              if (active()) dispatch.exportFailed({ error: fileError });
             }
           },
           async downloadExport(): Promise<void> {
             const document = store.document();
+            const generation = store.persistence().generation;
+            const owner = identity?.owner();
+            const accountGeneration = identity?.generation();
+            const active = () =>
+              generation === store.persistence().generation &&
+              owner === identity?.owner() &&
+              accountGeneration === identity?.generation();
             if (!document) return;
             try {
-              files.download(await exportJson(), `pawtrace-${document.case.id}.json`);
+              const json = await exportJson();
+              if (active()) files.download(json, `pawtrace-${document.case.id}.json`);
             } catch {
-              dispatch.exportFailed({ error: fileError });
+              if (active()) dispatch.exportFailed({ error: fileError });
             }
           },
         };

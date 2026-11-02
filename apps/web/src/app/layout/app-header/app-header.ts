@@ -55,7 +55,10 @@ export class AppHeader {
   }
 
   protected async exportRecovery(): Promise<void> {
+    const owner = this.session.user()?.id;
+    const generation = this.session.generation();
     await this.state?.downloadExport();
+    if (owner !== this.session.user()?.id || generation !== this.session.generation()) return;
     await this.session.exportCopies(this.state?.document()?.case.id);
   }
 
