@@ -33,7 +33,7 @@ export function withCaseProjections() {
         }),
       ),
       saveNeedsAttention: computed(() =>
-        ['error', 'unsaved', 'conflict'].includes(
+        ['error', 'unsaved', 'local', 'conflict'].includes(
           saveStatus({ document: store.document(), persistence: store.persistence() }),
         ),
       ),

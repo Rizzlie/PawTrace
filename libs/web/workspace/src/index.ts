@@ -7,6 +7,7 @@ export * from './lib/case-controls/case-controls';
 export { workspaceRoutes } from './lib/workspace.routes';
 export { returnToCase } from './lib/return-to-case';
 export { CaseStorage, ServerCaseStorage } from './lib/cases/case-storage';
+export { DurableCaseStorage } from './lib/cases/durable-case-storage';
 
 export * from './lib/point-workspace/point-workspace';
 export * from './lib/area-workspace/area-workspace';

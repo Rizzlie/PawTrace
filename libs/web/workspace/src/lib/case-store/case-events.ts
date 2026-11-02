@@ -36,6 +36,7 @@ export const caseViewEvents = eventGroup({
   events: {
     viewportChanged: type<MapViewport>(),
     basemapChanged: type<Basemap>(),
+    renamed: type<string>(),
   },
 });
 
@@ -43,7 +44,7 @@ export const fileEvents = eventGroup({
   source: 'Case files',
   events: {
     importStarted: type<{ request: number; reading: boolean }>(),
-    parseRequested: type<{ request: number; text: string }>(),
+    parseRequested: type<{ request: number; text: string; generation: number }>(),
     exportFailed: type<{ error: string }>(),
     importFinished: type<{ request: number }>(),
     candidatePrepared: type<{ request: number; document: CaseDocument }>(),
@@ -69,10 +70,20 @@ export const persistenceEvents = eventGroup({
       document: CaseDocument | null;
       version: number | null;
       recovery: string;
+      revision?: number;
+      savedRevision?: number;
+      paused?: boolean;
     }>(),
     writeStarted: type<{ generation: number }>(),
+    localStored: type<{ generation: number; revision: number }>(),
+    localFailed: type<{ generation: number; error: string }>(),
     writeSucceeded: type<{ revision: number; generation: number; version: number }>(),
-    writeFailed: type<{ generation: number; conflict: boolean; unresolved: SnapshotJob | null }>(),
+    writeFailed: type<{
+      generation: number;
+      conflict: boolean;
+      unresolved: SnapshotJob | null;
+      localOnly?: boolean;
+    }>(),
     retryRequested: type<void>(),
     flushRequested: type<void>(),
   },

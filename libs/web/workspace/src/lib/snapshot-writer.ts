@@ -52,7 +52,7 @@ export class SnapshotWriter {
       this.failed(job, error);
     } finally {
       this.active = undefined;
-      if (succeeded) this.start();
+      if (succeeded || (this.pending && this.pending.generation !== job.generation)) this.start();
     }
   }
 

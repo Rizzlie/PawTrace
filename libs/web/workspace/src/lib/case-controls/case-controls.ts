@@ -12,6 +12,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { CaseStore } from '../case-store/case-store';
 import { Router, RouterLink } from '@angular/router';
 import { returnToCase } from '../return-to-case';
+import { Connectivity } from '../cases/connectivity';
 
 @Component({
   selector: 'pt-case-controls',
@@ -21,6 +22,7 @@ import { returnToCase } from '../return-to-case';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CaseControls {
+  protected readonly online = inject(Connectivity).online;
   protected readonly state = inject(CaseStore);
   protected readonly draftLabel = computed(() => {
     const kind = this.state.editor()?.kind;

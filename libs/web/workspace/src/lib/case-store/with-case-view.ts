@@ -50,10 +50,29 @@ export function withCaseView() {
           ? commitView(state, { ...state.document.mapView, basemap: payload })
           : { emptyBasemap: payload },
       ),
+      on(caseViewEvents.renamed, ({ payload }, state) => {
+        if (!state.document || caseBusy(state) || !payload.trim()) return {};
+        return {
+          document: {
+            ...state.document,
+            case: {
+              ...state.document.case,
+              title: payload.trim(),
+              updatedAt: new Date().toISOString(),
+            },
+          },
+          persistence: {
+            ...state.persistence,
+            revision: state.persistence.revision + 1,
+            settlingRevision: null,
+          },
+        };
+      }),
     ),
     withMethods((_, dispatch = injectDispatch(caseViewEvents)) => ({
       changeViewport: (view: MapViewport) => dispatch.viewportChanged(view),
       changeBasemap: (basemap: Basemap) => dispatch.basemapChanged(basemap),
+      renameCase: (title: string) => dispatch.renamed(title),
     })),
   );
 }
