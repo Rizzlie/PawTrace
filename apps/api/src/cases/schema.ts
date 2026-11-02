@@ -17,6 +17,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { users } from '../auth/schema';
+import type { StorageId } from '../app/assets/storage-id';
 import type { Coordinates } from '@pawtrace/case-domain';
 import { decodePoint, decodePolygon } from './geometry-codec';
 
@@ -613,7 +614,7 @@ export const photoAssets = pgTable(
 export const storedPhotos = pgTable(
   'stored_photo',
   {
-    storageId: uuid('storage_id').primaryKey(),
+    storageId: uuid('storage_id').$type<StorageId>().primaryKey(),
     caseId: text('case_id')
       .notNull()
       .references(() => ownedCases.id, { onDelete: 'cascade' }),
@@ -623,9 +624,9 @@ export const storedPhotos = pgTable(
   (table) => [unique('stored_photo_filename').on(table.caseId, table.filename)],
 );
 
-/** Outbox committed with a case deletion: files go only when PostgreSQL names them here. */
+/** Removal outbox, written with a case deletion: files go only when PostgreSQL names them here. */
 export const photoRemovals = pgTable('photo_removal', {
-  storageId: uuid('storage_id').primaryKey(),
+  storageId: uuid('storage_id').$type<StorageId>().primaryKey(),
   requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { PhotoRepository } from '../../cases/photo-repository';
 import { OriginalAssets } from './original-assets';
+import type { StorageId } from './storage-id';
 
 /**
  * Removes only what PostgreSQL names. Published directories are never compared with the database:
@@ -18,6 +19,12 @@ export class PhotoCleanup implements OnApplicationBootstrap {
   /** Runs before the application listens, so no upload of this single instance is in flight. */
   async onApplicationBootstrap(): Promise<void> {
     await this.originals.clearStaging();
+    await this.removeDeleted();
+  }
+
+  /** A file published after its case was deleted joins the queue that deletion already drained. */
+  async removeOrphan(storageId: StorageId): Promise<void> {
+    await this.photos.queueRemoval(storageId);
     await this.removeDeleted();
   }
 

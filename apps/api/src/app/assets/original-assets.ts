@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, open, opendir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -20,13 +20,14 @@ import {
   type AssetMetadata,
   type StoredOriginal,
 } from './asset-metadata';
+import { parseStorageId, type StorageId } from './storage-id';
 
 // Internal upload transaction. Only the multipart adapter sees this protocol.
 export type OriginalUpload = {
   /** Validates the staged bytes and names them; nothing leaves staging yet. */
   prepare(originalName: string): Promise<AssetMetadata>;
   /** Atomically moves the complete staged directory to its private storage key. */
-  publish(storageId: string): Promise<void>;
+  publish(storageId: StorageId): Promise<void>;
   discard(): Promise<void>;
 };
 
@@ -54,7 +55,7 @@ export function originalStorageFailure(error: unknown): HttpException {
 /** `objects/<storage id>` holds published photos; `staging/` is disposable at every start. */
 @Injectable()
 export class OriginalAssets {
-  readonly objects: string;
+  private readonly objects: string;
   private readonly staging: string;
 
   constructor(config: ConfigService<Environment, true>) {
@@ -112,16 +113,35 @@ export class OriginalAssets {
     await mkdir(this.staging, { recursive: true }).catch(() => undefined);
   }
 
-  async remove(storageId: string): Promise<void> {
+  async remove(storageId: StorageId): Promise<void> {
     await rm(this.directory(storageId), { recursive: true, force: true });
   }
 
-  directory(storageId: string): string {
+  /** Streams published directories; a name that is no storage id was not published here. */
+  async *published(): AsyncGenerator<StorageId> {
+    let directories;
+    try {
+      directories = await opendir(this.objects);
+    } catch (error) {
+      if (systemCode(error) === 'ENOENT') return;
+      throw error;
+    }
+    for await (const entry of directories) {
+      const storageId = entry.isDirectory() ? parseStorageId(entry.name) : undefined;
+      if (storageId) yield storageId;
+    }
+  }
+
+  private directory(storageId: StorageId): string {
     return join(this.objects, storageId);
   }
 
-  originalPath(storageId: string): string {
+  originalPath(storageId: StorageId): string {
     return join(this.directory(storageId), ORIGINAL);
+  }
+
+  partialDerivativePath(storageId: StorageId, kind: 'thumbnail' | 'preview'): string {
+    return join(this.directory(storageId), `${kind}.part.png`);
   }
 
   private async writeRecord(
@@ -140,23 +160,23 @@ export class OriginalAssets {
     await rename(temporary, join(directory, METADATA));
   }
 
-  /** Internal processing protocol: strict records and atomic replacement share storage ownership. */
-  async findRecord(storageId: string): Promise<StoredOriginal | undefined> {
-    try {
-      return storedOriginalSchema.parse(
-        JSON.parse(await readFile(join(this.directory(storageId), METADATA), 'utf8')),
-      );
-    } catch {
-      return undefined;
-    }
+  private async readRecord(storageId: StorageId): Promise<StoredOriginal> {
+    return storedOriginalSchema.parse(
+      JSON.parse(await readFile(join(this.directory(storageId), METADATA), 'utf8')),
+    );
   }
 
-  saveRecord(storageId: string, record: StoredOriginal): Promise<void> {
+  /** Internal processing protocol: strict records and atomic replacement share storage ownership. */
+  findRecord(storageId: StorageId): Promise<StoredOriginal | undefined> {
+    return this.readRecord(storageId).catch(() => undefined);
+  }
+
+  saveRecord(storageId: StorageId, record: StoredOriginal): Promise<void> {
     return this.writeRecord(this.directory(storageId), 'processing-metadata.part', record);
   }
 
   async publishDerivative(
-    storageId: string,
+    storageId: StorageId,
     record: StoredOriginal,
     kind: 'thumbnail' | 'preview',
     temporary: string,
@@ -192,10 +212,7 @@ export class OriginalAssets {
 
   async metadata({ storageId, filename }: StoredPhoto): Promise<AssetMetadata> {
     try {
-      const record = storedOriginalSchema.parse(
-        JSON.parse(await readFile(join(this.directory(storageId), METADATA), 'utf8')),
-      );
-      return { ...record, filename };
+      return { ...(await this.readRecord(storageId)), filename };
     } catch (error) {
       if (systemCode(error) === 'ENOENT') throw new NotFoundException('Zdjęcie niedostępne.');
       throw new HttpException('Metadane zdjęcia są niedostępne. Ponów odczyt.', 503);

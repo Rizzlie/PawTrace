@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { CaseDocument } from '@pawtrace/case-domain';
-import type { Database } from '../database/database';
+import type { Database, Transaction } from '../database/database';
 import { fromCaseRows, toCaseRows, type CaseRows, type StoredCaseRows } from './case-mapping';
+import type { PhotoRepository } from './photo-repository';
 import * as tables from './schema';
 
 export type Acknowledgement = { id: string; version: number | null; savedAt: string | null };
@@ -20,7 +21,6 @@ export type Mutation = {
   request: unknown;
 };
 type AnyCaseTable = typeof tables.caseRecords;
-type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 class Rejected extends Error {
   constructor(readonly outcome: Exclude<MutationOutcome, { kind: 'ok' }>) {
@@ -62,7 +62,10 @@ const deletionOrder = [
 
 /** Owner-scoped relational case persistence with version checks and an idempotency ledger. */
 export class CaseRepository {
-  constructor(private readonly database: Database | undefined) {}
+  constructor(
+    private readonly database: Database | undefined,
+    private readonly photos: PhotoRepository,
+  ) {}
 
   /** Without a database the global guard denies private requests before reaching here. */
   private get db(): Database {
@@ -146,10 +149,7 @@ export class CaseRepository {
   delete(mutation: Mutation, baseVersion: number) {
     return this.mutate(mutation, async (tx) => {
       await this.lock(tx, mutation, baseVersion);
-      await tx.execute(
-        sql`INSERT INTO photo_removal (storage_id)
-          SELECT storage_id FROM stored_photo WHERE case_id = ${mutation.caseId}`,
-      );
+      await this.photos.queueCaseRemoval(tx, mutation.caseId);
       await deleteDocumentRows(tx, mutation.caseId);
       await tx.delete(tables.ownedCases).where(eq(tables.ownedCases.id, mutation.caseId));
       return null;

@@ -1,7 +1,7 @@
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assetsPath, type ApiClient } from '../tests/case-client';
-import { startPhotoApplication } from '../tests/photo-application';
+import { startPhotoApplication, withDatabase } from '../tests/photo-application';
 
 describe('photo derivatives over HTTP', () => {
   let harness: Awaited<ReturnType<typeof startPhotoApplication>>;
@@ -115,6 +115,35 @@ describe('photo derivatives over HTTP', () => {
       expect((await get(`${filename}/thumbnail`)).status).toBe(404);
     }
   });
+
+  it('processes only directories named by a storage id', async () => {
+    const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));
+    const { filename } = await upload(bytes, 'kot.jpg');
+    await settled(filename, 'ready');
+    const storageId = await withDatabase(
+      async (pool) =>
+        (await pool.query('SELECT storage_id FROM stored_photo WHERE filename = $1', [filename]))
+          .rows[0].storage_id as string,
+    );
+    const objects = join(harness.directory, 'objects');
+    const stray = join(objects, 'not-a-storage-id');
+    await cp(join(objects, storageId), stray, { recursive: true });
+    await rm(join(stray, 'thumbnail.png'));
+    const record = JSON.parse(await readFile(join(stray, 'metadata.json'), 'utf8'));
+    await writeFile(
+      join(stray, 'metadata.json'),
+      JSON.stringify({
+        ...record,
+        thumbnailFilename: null,
+        processing: { ...record.processing, thumbnail: { status: 'pending' } },
+      }),
+    );
+    // Two later photos finishing means the queue has walked past the stray directory.
+    for (const name of ['drugi.jpg', 'trzeci.jpg'])
+      await settled((await upload(bytes, name)).filename, 'ready');
+    expect(await readdir(stray)).not.toContain('thumbnail.png');
+    await rm(stray, { recursive: true });
+  }, 30_000);
 
   it('recovers from derivative-write failure without uploading the original again', async () => {
     const bytes = await readFile(join(import.meta.dirname, '../tests/fixtures/photo.jpg'));

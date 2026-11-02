@@ -5,7 +5,7 @@ import { request } from 'node:http';
 import { join } from 'node:path';
 import type { CaseDocument } from '@pawtrace/case-domain';
 import { assetsPath, ORIGIN, type ApiClient } from '../tests/case-client';
-import { startPhotoApplication, withDatabase } from '../tests/photo-application';
+import { png, startPhotoApplication, withDatabase } from '../tests/photo-application';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
@@ -16,10 +16,6 @@ const { rename: actualRename, rm: actualRm } = promises;
 const digest = (bytes: ArrayBuffer | Uint8Array) =>
   createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
 const fixture = (name: string) => readFile(join(import.meta.dirname, '../tests/fixtures', name));
-const png = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
-  'base64',
-);
 
 let harness: Awaited<ReturnType<typeof startPhotoApplication>>;
 beforeAll(async () => {
@@ -152,6 +148,15 @@ it('gives only the case owner every asset route; anonymous, foreign and stale UR
     expect((await fetch(harness.base + path)).status).toBe(401);
     expect((await alice.client.fetch('GET', path)).status).toBe(404);
   }
+  // A mutation passes the CSRF check first, so its token decides between 403 and 404.
+  const legacy = `/api/assets/${filename}`;
+  const cookie = alice.client.cookieHeader();
+  expect((await fetch(harness.base + legacy, { method: 'POST' })).status).toBe(401);
+  expect(
+    (await fetch(harness.base + legacy, { method: 'POST', headers: { cookie, origin: ORIGIN } }))
+      .status,
+  ).toBe(403);
+  expect((await alice.client.request('POST', legacy)).status).toBe(404);
   expect((await alice.client.upload(alice.caseId, png)).status).toBe(201);
 });
 
@@ -398,6 +403,34 @@ describe('injected failures', () => {
     expect((await objects()).filter((id) => directories.includes(id))).toEqual([]);
     await expectOriginal(client, other, kept, png);
   });
+
+  it('removes a file published after its case was deleted, retrying a failed removal after restart', async () => {
+    const objects = async () => (await readdir(join(harness.directory, 'objects'))).sort();
+    const deletedDuringPublication = async (name: string) => {
+      const { client, caseId } = await harness.owner(name);
+      const { version } = (await client.open(caseId)).body;
+      vi.mocked(rename).mockImplementation(async (from, to) => {
+        if (String(from).includes('staging') && String(to).includes('objects')) {
+          vi.mocked(rename).mockImplementation(actualRename);
+          const deleted = await client.request('DELETE', `/api/cases/${caseId}`, { version });
+          expect(deleted.status).toBe(204);
+        }
+        return actualRename(from, to);
+      });
+      return client.upload(caseId, png);
+    };
+    const before = await objects();
+
+    expect((await deletedDuringPublication('lena')).status).toBe(404);
+    expect(await objects()).toEqual(before);
+
+    failRemoval('objects', 'EBUSY');
+    expect((await deletedDuringPublication('mona')).status).toBe(404);
+    expect(await objects()).toHaveLength(before.length + 1);
+    vi.mocked(rm).mockImplementation(actualRm);
+    await harness.restart();
+    expect(await objects()).toEqual(before);
+  }, 20_000);
 
   it('leaves published originals alone when the database does not know them', async () => {
     const stray = join(harness.directory, 'objects', randomUUID());

@@ -9,6 +9,7 @@ import { caseFileSchema } from '@pawtrace/case-domain';
 import completeFile from '@pawtrace/case-domain/fixtures/complete-case-v1.json';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { uploadedPhoto } from './fixtures';
 
 // Switches the controlled provider's identity, so this project runs serially and alone.
 test.describe.configure({ mode: 'serial' });
@@ -312,9 +313,7 @@ test('keeps photos with their owner across direct URLs, a foreign import and an 
     await page.goto('/');
     const caseId = await createFromCatalogue(page, 'Prywatne zdjęcia');
     await page.getByRole('button', { name: 'Edytuj profil', exact: true }).click();
-    const uploaded = page.waitForResponse(
-      (response) => response.url().endsWith('/assets') && response.request().method() === 'POST',
-    );
+    const uploaded = page.waitForResponse(uploadedPhoto);
     await page.getByLabel('Dodaj zdjęcia', { exact: true }).setInputFiles({
       name: 'kot.png',
       mimeType: 'image/png',

@@ -9,13 +9,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { opendir, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { StoredPhoto } from '../../cases/photo-repository';
 import type { Environment } from '../environment';
 import { type AssetMetadata, type StoredOriginal } from './asset-metadata';
 import { OriginalAssets } from './original-assets';
+import type { StorageId } from './storage-id';
 
 const kinds = ['thumbnail', 'preview'] as const;
 type Kind = (typeof kinds)[number];
@@ -48,8 +49,8 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
   private running?: Promise<void>;
   private child?: ChildProcess;
   private stopping = false;
-  private active?: string;
-  private readonly retrying = new Set<string>();
+  private active?: StorageId;
+  private readonly retrying = new Set<StorageId>();
   private readonly logger = new Logger(ImageProcessing.name);
 
   constructor(
@@ -120,18 +121,9 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
   }
 
   private async scan(): Promise<void> {
-    let directories;
-    try {
-      directories = await opendir(this.originals.objects);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return;
-      throw error;
-    }
-    for await (const entry of directories) {
+    // Exactly one published original belongs to each directory; staging is never scanned.
+    for await (const storageId of this.originals.published()) {
       if (this.stopping) break;
-      if (!entry.isDirectory()) continue;
-      // Exactly one published original belongs to this directory; staging is never scanned.
-      const storageId = entry.name;
       const record = await this.originals.findRecord(storageId);
       if (!record || this.retrying.has(storageId)) continue;
       this.active = storageId;
@@ -151,8 +143,8 @@ export class ImageProcessing implements OnApplicationBootstrap, OnApplicationShu
     }
   }
 
-  private async process(storageId: string, record: StoredOriginal, kind: Kind): Promise<void> {
-    const temporary = join(this.originals.directory(storageId), `${kind}.part.png`);
+  private async process(storageId: StorageId, record: StoredOriginal, kind: Kind): Promise<void> {
+    const temporary = this.originals.partialDerivativePath(storageId, kind);
     // Clean a previous interrupted attempt before admitting another decoder.
     let result: Result;
     try {

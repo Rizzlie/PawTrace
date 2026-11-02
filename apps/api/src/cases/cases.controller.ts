@@ -72,7 +72,7 @@ function acknowledge(outcome: MutationOutcome) {
 export class CasesController {
   constructor(
     @Inject(CaseRepository) private readonly cases: CaseRepository,
-    @Inject(PhotoCleanup) private readonly photos: PhotoCleanup,
+    @Inject(PhotoCleanup) private readonly cleanup: PhotoCleanup,
   ) {}
 
   private mutation(
@@ -186,6 +186,6 @@ export class CasesController {
     acknowledge(
       await this.cases.delete(this.mutation(request, key, 'delete', id, [id, base]), base),
     );
-    await this.photos.removeDeleted();
+    await this.cleanup.removeDeleted();
   }
 }

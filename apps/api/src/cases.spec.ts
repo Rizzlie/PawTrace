@@ -5,8 +5,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createApplication } from './application';
 import { startProvider } from '../tests/oidc-provider';
 import { ApiClient } from '../tests/case-client';
+import { DATABASE_URL } from '../tests/test-database';
 
-const DATABASE_URL = 'postgres://pawtrace_test:local-test-only@127.0.0.1:55432/pawtrace_test';
 const fixture = (name: string) => {
   const { exportedAt, ...document } = JSON.parse(
     readFileSync(

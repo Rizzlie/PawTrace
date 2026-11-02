@@ -3,15 +3,9 @@ import { createHash } from 'node:crypto';
 import { request } from 'node:http';
 import { join } from 'node:path';
 import { assetsPath, ORIGIN, type ApiClient } from '../tests/case-client';
-import { startPhotoApplication } from '../tests/photo-application';
+import { png, startPhotoApplication } from '../tests/photo-application';
 
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-
-// A real, one-pixel PNG; decoding is deliberately outside the F11 contract.
-const png = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
-  'base64',
-);
 
 describe('original photo storage over HTTP', () => {
   let harness: Awaited<ReturnType<typeof startPhotoApplication>>;

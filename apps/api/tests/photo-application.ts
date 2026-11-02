@@ -7,9 +7,13 @@ import { Pool } from 'pg';
 import { createApplication } from '../src/application';
 import { ApiClient } from './case-client';
 import { startProvider } from './oidc-provider';
+import { DATABASE_URL } from './test-database';
 
-export const DATABASE_URL =
-  'postgres://pawtrace_test:local-test-only@127.0.0.1:55432/pawtrace_test';
+// A real, one-pixel PNG; decoding is deliberately outside the F11 contract.
+export const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+  'base64',
+);
 
 /** The real application over PostGIS and a real temporary asset directory, with signed logins. */
 export async function startPhotoApplication(prefix: string) {

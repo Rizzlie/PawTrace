@@ -13,14 +13,15 @@ import { PhotoRepository } from './photo-repository';
   controllers: [CasesController, AssetsController, LegacyAssetsController],
   providers: [
     {
-      provide: CaseRepository,
-      inject: [DatabaseConnection],
-      useFactory: (database: DatabaseConnection) => new CaseRepository(database.handle?.db),
-    },
-    {
       provide: PhotoRepository,
       inject: [DatabaseConnection],
       useFactory: (database: DatabaseConnection) => new PhotoRepository(database.handle?.db),
+    },
+    {
+      provide: CaseRepository,
+      inject: [DatabaseConnection, PhotoRepository],
+      useFactory: (database: DatabaseConnection, photos: PhotoRepository) =>
+        new CaseRepository(database.handle?.db, photos),
     },
     AssetUploads,
     OriginalAssets,

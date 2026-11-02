@@ -8,6 +8,7 @@ import * as caseSchema from '../cases/schema';
 
 const schema = { ...authSchema, ...caseSchema };
 export type Database = NodePgDatabase<typeof schema>;
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /** Drizzle applies committed migrations before Nest becomes ready. */
 export async function openDatabase(connectionString: string) {

@@ -8,9 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import multer from 'multer';
-import { randomUUID } from 'node:crypto';
 import { PhotoRepository } from '../../cases/photo-repository';
 import { OriginalAssets, originalStorageFailure, type OriginalUpload } from './original-assets';
+import { PhotoCleanup } from './photo-cleanup';
+import { newStorageId } from './storage-id';
 
 const publicationFailure = () =>
   new HttpException(
@@ -27,10 +28,11 @@ export class AssetUploads {
   constructor(
     @Inject(OriginalAssets) private readonly originals: OriginalAssets,
     @Inject(PhotoRepository) private readonly photos: PhotoRepository,
+    @Inject(PhotoCleanup) private readonly cleanup: PhotoCleanup,
   ) {}
 
   /** A database failure is retryable, unlike the disk's 507, and hides nothing already public. */
-  private async recorded<T>(operation: Promise<T>): Promise<T> {
+  private async orPublicationFailure<T>(operation: Promise<T>): Promise<T> {
     try {
       return await operation;
     } catch {
@@ -40,7 +42,7 @@ export class AssetUploads {
 
   async receive(request: Request, response: Response, ownerId: string, caseId: string) {
     // Checked before the body is read: a foreign caller never reaches staging.
-    if (!(await this.recorded(this.photos.ownsCase(ownerId, caseId))))
+    if (!(await this.orPublicationFailure(this.photos.ownsCase(ownerId, caseId))))
       throw new NotFoundException({ error: 'not_found' });
     const abort = new AbortController();
     const onAbort = () => abort.abort();
@@ -78,9 +80,9 @@ export class AssetUploads {
         throw new BadRequestException('Prześlij jeden plik w polu file.');
       abort.signal.throwIfAborted();
       const asset = await upload.prepare(request.file.originalname);
-      const photo = { storageId: randomUUID(), filename: asset.filename };
+      const photo = { storageId: newStorageId(), filename: asset.filename };
       // The row comes first: if the process dies next, it names no file and no client knows it.
-      if (!(await this.recorded(this.photos.register(ownerId, caseId, photo))))
+      if (!(await this.orPublicationFailure(this.photos.register(ownerId, caseId, photo))))
         throw new NotFoundException({ error: 'not_found' });
       try {
         await upload.publish(photo.storageId);
@@ -90,9 +92,8 @@ export class AssetUploads {
         });
         throw error;
       }
-      // A case deleted meanwhile has already drained its removals, so this file is ours to remove.
-      if (!(await this.recorded(this.photos.isRegistered(photo.storageId)))) {
-        await this.originals.remove(photo.storageId);
+      if (!(await this.orPublicationFailure(this.photos.isRegistered(photo.storageId)))) {
+        await this.orPublicationFailure(this.cleanup.removeOrphan(photo.storageId));
         throw new NotFoundException({ error: 'not_found' });
       }
       return asset;

@@ -1,8 +1,12 @@
 import { and, eq } from 'drizzle-orm';
-import type { Database } from '../database/database';
+import type { StorageId } from '../app/assets/storage-id';
+import type { Database, Transaction } from '../database/database';
 import { ownedCases, photoRemovals, storedPhotos } from './schema';
 
-export type StoredPhoto = { storageId: string; filename: string };
+export type StoredPhoto = { storageId: StorageId; filename: string };
+
+const ownedBy = (ownerId: string, caseId: string) =>
+  and(eq(ownedCases.id, caseId), eq(ownedCases.ownerId, ownerId));
 
 /** The owner → case → stored photo relation. Every file access starts from a row found here. */
 export class PhotoRepository {
@@ -18,7 +22,7 @@ export class PhotoRepository {
     const rows = await this.db
       .select({ id: ownedCases.id })
       .from(ownedCases)
-      .where(and(eq(ownedCases.id, caseId), eq(ownedCases.ownerId, ownerId)));
+      .where(ownedBy(ownerId, caseId));
     return rows.length > 0;
   }
 
@@ -44,7 +48,7 @@ export class PhotoRepository {
       const [owned] = await tx
         .select({ id: ownedCases.id })
         .from(ownedCases)
-        .where(and(eq(ownedCases.id, caseId), eq(ownedCases.ownerId, ownerId)))
+        .where(ownedBy(ownerId, caseId))
         .for('share');
       if (!owned) return false;
       await tx.insert(storedPhotos).values({ ...photo, caseId });
@@ -52,7 +56,7 @@ export class PhotoRepository {
     });
   }
 
-  async isRegistered(storageId: string): Promise<boolean> {
+  async isRegistered(storageId: StorageId): Promise<boolean> {
     const rows = await this.db
       .select({ storageId: storedPhotos.storageId })
       .from(storedPhotos)
@@ -60,17 +64,30 @@ export class PhotoRepository {
     return rows.length > 0;
   }
 
-  async forget(storageId: string): Promise<void> {
+  async forget(storageId: StorageId): Promise<void> {
     await this.db.delete(storedPhotos).where(eq(storedPhotos.storageId, storageId));
   }
 
-  async pendingRemovals(): Promise<string[]> {
+  /** Runs in the deletion's transaction: the case's files are queued exactly if it commits. */
+  async queueCaseRemoval(tx: Transaction, caseId: string): Promise<void> {
+    const photos = await tx
+      .select({ storageId: storedPhotos.storageId })
+      .from(storedPhotos)
+      .where(eq(storedPhotos.caseId, caseId));
+    if (photos.length) await tx.insert(photoRemovals).values(photos);
+  }
+
+  async queueRemoval(storageId: StorageId): Promise<void> {
+    await this.db.insert(photoRemovals).values({ storageId }).onConflictDoNothing();
+  }
+
+  async pendingRemovals(): Promise<StorageId[]> {
     if (!this.database) return [];
     const rows = await this.db.select({ storageId: photoRemovals.storageId }).from(photoRemovals);
     return rows.map((row) => row.storageId);
   }
 
-  async removalFinished(storageId: string): Promise<void> {
+  async removalFinished(storageId: StorageId): Promise<void> {
     await this.db.delete(photoRemovals).where(eq(photoRemovals.storageId, storageId));
   }
 }
