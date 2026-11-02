@@ -68,7 +68,7 @@ Only one editor draft is active. A request to open another editor, import, or st
 
 ## Autosave writer
 
-Each committed document update receives a local revision and immediately requests a full-snapshot write. Use one writer with one in-flight job and at most the latest pending snapshot. Coalesce pending snapshots; never mutate the in-flight snapshot. Draft/UI/save-status updates do not themselves become committed case edits or trigger feedback loops.
+Each committed document update receives a local revision and immediately requests a full-snapshot write; only a map move waits, as described below. Use one writer with one in-flight job and at most the latest pending snapshot. Coalesce pending snapshots; never mutate the in-flight snapshot. Draft/UI/save-status updates do not themselves become committed case edits or trigger feedback loops.
 
 Capture the document, revision, and case-session generation together. A successful transaction acknowledges only that captured revision. If a newer revision exists, state remains unsaved until it is stored. These revision/generation values are local bookkeeping, not new required JSON v1 facts.
 
