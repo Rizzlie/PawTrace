@@ -57,6 +57,7 @@ blob-report/
 .env
 .env.*
 !.env.example
+/pawtrace-local.dump
 
 vitest.config.*.timestamp*
 

@@ -56,6 +56,8 @@ The Leaflet host and adapter live in `libs/web/map-engine`; the framework-neutra
 
 ## Runbook
 
+For persistent local PostgreSQL/PostGIS and Redis alongside the Node application, use the [local data setup](docs/local-data.md). It is isolated from disposable test containers and does not require starting the full application image.
+
 ### Install and start
 
 For desktop use, install Docker Desktop with the Linux containers engine (or Docker Engine with the Compose v2 plugin). From the repository root:

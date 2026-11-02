@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "A local workspace for organizing the search for a missing animal.",
   "scripts": {
-    "dev": "nx run-many -t serve -p web api",
+    "dev": "npm run data:up && npm run dev:apps",
+    "dev:apps": "node --env-file=.env.local-data node_modules/nx/dist/bin/nx.js run-many -t serve -p web api",
+    "data:up": "node tools/init-local-data.mjs && docker compose --env-file .env.local-data -f compose.local-data.yaml up -d --wait",
+    "data:down": "docker compose --env-file .env.local-data -f compose.local-data.yaml down",
+    "data:status": "docker compose --env-file .env.local-data -f compose.local-data.yaml ps",
+    "data:logs": "docker compose --env-file .env.local-data -f compose.local-data.yaml logs --tail 100 -f",
     "build": "nx run-many -t build -p web api",
     "typecheck": "nx run-many -t typecheck",
     "lint": "nx run-many -t lint",
