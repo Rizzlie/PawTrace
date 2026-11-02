@@ -21,7 +21,7 @@ import {
 import { SnapshotWriter, type SnapshotJob } from '../snapshot-writer';
 import { CaseStorage } from '../cases/case-storage';
 import { isUncertainOutcome, VersionConflict } from '../cases/case-api';
-import { createCaseState, type CaseState } from './case-state';
+import { createCaseState, mapViewSettling, type CaseState } from './case-state';
 import { caseViewEvents, fileEvents, persistenceEvents } from './case-events';
 
 /** Quiet time after the last map move before its view is saved; other edits never wait. */
@@ -70,7 +70,7 @@ export function withCasePersistence() {
       on(
         persistenceEvents.writeStarted,
         forSession((_, state) => ({
-          persistence: { ...state.persistence, writing: true, settling: false },
+          persistence: { ...state.persistence, writing: true, settlingRevision: null },
         })),
       ),
       on(
@@ -93,7 +93,7 @@ export function withCasePersistence() {
             ...state.persistence,
             unresolved,
             writing: false,
-            settling: false,
+            settlingRevision: null,
             conflict,
             error: conflict ? conflictDetected : saveFailed,
           },
@@ -124,7 +124,7 @@ export function withCasePersistence() {
                 ...state.persistence,
                 replacing: false,
                 writing: false,
-                settling: false,
+                settlingRevision: null,
                 conflict: state.persistence.conflict || payload.conflict,
                 error: payload.conflict ? conflictDetected : state.persistence.error,
                 unresolved: payload.conflict
@@ -190,7 +190,12 @@ export function withCasePersistence() {
           const key = `${p.generation}:${p.revision}`;
           if (observed === key) return;
           observed = key;
-          if (p.initialized && !p.replacing && !p.settling && p.revision !== p.savedRevision)
+          if (
+            p.initialized &&
+            !p.replacing &&
+            !mapViewSettling(p) &&
+            p.revision !== p.savedRevision
+          )
             requestSnapshot();
         });
         return {
@@ -235,8 +240,8 @@ export function withCasePersistence() {
             .pipe(tap(requestSnapshot), ignoreElements()),
           settle$: events.on(caseViewEvents.viewportChanged).pipe(
             debounceTime(settleMs),
-            // Cleared once a write carried the move, or by the next case session.
-            filter(() => store.persistence().settling),
+            // Over once a write carried the move, a newer revision did, or the case session ended.
+            filter(() => mapViewSettling(store.persistence())),
             tap(requestSnapshot),
             ignoreElements(),
           ),
@@ -334,7 +339,7 @@ export function withCasePersistence() {
             const p = store.persistence();
             if (signal?.aborted || p.error || p.conflict) return false;
             if (!p.writing && p.revision === p.savedRevision) return true;
-            if (p.settling) dispatch.flushRequested();
+            if (mapViewSettling(p)) dispatch.flushRequested();
             await firstValueFrom(
               events
                 .on(persistenceEvents.writeSucceeded, persistenceEvents.writeFailed)

@@ -785,6 +785,39 @@ it('saves a committed edit at once, carrying the map move that was still settlin
   expect(storage.jobs).toHaveLength(1);
 });
 
+it('saves a form edit at once, even though a map move was still settling', async () => {
+  const { state, storage } = await setup(new Storage(), 60_000);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  state.openProfile();
+  const editor = state.profileEditor();
+  if (!editor) throw new Error('Expected editor');
+  editor.fields.animal.species().value.set('Papuga');
+  await state.saveProfile(editor.id);
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  expect(storage.jobs[0].snapshot.animal?.species).toBe('Papuga');
+  expect(storage.jobs[0].snapshot.mapView.zoom).toBe(8);
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+});
+
+it('offers a settling map move for an explicit retry after a failed replacement', async () => {
+  const { state, storage } = await setup(new Storage(), 60_000);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await state.prepareImport(JSON.stringify({ ...file, case: { ...file.case, title: 'Import' } }));
+  const replacing = state.confirmReplacement();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.reject(rejected(400));
+  await replacing;
+  expect(state.saveStatus()).toBe('unsaved');
+  state.cancelReplacement();
+  state.retrySave();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1].snapshot.mapView.zoom).toBe(8);
+  expect(storage.jobs[1].snapshot.case.title).toBe(file.case.title);
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+});
+
 it('bases a save whose settle timer fired during a write on the acknowledged version', async () => {
   const { state, storage } = await setup(new Storage(), 10);
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });

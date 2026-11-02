@@ -12,12 +12,13 @@ function commitView(
   settling = false,
 ): Partial<CaseState> {
   if (!state.document || caseBusy(state) || sameMapView(state.document.mapView, mapView)) return {};
+  const revision = state.persistence.revision + 1;
   return {
     document: { ...state.document, mapView },
     persistence: {
       ...state.persistence,
-      revision: state.persistence.revision + 1,
-      settling,
+      revision,
+      settlingRevision: settling ? revision : null,
       error: '',
     },
   };
