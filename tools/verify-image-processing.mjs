@@ -128,7 +128,10 @@ async function freezeNextWorker(runtime, afterThumbnailFailure) {
     const timer=setInterval(()=>{
       if(Date.now()>deadline)process.exit(3);
       if(watched){
-        const metadata=JSON.parse(fs.readFileSync('/app/data/assets/objects/'+watched+'/metadata.json','utf8'));
+        let metadata;
+        // A Windows bind mount shows an atomic rename as a brief ENOENT; the deadline bounds a real loss.
+        try{metadata=JSON.parse(fs.readFileSync('/app/data/assets/objects/'+watched+'/metadata.json','utf8'));}
+        catch(error){if(error.code==='ENOENT')return;throw error;}
         if(metadata.processing.thumbnail.status!=='failed')return;
       }
       const pids=fs.readFileSync('/proc/1/task/1/children','utf8').trim().split(/\\s+/).filter(Boolean);
