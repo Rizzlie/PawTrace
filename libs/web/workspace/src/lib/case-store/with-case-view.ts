@@ -6,13 +6,18 @@ import { isValidViewport, sameMapView } from '../case-document';
 import { caseBusy, type CaseState } from './case-state';
 import { caseViewEvents } from './case-events';
 
-function commitView(state: CaseState, mapView: CaseDocument['mapView']): Partial<CaseState> {
+function commitView(
+  state: CaseState,
+  mapView: CaseDocument['mapView'],
+  settling = false,
+): Partial<CaseState> {
   if (!state.document || caseBusy(state) || sameMapView(state.document.mapView, mapView)) return {};
   return {
     document: { ...state.document, mapView },
     persistence: {
       ...state.persistence,
       revision: state.persistence.revision + 1,
+      settling,
       error: '',
     },
   };
@@ -26,14 +31,18 @@ export function withCaseView() {
       on(caseViewEvents.viewportChanged, ({ payload }, state) =>
         !state.document || !isValidViewport(payload)
           ? {}
-          : commitView(state, {
-              ...state.document.mapView,
-              center: {
-                latitude: payload.latitude,
-                longitude: payload.longitude,
+          : commitView(
+              state,
+              {
+                ...state.document.mapView,
+                center: {
+                  latitude: payload.latitude,
+                  longitude: payload.longitude,
+                },
+                zoom: payload.zoom,
               },
-              zoom: payload.zoom,
-            }),
+              true,
+            ),
       ),
       on(caseViewEvents.basemapChanged, ({ payload }, state) =>
         state.document

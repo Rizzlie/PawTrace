@@ -8,6 +8,7 @@ const { parseCaseFile } = await import('@pawtrace/case-domain');
 import { VersionConflict } from './cases/case-api';
 const { default: file } = await import('@pawtrace/case-domain/fixtures/complete-case-v1.json');
 import { CaseStore } from './case-store/case-store';
+import { MAP_VIEW_SETTLE_MS } from './case-store/with-case-persistence';
 import { provideDispatcher } from '@ngrx/signals/events';
 
 function document(): CaseDocument {
@@ -61,7 +62,7 @@ class Storage implements CaseStorage {
   }
 }
 
-async function setup(storage = new Storage()) {
+async function setup(storage = new Storage(), settleMs = 0) {
   TestBed.configureTestingModule({
     providers: [
       ...provideDispatcher(),
@@ -69,6 +70,7 @@ async function setup(storage = new Storage()) {
       provideHttpClientTesting(),
       CaseStore,
       { provide: CaseStorage, useValue: storage },
+      { provide: MAP_VIEW_SETTLE_MS, useValue: settleMs },
     ],
   });
   const state = TestBed.inject(CaseStore);
@@ -756,15 +758,81 @@ it('keeps an unsaved committed profile exportable after storage failure and retr
   await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
 });
 
-it('acknowledges only the stored revision and coalesces pending map changes', async () => {
+it('saves a burst of map moves once, after the map settles, without warning about unsaved work', async () => {
+  const { state, storage } = await setup(new Storage(), 30);
+  for (const zoom of [8, 9, 10]) {
+    state.changeViewport({ latitude: 51, longitude: 20, zoom });
+    expect(state.saveStatus()).toBe('saving');
+    expect(state.saveNeedsAttention()).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  expect(storage.jobs).toHaveLength(0);
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  expect(storage.jobs[0].snapshot.mapView.zoom).toBe(10);
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(storage.jobs).toHaveLength(1);
+});
+
+it('saves a committed edit at once, carrying the map move that was still settling', async () => {
+  const { state, storage } = await setup(new Storage(), 60_000);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  state.changeBasemap('osm');
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  expect(storage.jobs[0].snapshot.mapView).toMatchObject({ zoom: 8, basemap: 'osm' });
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  expect(storage.jobs).toHaveLength(1);
+});
+
+it('bases a save whose settle timer fired during a write on the acknowledged version', async () => {
+  const { state, storage } = await setup(new Storage(), 10);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
+  // The timer fires here, while the first write is still unacknowledged at version 1.
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(storage.jobs).toHaveLength(1);
+  expect(state.saveStatus()).toBe('saving');
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1]).toMatchObject({ version: 2 });
+  expect(storage.jobs[1].snapshot.mapView.zoom).toBe(9);
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(storage.jobs).toHaveLength(2);
+});
+
+it('flushes a settling map move at once when leaving the case', async () => {
+  const { state, storage } = await setup(new Storage(), 60_000);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  const flushed = state.flush();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.jobs[0].completion.resolve();
+  expect(await flushed).toBe(true);
+  expect(storage.saved).toEqual(state.document());
+});
+
+it('does not save a settling map move into the next opened case', async () => {
+  const { state, storage } = await setup(new Storage(), 20);
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  state.close();
+  await state.open(file.case.id);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  expect(storage.jobs).toHaveLength(0);
+  expect(state.saveStatus()).toBe('saved');
+});
+
+it('acknowledges only the stored revision and coalesces map changes made during a write', async () => {
   const { state, storage } = await setup();
   const updatedAt = activeDocument(state).case.updatedAt;
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 10 });
   expect(state.persistence().revision).toBe(3);
   expect(state.saveStatus()).toBe('saving');
-  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
   storage.jobs[0].completion.resolve();
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
   expect(state.persistence().savedRevision).toBe(1);
@@ -795,8 +863,8 @@ it('retains latest memory and the previous snapshot after failure, exports it an
 it('drains an in-flight save, drops obsolete pending writes, and activates import only after storage commits', async () => {
   const { state, storage } = await setup();
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
-  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await state.prepareImport(
     JSON.stringify({
       ...file,
@@ -828,8 +896,8 @@ it('drains an in-flight save, drops obsolete pending writes, and activates impor
 it('keeps a newer unsaved old case recoverable when replacement fails', async () => {
   const { state, storage } = await setup();
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
-  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await state.prepareImport(JSON.stringify({ ...file, case: { ...file.case, title: 'Nowa' } }));
   const replacing = state.confirmReplacement();
   storage.jobs[0].completion.resolve();
@@ -935,8 +1003,8 @@ it('does not reopen a cancelled import when asynchronous validation completes', 
 it('does not replay a failed old-session snapshot after activating an imported case', async () => {
   const { state, storage } = await setup();
   state.changeViewport({ latitude: 51, longitude: 20, zoom: 8 });
-  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeViewport({ latitude: 51, longitude: 20, zoom: 9 });
   await state.prepareImport(
     JSON.stringify({ ...file, case: { ...file.case, id: 'next-session', title: 'Next session' } }),
   );

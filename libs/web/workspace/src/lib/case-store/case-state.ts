@@ -50,6 +50,8 @@ export interface CaseState {
     savedRevision: number;
     generation: number;
     writing: boolean;
+    /** A map move waits for the map to settle; any write that starts carries it. */
+    settling: boolean;
     replacing: boolean;
     /** The server rejected a write based on an outdated version; local data is retained. */
     conflict: boolean;
@@ -93,6 +95,7 @@ export function createCaseState(
       savedRevision: 0,
       generation,
       writing: false,
+      settling: false,
       replacing: false,
       conflict: false,
       error: '',
@@ -106,7 +109,7 @@ export function saveStatus({ document, persistence }: Pick<CaseState, 'document'
   if (persistence.replacing) return 'replacing';
   if (persistence.conflict) return 'conflict';
   if (persistence.error) return 'error';
-  if (persistence.writing) return 'saving';
+  if (persistence.writing || persistence.settling) return 'saving';
   if (persistence.revision !== persistence.savedRevision) return 'unsaved';
   return document ? 'saved' : 'empty';
 }

@@ -50,7 +50,7 @@ Export captures the complete committed document, unaffected by active filters, a
 
 P02 update: committed documents now persist to the owned-case server API through the `CaseStorage` seam (`libs/web/workspace/src/lib/cases`), using the same serialized writer and revision/generation acknowledgements. `/` is My cases; `/cases/:caseId` opens one case. The IndexedDB details in this section describe the MVP adapter, which P02 removed; P04 adds account- and case-keyed local retention. Decisions: [P02 record](../post-mvp/tasks/P02-private-cases-and-relational-save.md).
 
-P03 update: photo requests are scoped to the open server case (`/api/cases/:caseId/assets`). Uploads carry their `PhotoTarget` (case, session generation, editor), so a late result cannot attach to another case or editor, and the file input is disabled offline with an explanation. Decisions: [P03 record](../post-mvp/tasks/P03-private-case-photos.md).
+P03 update: photo requests are scoped to the open server case (`/api/cases/:caseId/assets`). Uploads carry their `PhotoTarget` (case, session generation, editor), so a late result cannot attach to another case or editor, and the file input is disabled offline with an explanation. A queued job that reaches its turn offline sends nothing and ends as a retryable failure. Every editor (profile, point, history entry, area, area check) owns an isolated photo draft through the same `pt-photo-gallery`. Decisions: [P03 record](../post-mvp/tasks/P03-private-case-photos.md).
 
 Use IndexedDB through a small `idb` adapter to retain one complete plain-object document snapshot in one transaction. Acknowledge persistence only after transaction completion. Local storage representation remains JSON-compatible and restoration must validate it; IndexedDB storage itself does not establish contract validity.
 
@@ -73,6 +73,8 @@ Each committed document update receives a local revision and immediately request
 Capture the document, revision, and case-session generation together. A successful transaction acknowledges only that captured revision. If a newer revision exists, state remains unsaved until it is stored. These revision/generation values are local bookkeeping, not new required JSON v1 facts.
 
 On autosave failure, preserve current memory and the previous successful stored snapshot. Keep the writer recoverable, expose explicit retry and export, and retry on the next committed change. There is no continuous background retry timer. Import/new-case replacement uses the same writer and the confirmed transition rules above.
+
+A map move commits to the document at once, but its save waits until the map has been quiet for `MAP_VIEW_SETTLE_MS` (2 s), shown as saving. A committed edit or basemap change saves immediately and carries the waiting view, and leaving a case flushes it. A reload inside that window loses only the last map position.
 
 ## Interfaces and command flow
 

@@ -74,5 +74,6 @@ export const persistenceEvents = eventGroup({
     writeSucceeded: type<{ revision: number; generation: number; version: number }>(),
     writeFailed: type<{ generation: number; conflict: boolean; unresolved: SnapshotJob | null }>(),
     retryRequested: type<void>(),
+    flushRequested: type<void>(),
   },
 });
