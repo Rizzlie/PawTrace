@@ -60,6 +60,7 @@ test('keeps a signed session across reload, browser-profile reopen and API resta
     const old = await context.storageState();
     await page.getByLabel('Konto: alice@example.test', { exact: true }).click();
     await page.getByRole('menuitem', { name: 'Wyloguj się' }).click();
+    await page.getByRole('button', { name: 'Potwierdź wylogowanie', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Zaloguj się przez Google' })).toBeVisible();
     expect((await context.request.get('/api/map-config')).status()).toBe(401);
     const replay = await playwright.request.newContext({ baseURL, storageState: old });

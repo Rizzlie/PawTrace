@@ -1,4 +1,11 @@
-import { Injectable, Inject, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  type CanActivate,
+  type ExecutionContext,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { Authentication } from './authentication';
 import { NO_ACTIVITY, OWNERLESS_ASSET, PUBLIC_AUTH } from './auth-policy';
@@ -19,6 +26,10 @@ export class AuthenticationGuard implements CanActivate {
       !!this.reflector.getAllAndOverride<boolean>(OWNERLESS_ASSET, targets),
       !this.reflector.getAllAndOverride<boolean>(NO_ACTIVITY, targets),
     );
+    const request = context.switchToHttp().getRequest<Request>();
+    const expected = request.header('X-PawTrace-Owner');
+    if (expected && expected !== request.session.userId)
+      throw new UnauthorizedException({ error: 'account_changed' });
     return true;
   }
 }

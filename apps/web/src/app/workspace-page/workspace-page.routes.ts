@@ -1,6 +1,12 @@
 import { provideDispatcher } from '@ngrx/signals/events';
 import type { Routes } from '@angular/router';
-import { CaseStorage, CaseStore, ServerCaseStorage, workspaceRoutes } from '@pawtrace/workspace';
+import {
+  CaseStorage,
+  CaseStore,
+  DurableCaseStorage,
+  ServerCaseStorage,
+  workspaceRoutes,
+} from '@pawtrace/workspace';
 import { WorkspacePage } from './workspace-page';
 
 export const workspacePageRoutes: Routes = [
@@ -10,7 +16,8 @@ export const workspacePageRoutes: Routes = [
     providers: [
       ...provideDispatcher(),
       CaseStore,
-      { provide: CaseStorage, useClass: ServerCaseStorage },
+      ServerCaseStorage,
+      { provide: CaseStorage, useClass: DurableCaseStorage },
     ],
     children: workspaceRoutes,
   },

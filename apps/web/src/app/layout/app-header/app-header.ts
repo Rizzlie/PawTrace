@@ -16,6 +16,7 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { Brand, presentMaterialDialog } from '@pawtrace/shared-ui';
 import { hasSeenMapHelp, rememberMapHelp } from '@pawtrace/browser-persistence';
 import { helpOutlineIcon } from './help-icon';
+import { CaseStore } from '@pawtrace/workspace';
 
 @Component({
   selector: 'app-header',
@@ -26,10 +27,18 @@ import { helpOutlineIcon } from './help-icon';
 })
 export class AppHeader {
   protected readonly session = inject(Session);
+  private readonly state = inject(CaseStore, { optional: true });
+  protected readonly logoutOpen = signal(false);
+  private readonly logoutDialog = viewChild<TemplateRef<unknown>>('logoutDialog');
   private readonly helpDialog = viewChild<TemplateRef<unknown>>('helpDialog');
   protected readonly helpOpen = signal(false);
 
   constructor() {
+    presentMaterialDialog(
+      this.logoutDialog,
+      () => this.logoutOpen.set(false),
+      () => 'logout-title',
+    );
     presentMaterialDialog(
       this.helpDialog,
       () => this.closeHelp(),
@@ -43,6 +52,14 @@ export class AppHeader {
     afterNextRender(() => {
       if (!hasSeenMapHelp()) this.showHelp();
     });
+  }
+
+  protected async exportRecovery(): Promise<void> {
+    const owner = this.session.user()?.id;
+    const generation = this.session.generation();
+    await this.state?.downloadExport();
+    if (owner !== this.session.user()?.id || generation !== this.session.generation()) return;
+    await this.session.exportCopies(this.state?.document()?.case.id);
   }
 
   protected showHelp(): void {

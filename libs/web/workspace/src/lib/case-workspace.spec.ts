@@ -1,4 +1,5 @@
-import { createEnvironmentInjector, EnvironmentInjector } from '@angular/core';
+import { createEnvironmentInjector, EnvironmentInjector, signal } from '@angular/core';
+import { CASE_IDENTITY } from '@pawtrace/browser-persistence';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -82,6 +83,86 @@ async function setup(storage = new Storage(), settleMs = 0) {
     storage,
   };
 }
+
+it('durably checkpoints the newest committed revision while a server request is blocked', async () => {
+  const local = deferred();
+  class DurableStorage extends Storage {
+    copies: CaseDocument[] = [];
+    async checkpoint(snapshot: CaseDocument) {
+      await local.promise;
+      this.copies.push(structuredClone(snapshot));
+    }
+  }
+  const storage = new DurableStorage();
+  const { state } = await setup(storage);
+  state.changeBasemap('osm');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(storage.jobs).toHaveLength(0);
+  local.resolve();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  state.changeBasemap('satellite');
+  await vi.waitFor(() => expect(storage.copies.at(-1)?.mapView.basemap).toBe('satellite'));
+  expect(state.saveStatus()).not.toBe('saved');
+  expect(state.persistence().localRevision).toBe(2);
+});
+
+it('keeps committed memory exportable on device failure, blocks leaving, and retries the device before the server', async () => {
+  class FailingStorage extends Storage {
+    unavailable = true;
+    async checkpoint() {
+      if (this.unavailable) throw new Error('QuotaExceededError');
+    }
+  }
+  const storage = new FailingStorage();
+  const { state } = await setup(storage);
+  state.changeBasemap('osm');
+  await vi.waitFor(() =>
+    expect(state.persistence().localError).toContain('Nie zapisano na urządzeniu'),
+  );
+  expect(state.saveStatus()).toBe('error');
+  expect(storage.jobs).toHaveLength(0);
+  expect(JSON.parse(await state.exportJson()).mapView.basemap).toBe('osm');
+  expect(await state.flush()).toBe(false);
+  storage.unavailable = false;
+  state.retrySave();
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  expect(state.persistence().localRevision).toBe(1);
+  storage.jobs[0].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+});
+
+it('does not let a failed old case block a queued save for the newly opened case', async () => {
+  const { state, storage } = await setup();
+  state.changeBasemap('osm');
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(1));
+  storage.saved = { ...document(), case: { ...document().case, id: 'another-case' } };
+  await state.open('another-case');
+  state.changeBasemap('osm');
+  storage.jobs[0].completion.reject(new Error('Old case connection failed'));
+  await vi.waitFor(() => expect(storage.jobs).toHaveLength(2));
+  expect(storage.jobs[1].snapshot.case.id).toBe('another-case');
+  storage.jobs[1].completion.resolve();
+  await vi.waitFor(() => expect(state.saveStatus()).toBe('saved'));
+});
+
+it('rejects an invalid offline case name before it changes committed data or its recovery JSON', async () => {
+  const { state } = await setup();
+  const original = activeDocument(state).case.title;
+  await state.renameCase('Invalid\u0000name');
+  expect(JSON.parse(await state.exportJson()).case.title).toBe(original);
+  expect(state.persistence().revision).toBe(0);
+});
+
+it('does not treat initial identity resolution as an account switch that clears the open case', async () => {
+  const owner = signal<string | undefined>(undefined);
+  TestBed.overrideProvider(CASE_IDENTITY, { useValue: { owner, generation: () => 0 } });
+  const { state } = await setup();
+  TestBed.tick();
+  owner.set('first-authenticated-owner');
+  TestBed.tick();
+  expect(state.document()?.case.id).toBe(file.case.id);
+  expect(state.saveStatus()).toBe('saved');
+});
 
 it('attaches stored originals only to their editor, preserves newer text and commits photos explicitly', async () => {
   const { state } = await setup();

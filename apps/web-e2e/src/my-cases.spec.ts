@@ -286,7 +286,7 @@ test('shows saving until the server acknowledges and keeps edits recoverable aft
         : route.fallback(),
     );
     await page.getByRole('button', { name: 'Przybliż', exact: true }).click();
-    await expect(page.getByLabel('Stan zapisu')).toContainText('Nie zapisano zmian na serwerze');
+    await expect(page.getByLabel('Stan zapisu')).toContainText('Serwer nie potwierdził zapisu');
     const zoom = (await exportCase(page)).mapView.zoom;
     await page.unroute('**/api/cases/*');
     await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
@@ -377,6 +377,7 @@ test('keeps photos with their owner across direct URLs, a foreign import and an 
     await request.post(`${control}/provider?subject=photo-stranger-${run}`);
     await page.getByLabel(/^Konto: /u).click();
     await page.getByRole('menuitem', { name: 'Wyloguj się' }).click();
+    await page.getByRole('button', { name: 'Potwierdź wylogowanie', exact: true }).click();
     await page.getByRole('link', { name: 'Zaloguj się przez Google' }).click();
     await expect(page.getByLabel(/^Konto: /u)).toHaveAttribute(
       'aria-label',

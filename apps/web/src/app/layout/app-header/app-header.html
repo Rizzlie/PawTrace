@@ -9,7 +9,7 @@
   </button>
   <mat-menu #accountMenu="matMenu">
     <p class="account-email">{{ session.user()?.email }}</p>
-    <button mat-menu-item [disabled]="session.signingOut()" (click)="session.logout()">
+    <button mat-menu-item [disabled]="session.signingOut()" (click)="logoutOpen.set(true)">
       Wyloguj się
     </button>
     @if (session.failed()) {
@@ -29,6 +29,45 @@
     <mat-icon svgIcon="map-help" />
   </button>
 </mat-toolbar>
+
+@if (logoutOpen()) {
+  <ng-template #logoutDialog
+    ><div class="pt-dialog-content">
+      <h2 id="logout-title">Wylogowanie i usunięcie lokalnych kopii</h2>
+      <p>
+        Wylogowanie usunie lokalne kopie i kolejki tego konta we wszystkich kartach. Zmiany
+        oczekujące na serwer zostaną utracone. Eksport JSON obejmuje zatwierdzone dane, bez szkiców
+        i plików zdjęć.
+      </p>
+      <button matButton="outlined" (click)="exportRecovery()" [disabled]="session.signingOut()">
+        Eksportuj dane przed wylogowaniem
+      </button>
+      @if (session.exportFailed()) {
+        <p role="alert">
+          Eksport lokalnych kopii nie powiódł się. Zachowaj tę kartę i spróbuj ponownie.
+        </p>
+      }
+      @if (session.failed()) {
+        <p role="alert">
+          Serwer nie potwierdził wylogowania. Kopie i sesja nie zostały usunięte. Możesz
+          wyeksportować dane lub ponowić.
+        </p>
+      }
+      <div class="actions">
+        <button matButton="outlined" (click)="session.logout()" [disabled]="session.signingOut()">
+          Potwierdź wylogowanie
+        </button>
+        <button
+          matButton="outlined"
+          (click)="logoutOpen.set(false)"
+          [disabled]="session.signingOut()"
+        >
+          Anuluj wylogowanie
+        </button>
+      </div>
+    </div></ng-template
+  >
+}
 
 @if (helpOpen()) {
   <ng-template #helpDialog

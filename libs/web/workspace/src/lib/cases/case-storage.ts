@@ -6,19 +6,26 @@ import { CaseApi, isVersionConflict, VersionConflict } from './case-api';
 export interface StoredCase {
   document: unknown;
   version: number;
+  revision?: number;
+  savedRevision?: number;
+  paused?: boolean;
+  localError?: string;
 }
 /** One save: the captured document, the version it is based on and its idempotency key. */
 export interface SaveRequest {
+  replacement?: boolean;
   document: CaseDocument;
   version: number;
   key: string;
 }
 
 /**
- * Snapshot persistence seam of the workspace store. Implementations hold no bookkeeping: the
- * acknowledged version and any unresolved attempt belong to `CaseState.persistence`.
+ * Snapshot persistence seam of the workspace store. The active revision/version belong to
+ * `CaseState.persistence`; a durable adapter also retains their recoverable storage metadata.
  */
 export abstract class CaseStorage {
+  checkpoint?(document: CaseDocument, revision: number, version: number): Promise<void>;
+  retryPending?(except: string | null): Promise<void>;
   /** Resolves `undefined` for a case that is absent or not owned by the signed-in account. */
   abstract read(caseId: string): Promise<StoredCase | undefined>;
   /** Acknowledges only after the server committed this exact snapshot. */

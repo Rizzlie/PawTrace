@@ -9,7 +9,12 @@ import { Session } from '../session';
   template: `<main>
     <h1>PawTrace</h1>
     <p>Prywatne miejsce do organizowania poszukiwań zwierzęcia.</p>
-    @if (session.loading()) {
+    @if (session.cleanupFailed()) {
+      <p role="alert">
+        Sesja została odwołana. Nie udało się usunąć lokalnych kopii. Dostęp pozostaje zamknięty.
+      </p>
+      <button mat-button (click)="session.retryCleanup()">Ponów usuwanie lokalnych kopii</button>
+    } @else if (session.loading()) {
       <p role="status">Sprawdzanie sesji…</p>
     } @else {
       <p role="status">{{ message() }}</p>
@@ -51,7 +56,8 @@ export class Login {
     if (this.outcome === 'cancelled') return 'Logowanie anulowane. Możesz spróbować ponownie.';
     if (this.outcome === 'failed') return 'Logowanie nie powiodło się. Spróbuj ponownie.';
     if (this.session.unavailable()) return 'Nie można sprawdzić sesji. Spróbuj ponownie.';
-    if (this.session.expired()) return 'Sesja wygasła. Zaloguj się ponownie.';
+    if (this.session.expired())
+      return 'Sesja wygasła. Zmiany lokalne zachowano. Zaloguj się ponownie na to samo konto, aby je odzyskać.';
     return 'Zaloguj się, aby kontynuować.';
   });
 }

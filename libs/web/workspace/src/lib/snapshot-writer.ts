@@ -1,12 +1,9 @@
-import type { CaseDocument } from '@pawtrace/case-domain';
+import type { SaveRequest } from './cases/case-storage';
 
 /** A captured save: local bookkeeping plus the server request it becomes. */
-export interface SnapshotJob {
-  document: CaseDocument;
+export interface SnapshotJob extends SaveRequest {
   revision: number;
   generation: number;
-  version: number;
-  key: string;
 }
 export interface SnapshotAcknowledgement {
   version: number;
@@ -52,7 +49,7 @@ export class SnapshotWriter {
       this.failed(job, error);
     } finally {
       this.active = undefined;
-      if (succeeded) this.start();
+      if (succeeded || (this.pending && this.pending.generation !== job.generation)) this.start();
     }
   }
 

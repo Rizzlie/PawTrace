@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import type { CaseDocument } from '@pawtrace/case-domain';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { z } from 'zod';
 
 /** Transport DTOs, deliberately separate from the strict v1 case document. */
@@ -61,17 +61,15 @@ export class CaseApi {
   }
 
   async open(id: string): Promise<z.infer<typeof storedCase>> {
-    return storedCase.parse(await firstValueFrom(this.http.get(path(id))));
+    return storedCase.parse(await firstValueFrom(this.http.get(path(id)).pipe(timeout(15_000))));
   }
 
   async save(document: CaseDocument, version: number, key: string): Promise<Acknowledgement> {
     return acknowledgement.parse(
       await firstValueFrom(
-        this.http.put(
-          path(document.case.id),
-          { document },
-          { headers: mutationHeaders(key, version) },
-        ),
+        this.http
+          .put(path(document.case.id), { document }, { headers: mutationHeaders(key, version) })
+          .pipe(timeout(15_000)),
       ),
     );
   }

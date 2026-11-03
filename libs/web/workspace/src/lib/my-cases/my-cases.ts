@@ -7,6 +7,7 @@ import {
   signal,
   TemplateRef,
   viewChild,
+  resource,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,6 +18,8 @@ import { caseSummaries, type CaseSummary } from '../cases/case-api';
 import { CaseCatalogue } from '../cases/case-catalogue';
 import { caseLocation } from '../cases/case-location';
 import { Connectivity } from '../cases/connectivity';
+import { CASE_IDENTITY, CaseCopies } from '@pawtrace/browser-persistence';
+import { CaseStore } from '../case-store/case-store';
 
 type Dialog =
   | { kind: 'create' }
@@ -42,15 +45,44 @@ const messages = {
 })
 export class MyCases {
   private readonly catalogue = inject(CaseCatalogue);
+  private readonly state = inject(CaseStore);
   private readonly router = inject(Router);
   protected readonly online = inject(Connectivity).online;
   protected readonly caseLocation = caseLocation;
+  private readonly identity = inject(CASE_IDENTITY);
+  private readonly copies = inject(CaseCopies);
+  private readonly local = resource({
+    params: () => ({ owner: this.identity.owner(), online: this.online() }),
+    loader: ({ params }) => (params.owner ? this.copies.list(params.owner) : Promise.resolve([])),
+  });
+  protected readonly items = computed(() => {
+    const unique = new Map<string, CaseSummary>(
+      (this.cases.hasValue() ? this.cases.value() : []).map((item) => [item.id, item]),
+    );
+    for (const copy of this.local.hasValue() ? this.local.value() : []) {
+      if (
+        this.cases.hasValue() &&
+        (this.online() || unique.has(copy.caseId)) &&
+        copy.revision === copy.savedRevision &&
+        !copy.attempt &&
+        !copy.paused
+      )
+        continue;
+      unique.set(copy.caseId, {
+        id: copy.caseId,
+        title: copy.document.case.title,
+        version: copy.version,
+        savedAt: copy.document.case.updatedAt,
+      });
+    }
+    return [...unique.values()];
+  });
   protected readonly cases = httpResource(() => '/api/cases', {
     parse: (value) => caseSummaries.parse(value),
   });
   protected readonly listState = computed(() =>
-    this.cases.hasValue()
-      ? this.cases.value().length
+    this.cases.hasValue() || this.items().length
+      ? this.items().length
         ? 'ready'
         : 'empty'
       : this.cases.error()
@@ -85,15 +117,46 @@ export class MyCases {
     const dialog = this.dialog();
     if (!dialog || this.pending()) return;
     const title = this.title();
+    const owner = this.identity.owner();
+    const generation = this.identity.generation();
+    const current = () =>
+      owner === this.identity.owner() && generation === this.identity.generation();
     if (dialog.kind !== 'delete' && !title.trim()) {
       this.error.set(messages.invalid);
       return;
     }
     this.pending.set(true);
     this.error.set('');
+    if (dialog.kind === 'rename') {
+      await this.state.open(dialog.item.id);
+      if (!current()) return;
+      if (this.state.document()) {
+        if (!(await this.state.renameCase(title))) {
+          this.error.set(messages.invalid);
+          this.pending.set(false);
+          return;
+        }
+        const acknowledged = await this.state.flush(undefined, this.online());
+        const p = this.state.persistence();
+        if (acknowledged || p.localRevision === p.revision) {
+          if (!current()) return;
+          this.state.close();
+          this.local.reload();
+          if (this.online()) this.cases.reload();
+          this.dialog.set(null);
+          if (!acknowledged)
+            this.error.set(
+              'Nazwę zapisano na urządzeniu. Serwer nie potwierdził zapisu; otwórz sprawę, aby ponowić lub wyeksportować JSON.',
+            );
+        } else this.error.set('Nie zapisano nazwy lokalnie. Wyeksportuj otwartą sprawę.');
+      } else this.error.set('Ta sprawa nie jest dostępna lokalnie.');
+      this.pending.set(false);
+      return;
+    }
     const outcome = await this.catalogue.submit(
       dialog.kind === 'delete' ? dialog : { ...dialog, title },
     );
+    if (!current()) return;
     this.pending.set(false);
     if (outcome.status === 'created') {
       this.dialog.set(null);
@@ -107,6 +170,7 @@ export class MyCases {
     ) {
       this.dialog.set(null);
       this.cases.reload();
+      this.local.reload();
     }
     if (outcome.status !== 'done') this.error.set(messages[outcome.status]);
   }

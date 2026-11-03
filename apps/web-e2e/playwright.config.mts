@@ -32,9 +32,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'chromium',
-      testIgnore: /(authentication|my-cases)\.spec\.ts$/,
+      name: 'recovery',
+      testMatch: /offline-recovery\.spec\.ts$/,
       dependencies: ['ownership'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium',
+      testIgnore: /(authentication|my-cases|offline-recovery)\.spec\.ts$/,
+      dependencies: ['recovery'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

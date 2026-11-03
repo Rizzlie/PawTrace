@@ -1,4 +1,6 @@
-import { inject, InjectionToken } from '@angular/core';
+import { effect, inject, InjectionToken } from '@angular/core';
+import { CASE_IDENTITY } from '@pawtrace/browser-persistence';
+import { LocalOnly, LocalSaveFailure } from '../cases/durable-case-storage';
 import { getState, signalStoreFeature, type, watchState, withMethods } from '@ngrx/signals';
 import { Events, injectDispatch, on, withEventHandlers, withReducer } from '@ngrx/signals/events';
 import type { CaseDocument } from '@pawtrace/case-domain';
@@ -29,10 +31,9 @@ export const MAP_VIEW_SETTLE_MS = new InjectionToken<number>('MAP_VIEW_SETTLE_MS
   factory: () => 2000,
 });
 
-const saveFailed =
-  'Nie zapisano zmian na serwerze. Zmiany są tylko w tej karcie — wyeksportuj JSON lub ponów zapis.';
+const saveFailed = 'Serwer nie potwierdził zapisu. Ponów zapis lub wyeksportuj JSON.';
 const conflictDetected =
-  'Sprawa została zmieniona w innym miejscu. Twoje zmiany nie nadpisały nowszej wersji i są zachowane tylko w tej karcie — wyeksportuj JSON.';
+  'Sprawa została zmieniona w innym miejscu, ma inną gałąź w drugiej karcie lub została usunięta. Synchronizacja wstrzymana; wyeksportuj JSON.';
 const replacementRejected =
   'Sprawa została zmieniona w innym miejscu, więc nie zastąpiono jej zawartości. Twoje dane są zachowane w tej karcie — wyeksportuj JSON.';
 
@@ -57,14 +58,49 @@ export function withCasePersistence() {
       }),
       on(
         persistenceEvents.restored,
-        forSession(({ document, version, recovery }, state) => ({
-          document,
+        forSession(
+          (
+            {
+              document,
+              version,
+              recovery,
+              revision = 0,
+              savedRevision = 0,
+              paused = false,
+              localError = '',
+            },
+            state,
+          ) => ({
+            document,
+            persistence: {
+              ...state.persistence,
+              serverVersion: version,
+              initialized: true,
+              recovery,
+              revision,
+              savedRevision,
+              localRevision: localError ? -1 : revision,
+              localError,
+              conflict: paused,
+              error: paused ? conflictDetected : '',
+            },
+          }),
+        ),
+      ),
+      on(
+        persistenceEvents.localStored,
+        forSession(({ revision }, state) => ({
           persistence: {
             ...state.persistence,
-            serverVersion: version,
-            initialized: true,
-            recovery,
+            localRevision: Math.max(state.persistence.localRevision, revision),
+            localError: '',
           },
+        })),
+      ),
+      on(
+        persistenceEvents.localFailed,
+        forSession(({ error }, state) => ({
+          persistence: { ...state.persistence, localError: error, writing: false },
         })),
       ),
       on(
@@ -88,14 +124,14 @@ export function withCasePersistence() {
       ),
       on(
         persistenceEvents.writeFailed,
-        forSession(({ conflict, unresolved }, state) => ({
+        forSession(({ conflict, unresolved, localOnly }, state) => ({
           persistence: {
             ...state.persistence,
             unresolved,
             writing: false,
             settlingRevision: null,
             conflict,
-            error: conflict ? conflictDetected : saveFailed,
+            error: conflict ? conflictDetected : localOnly ? '' : saveFailed,
           },
         })),
       ),
@@ -151,6 +187,22 @@ export function withCasePersistence() {
         storage = inject(CaseStorage),
         settleMs = inject(MAP_VIEW_SETTLE_MS),
       ) => {
+        const identity = inject(CASE_IDENTITY, { optional: true });
+        // One startup pass, after the route has identified its active case. No retry timer.
+        void Promise.resolve()
+          .then(() => storage.retryPending?.(store.persistence().caseId))
+          .catch(() => undefined);
+        if (identity) {
+          let owner = identity.owner();
+          let generation = identity.generation();
+          effect(() => {
+            const nextOwner = identity.owner();
+            const nextGeneration = identity.generation();
+            if (nextGeneration !== generation || (owner && owner !== nextOwner)) dispatch.closed();
+            owner = nextOwner;
+            generation = nextGeneration;
+          });
+        }
         const writer = new SnapshotWriter(
           storage,
           (job) => dispatch.writeStarted({ generation: job.generation }),
@@ -164,12 +216,19 @@ export function withCasePersistence() {
             const { generation, revision, savedRevision } = store.persistence();
             if (job.generation === generation && revision !== savedRevision) requestSnapshot();
           },
-          (job, error) =>
+          (job, error) => {
+            if (error instanceof LocalSaveFailure)
+              dispatch.localFailed({
+                generation: job.generation,
+                error: 'Nie zapisano na urządzeniu. Zachowaj tę kartę i wyeksportuj JSON.',
+              });
             dispatch.writeFailed({
               generation: job.generation,
               conflict: error instanceof VersionConflict,
-              unresolved: isUncertainOutcome(error) ? job : null,
-            }),
+              localOnly: error instanceof LocalOnly,
+              unresolved: !(error instanceof LocalOnly) && isUncertainOutcome(error) ? job : null,
+            });
+          },
         );
         const capture = (document: CaseDocument, version: number): SnapshotJob => ({
           document,
@@ -180,7 +239,9 @@ export function withCasePersistence() {
         });
         const requestSnapshot = (): void => {
           const { document, persistence: p } = getState(store);
-          if (!document || p.replacing || p.conflict || p.serverVersion === null) return;
+          if (!document || p.replacing || p.conflict || p.writing || p.serverVersion === null)
+            return;
+          if (storage.checkpoint && p.localRevision !== p.revision) return;
           writer.request(p.unresolved ?? capture(document, p.serverVersion));
         };
         let observed = '';
@@ -190,6 +251,31 @@ export function withCasePersistence() {
           const key = `${p.generation}:${p.revision}`;
           if (observed === key) return;
           observed = key;
+          if (
+            state.document &&
+            p.initialized &&
+            !p.replacing &&
+            p.revision !== p.savedRevision &&
+            storage.checkpoint
+          ) {
+            const job = capture(state.document, p.serverVersion ?? 0);
+            void storage
+              .checkpoint(job.document, job.revision, job.version)
+              .then(() => {
+                dispatch.localStored({ generation: job.generation, revision: job.revision });
+                if (
+                  job.generation === store.persistence().generation &&
+                  !mapViewSettling(store.persistence())
+                )
+                  requestSnapshot();
+              })
+              .catch(() =>
+                dispatch.localFailed({
+                  generation: job.generation,
+                  error: 'Nie zapisano na urządzeniu. Zachowaj tę kartę i wyeksportuj JSON.',
+                }),
+              );
+          }
           if (
             p.initialized &&
             !p.replacing &&
@@ -215,6 +301,10 @@ export function withCasePersistence() {
                   const result = validateCaseDocument(stored.document);
                   return persistenceEvents.restored({
                     generation: payload.generation,
+                    revision: stored.revision,
+                    savedRevision: stored.savedRevision,
+                    paused: stored.paused,
+                    localError: stored.localError,
                     ...(result.success && result.data.case.id === payload.caseId
                       ? { document: result.data, version: stored.version, recovery: '' }
                       : {
@@ -238,6 +328,13 @@ export function withCasePersistence() {
           retry$: events
             .on(persistenceEvents.retryRequested, persistenceEvents.flushRequested)
             .pipe(tap(requestSnapshot), ignoreElements()),
+          reconnect$: fromEvent(window, 'online').pipe(
+            tap(() => {
+              requestSnapshot();
+              void storage.retryPending?.(store.persistence().caseId).catch(() => undefined);
+            }),
+            ignoreElements(),
+          ),
           settle$: events.on(caseViewEvents.viewportChanged).pipe(
             debounceTime(settleMs),
             // Over once a write carried the move, a newer revision did, or the case session ended.
@@ -267,7 +364,10 @@ export function withCasePersistence() {
                       version,
                     });
                   }
-                  attempt = capture(candidate, store.persistence().serverVersion ?? 0);
+                  attempt = {
+                    ...capture(candidate, store.persistence().serverVersion ?? 0),
+                    replacement: true,
+                  };
                   return write(attempt);
                 }),
               ).pipe(
@@ -290,65 +390,95 @@ export function withCasePersistence() {
         };
       },
     ),
-    withMethods((store, events = inject(Events), dispatch = injectDispatch(persistenceEvents)) => {
-      let opening: Promise<void> = Promise.resolve();
-      const open = (caseId: string): Promise<void> => {
-        const generation = store.persistence().generation + 1;
-        const done = firstValueFrom(
-          events
-            .on(persistenceEvents.restored)
-            .pipe(filter(({ payload }) => payload.generation === generation)),
-        ).then(() => undefined);
-        dispatch.opened({ caseId, generation });
-        return done;
-      };
-      return {
-        /** Loads a case from the server unless this session already holds it. */
-        open(caseId: string): Promise<void> {
-          const { persistence, document } = getState(store);
-          if (persistence.caseId === caseId && (document || !persistence.initialized))
+    withMethods(
+      (
+        store,
+        events = inject(Events),
+        dispatch = injectDispatch(persistenceEvents),
+        storage = inject(CaseStorage),
+      ) => {
+        let opening: Promise<void> = Promise.resolve();
+        const open = (caseId: string): Promise<void> => {
+          const generation = store.persistence().generation + 1;
+          const done = firstValueFrom(
+            events
+              .on(persistenceEvents.restored)
+              .pipe(filter(({ payload }) => payload.generation === generation)),
+          ).then(() => undefined);
+          dispatch.opened({ caseId, generation });
+          return done;
+        };
+        return {
+          /** Loads a case from the server unless this session already holds it. */
+          open(caseId: string): Promise<void> {
+            const { persistence, document } = getState(store);
+            if (persistence.caseId === caseId && (document || !persistence.initialized))
+              return opening;
+            return (opening = open(caseId));
+          },
+          /** Resolves when the current open request has been restored. */
+          initialize(): Promise<void> {
             return opening;
-          return (opening = open(caseId));
-        },
-        /** Resolves when the current open request has been restored. */
-        initialize(): Promise<void> {
-          return opening;
-        },
-        close(): void {
-          const { persistence, document } = getState(store);
-          if (persistence.caseId !== null || document || !persistence.initialized)
-            dispatch.closed();
-        },
-        async retryRestore(): Promise<void> {
-          const caseId = store.persistence().caseId;
-          if (!caseId || store.document() || store.persistence().replacing) return;
-          await (opening = open(caseId));
-        },
-        retrySave(): void {
-          if (store.persistence().replacing || store.persistence().conflict || !store.document())
-            return;
-          dispatch.retryRequested();
-        },
-        /**
-         * Waits for pending committed changes. `false` means they are not on the server, or the
-         * caller stopped waiting through `signal`.
-         */
-        async flush(signal?: AbortSignal): Promise<boolean> {
-          const aborted = signal ? fromEvent(signal, 'abort') : NEVER;
-          for (;;) {
+          },
+          close(): void {
+            const { persistence, document } = getState(store);
+            if (persistence.caseId !== null || document || !persistence.initialized)
+              dispatch.closed();
+          },
+          async retryRestore(): Promise<void> {
+            const caseId = store.persistence().caseId;
+            if (!caseId || store.document() || store.persistence().replacing) return;
+            await (opening = open(caseId));
+          },
+          retrySave(): void {
+            if (store.persistence().replacing || !store.document()) return;
+            const document = store.document();
             const p = store.persistence();
-            if (signal?.aborted || p.error || p.conflict) return false;
-            if (!p.writing && p.revision === p.savedRevision) return true;
-            if (mapViewSettling(p)) dispatch.flushRequested();
-            await firstValueFrom(
-              events
-                .on(persistenceEvents.writeSucceeded, persistenceEvents.writeFailed)
-                .pipe(takeUntil(aborted)),
-              { defaultValue: undefined },
-            );
-          }
-        },
-      };
-    }),
+            if (storage.checkpoint && document && p.localRevision !== p.revision) {
+              void storage
+                .checkpoint(document, p.revision, p.serverVersion ?? 0)
+                .then(() => {
+                  dispatch.localStored({ generation: p.generation, revision: p.revision });
+                  if (p.generation === store.persistence().generation) dispatch.retryRequested();
+                })
+                .catch(() =>
+                  dispatch.localFailed({
+                    generation: p.generation,
+                    error: 'Nie zapisano na urządzeniu. Zachowaj tę kartę i wyeksportuj JSON.',
+                  }),
+                );
+            } else dispatch.retryRequested();
+            void storage.retryPending?.(p.caseId).catch(() => undefined);
+          },
+          /**
+           * Waits for committed local durability, or server acknowledgement when requested.
+           * `false` means that boundary failed or the caller stopped waiting through `signal`.
+           */
+          async flush(signal?: AbortSignal, waitForServer = false): Promise<boolean> {
+            const aborted = signal ? fromEvent(signal, 'abort') : NEVER;
+            for (;;) {
+              const p = store.persistence();
+              if (signal?.aborted || p.localError) return false;
+              if (!waitForServer && storage.checkpoint && p.localRevision === p.revision)
+                return true;
+              if (p.error || p.conflict) return false;
+              if (!p.writing && p.revision === p.savedRevision) return true;
+              if (mapViewSettling(p)) dispatch.flushRequested();
+              await firstValueFrom(
+                events
+                  .on(
+                    persistenceEvents.writeSucceeded,
+                    persistenceEvents.writeFailed,
+                    persistenceEvents.localStored,
+                    persistenceEvents.localFailed,
+                  )
+                  .pipe(takeUntil(aborted)),
+                { defaultValue: undefined },
+              );
+            }
+          },
+        };
+      },
+    ),
   );
 }

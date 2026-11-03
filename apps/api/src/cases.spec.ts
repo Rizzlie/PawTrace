@@ -54,6 +54,17 @@ afterAll(async () => {
 
 const owner = (name: string) => ApiClient.signIn(base, provider, `${name}-${run}`);
 
+it('rejects a stale tab owner even when its cookie now authenticates another account', async () => {
+  const alice = await owner('owner-fence-alice');
+  const bob = await owner('owner-fence-bob');
+  const aliceIdentity = await alice.request('GET', '/api/auth/me');
+  const response = await fetch(base + '/api/cases', {
+    headers: { cookie: bob.cookieHeader(), 'X-PawTrace-Owner': aliceIdentity.body.id },
+  });
+  expect(response.status).toBe(401);
+  expect(await response.json()).toEqual({ error: 'account_changed' });
+});
+
 it('lets one owner create, list, open, rename and delete private cases while another owner gets non-disclosing 404s', async () => {
   const alice = await owner('alice');
   const bob = await owner('bob');

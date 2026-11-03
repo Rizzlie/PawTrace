@@ -18,6 +18,12 @@
   @if (error() && !dialog()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
+  @if (cases.error() && items().length) {
+    <p class="warning" role="alert">
+      Nie udało się wczytać listy spraw. Pokazano lokalne kopie; lista może być nieaktualna.
+    </p>
+    <button matButton="outlined" type="button" (click)="cases.reload()">Ponów</button>
+  }
   @switch (listState()) {
     @case ('loading') {
       <p role="status">Wczytywanie spraw…</p>
@@ -31,7 +37,7 @@
     }
     @case ('ready') {
       <ul aria-label="Lista spraw">
-        @for (item of cases.value(); track item.id) {
+        @for (item of items(); track item.id) {
           <li>
             <a class="case-link" [routerLink]="caseLocation(item.id)">{{ item.title }}</a>
             <div class="actions">

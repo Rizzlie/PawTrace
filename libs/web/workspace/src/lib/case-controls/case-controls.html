@@ -27,7 +27,16 @@
           Niezapisane zmiany — ponów zapis lub wyeksportuj JSON.
         }
         @case ('error') {
-          {{ state.persistence().error }}
+          {{ state.persistence().localError || state.persistence().error }}
+          @if (
+            !state.persistence().localError &&
+            state.persistence().localRevision === state.persistence().revision
+          ) {
+            Zapisano na urządzeniu.
+          }
+        }
+        @case ('local') {
+          Zapisano na urządzeniu — oczekuje na serwer.
         }
         @case ('conflict') {
           {{ state.persistence().error }}
@@ -54,7 +63,7 @@
     <button
       type="button"
       mat-menu-item
-      [disabled]="state.busy() || !state.document()"
+      [disabled]="state.busy() || !state.document() || !online()"
       (click)="fileInput.click()"
     >
       Importuj JSON
@@ -67,6 +76,9 @@
     >
       Eksportuj JSON
     </button>
+    <button type="button" mat-menu-item (click)="state.downloadRecovery()">
+      Eksportuj lokalne kopie i gałęzie
+    </button>
   </mat-menu>
   <input
     #fileInput
@@ -74,9 +86,12 @@
     type="file"
     accept=".json,application/json"
     aria-label="Importuj plik JSON"
-    [disabled]="state.busy() || !state.document()"
+    [disabled]="state.busy() || !state.document() || !online()"
     (change)="importFile($event)"
   />
+  @if (!online()) {
+    <p role="status">Import wymaga połączenia. Edycja i eksport JSON pozostają dostępne.</p>
+  }
   @if (
     state.persistence().recovery ||
     state.saveNeedsAttention() ||
