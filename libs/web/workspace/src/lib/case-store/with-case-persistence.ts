@@ -60,7 +60,15 @@ export function withCasePersistence() {
         persistenceEvents.restored,
         forSession(
           (
-            { document, version, recovery, revision = 0, savedRevision = 0, paused = false },
+            {
+              document,
+              version,
+              recovery,
+              revision = 0,
+              savedRevision = 0,
+              paused = false,
+              localError = '',
+            },
             state,
           ) => ({
             document,
@@ -71,7 +79,8 @@ export function withCasePersistence() {
               recovery,
               revision,
               savedRevision,
-              localRevision: revision,
+              localRevision: localError ? -1 : revision,
+              localError,
               conflict: paused,
               error: paused ? conflictDetected : '',
             },
@@ -295,6 +304,7 @@ export function withCasePersistence() {
                     revision: stored.revision,
                     savedRevision: stored.savedRevision,
                     paused: stored.paused,
+                    localError: stored.localError,
                     ...(result.success && result.data.case.id === payload.caseId
                       ? { document: result.data, version: stored.version, recovery: '' }
                       : {

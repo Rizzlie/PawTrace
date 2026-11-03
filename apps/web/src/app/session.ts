@@ -126,14 +126,20 @@ export class Session {
     this.logoutFailed.set(false);
     try {
       await firstValueFrom(this.http.post('/api/auth/logout', {}).pipe(timeout(15_000)));
+    } catch {
+      this.logoutFailed.set(true);
+      this.logoutPending.set(false);
+      return;
+    }
+    try {
       this.reject();
       this.cleanup.set(owner);
       this.channel?.postMessage({ kind: 'logout', owner });
       await this.copies.markLogout(owner);
-      await this.retryCleanup();
     } catch {
-      this.logoutFailed.set(true);
+      // Revocation succeeded. Still attempt deletion if both intent stores failed.
     } finally {
+      await this.retryCleanup();
       this.logoutPending.set(false);
     }
   }

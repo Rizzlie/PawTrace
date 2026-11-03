@@ -81,6 +81,119 @@ test('retains two committed case queues in real IndexedDB, survives interruption
   }
 });
 
+test('background retry cannot overwrite a newer acknowledged edit in another case', async ({
+  page,
+  context,
+}) => {
+  const first = await createCase(page, 'Retry A');
+  const second = await createCase(page, 'Retry B');
+  await page.goto(first);
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  await context.setOffline(true);
+  await edit(page, 'Pending A');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Zapisano na urządzeniu');
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  await page.locator(`a[href="${second}"]`).click();
+  await edit(page, 'Old B');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Zapisano na urządzeniu');
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let arrived!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    arrived = resolve;
+  });
+  await page.route('**/api' + first, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    arrived();
+    await held;
+    await route.continue();
+  });
+  await context.setOffline(false);
+  await waiting; // The bounded pass captured A and B, and is now waiting on A.
+  await page.locator(`a[href="${second}"]`).click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  await edit(page, 'Newest acknowledged B');
+  await expect
+    .poll(
+      async () => (await (await context.request.get('/api' + second)).json()).document.animal.name,
+    )
+    .toBe('Newest acknowledged B');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  const acknowledged = await (await context.request.get('/api' + second)).json();
+  expect(acknowledged.document.animal.name).toBe('Newest acknowledged B');
+  release();
+  await expect
+    .poll(async () => (await (await context.request.get('/api' + first)).json()).version)
+    .toBe(2);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const locks = await navigator.locks.query();
+        return [...(locks.held ?? []), ...(locks.pending ?? [])].filter((lock) =>
+          lock.name?.startsWith('pawtrace.sync.'),
+        ).length;
+      }),
+    )
+    .toBe(0);
+  const final = await (await context.request.get('/api' + second)).json();
+  expect(final.document.animal.name).toBe('Newest acknowledged B');
+  expect(final.version).toBe(acknowledged.version);
+  expect((await exported(page)).animal.name).toBe('Newest acknowledged B');
+});
+
+test('coalesces foreground edits while a background retry acknowledgement is in flight', async ({
+  page,
+  context,
+}) => {
+  const path = await createCase(page, 'Foreground joins retry');
+  await context.setOffline(true);
+  await edit(page, 'Background captured');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Zapisano na urządzeniu');
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let arrived!: () => void;
+  const committed = new Promise<void>((resolve) => {
+    arrived = resolve;
+  });
+  let first = true;
+  await page.route('**/api' + path, async (route) => {
+    if (route.request().method() !== 'PUT' || !first) return route.fallback();
+    first = false;
+    const response = await route.fetch();
+    arrived();
+    await held;
+    await route.fulfill({ response });
+  });
+  await context.setOffline(false);
+  await committed;
+  await page.locator(`a[href="${path}"]`).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () =>
+          (await navigator.locks.query()).pending?.filter((lock) =>
+            lock.name?.startsWith('pawtrace.sync.'),
+          ).length,
+      ),
+    )
+    .toBe(1);
+  await edit(page, 'Latest foreground');
+  expect((await exported(page)).animal.name).toBe('Latest foreground');
+  release();
+  await expect
+    .poll(
+      async () => (await (await context.request.get('/api' + path)).json()).document.animal.name,
+    )
+    .toBe('Latest foreground');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+});
+
 test('coalesces newer edits after a lost acknowledgement using the real committed mutation', async ({
   page,
 }) => {
@@ -174,6 +287,59 @@ test('keeps memory and export on quota failure without sending an undurable revi
   expect((await (await page.request.get('/api' + path)).json()).version).toBe(1);
   await page.evaluate(() => Reflect.get(globalThis, 'restoreP04Storage')());
   await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+});
+
+test('opens the latest server document with a persistent warning when clean-cache refresh cannot be stored', async ({
+  page,
+  context,
+}) => {
+  const path = await createCase(page, 'Clean cache refresh');
+  await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+  const old = await (await context.request.get('/api' + path)).json();
+  const document = {
+    ...old.document,
+    animal: { ...old.document.animal, name: 'Latest committed remote' },
+  };
+  expect(
+    (
+      await context.request.put('/api' + path, {
+        data: { document },
+        headers: {
+          origin: 'http://127.0.0.1:4200',
+          'x-xsrf-token': await csrfToken(context),
+          'if-match': '"1"',
+          'idempotency-key': crypto.randomUUID(),
+        },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    Object.assign(globalThis, {
+      restoreRefreshStorage: () => {
+        IDBObjectStore.prototype.put = put;
+      },
+    });
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === 'copies')
+        throw new DOMException('Cannot refresh cache', 'QuotaExceededError');
+      return put.call(this, value, key);
+    };
+  });
+  await page.locator(`a[href="${path}"]`).click();
+  expect((await exported(page)).animal?.name).toBe('Latest committed remote');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Nie zapisano na urządzeniu');
+  await edit(page, 'Latest local after failed refresh');
+  expect((await exported(page)).animal.name).toBe('Latest local after failed refresh');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Nie zapisano na urządzeniu');
+  await page.evaluate(() => Reflect.get(globalThis, 'restoreRefreshStorage')());
+  await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
+  await expect
+    .poll(
+      async () => (await (await context.request.get('/api' + path)).json()).document.animal.name,
+    )
+    .toBe('Latest local after failed refresh');
   await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
 });
 
@@ -310,6 +476,77 @@ test('keeps access closed and reports device cleanup failure after actual server
   await page.getByRole('button', { name: 'Ponów usuwanie lokalnych kopii', exact: true }).click();
   await expect(page.getByLabel(/^Konto: /u)).toBeVisible();
 });
+
+test('localStorage quota failure still durably fences failed logout cleanup after reauthentication and reload', async ({
+  page,
+  context,
+}) => {
+  await createCase(page, 'Early logout marker failure');
+  await page.evaluate(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith('pawtrace.logout-cleanup.'))
+        throw new DOMException('Full localStorage', 'QuotaExceededError');
+      return set.call(this, key, value);
+    };
+    const remove = IDBObjectStore.prototype.delete;
+    IDBObjectStore.prototype.delete = function (key) {
+      if (this.name === 'copies') throw new DOMException('Deletion failed', 'UnknownError');
+      return remove.call(this, key);
+    };
+  });
+  await logoutDialog(page);
+  await page.getByRole('button', { name: 'Potwierdź wylogowanie', exact: true }).click();
+  await expect(page.getByText('Sesja została odwołana.', { exact: false })).toBeVisible();
+  expect((await context.request.get('/api/auth/me')).status()).toBe(401);
+  await context.request.get('/api/auth/login');
+  await page.reload();
+  await expect(page.getByText('Sesja została odwołana.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edytuj profil', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Ponów usuwanie lokalnych kopii', exact: true }).click();
+  await expect(page.getByLabel(/^Konto: /u)).toBeVisible();
+});
+
+for (const unavailable of ['localStorage', 'owner fence'] as const) {
+  test(`logout deletes pending copies despite a failed ${unavailable} marker`, async ({
+    page,
+    context,
+  }) => {
+    const path = await createCase(page, 'Independent logout storage');
+    await page.route('**/api' + path, (route) =>
+      route.request().method() === 'PUT'
+        ? route.fulfill({ status: 503, json: { error: 'unavailable' } })
+        : route.fallback(),
+    );
+    await edit(page, 'Pending copy to remove');
+    await expect(page.getByLabel('Stan zapisu')).toContainText('Serwer nie potwierdził');
+    await page.evaluate((unavailable) => {
+      const set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (unavailable === 'localStorage' && key.startsWith('pawtrace.logout-cleanup.'))
+          throw new DOMException('Full localStorage', 'QuotaExceededError');
+        return set.call(this, key, value);
+      };
+      const put = IDBObjectStore.prototype.put;
+      let fail = unavailable === 'owner fence';
+      IDBObjectStore.prototype.put = function (value, key) {
+        if (fail && this.name === 'owners') {
+          fail = false;
+          throw new DOMException('Owner fence failed', 'UnknownError');
+        }
+        return put.call(this, value, key);
+      };
+    }, unavailable);
+    await logoutDialog(page);
+    await page.getByRole('button', { name: 'Potwierdź wylogowanie', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Zaloguj się przez Google' })).toBeVisible();
+    expect((await context.request.get('/api/auth/me')).status()).toBe(401);
+    await context.request.get('/api/auth/login');
+    await page.goto(path);
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    expect((await exported(page)).animal).toBeNull();
+  });
+}
 
 test('pauses a remotely deleted case and preserves the local JSON without recreating it', async ({
   page,

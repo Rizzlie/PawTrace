@@ -9,6 +9,7 @@ export interface StoredCase {
   revision?: number;
   savedRevision?: number;
   paused?: boolean;
+  localError?: string;
 }
 /** One save: the captured document, the version it is based on and its idempotency key. */
 export interface SaveRequest {

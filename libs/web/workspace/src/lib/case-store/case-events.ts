@@ -73,6 +73,7 @@ export const persistenceEvents = eventGroup({
       revision?: number;
       savedRevision?: number;
       paused?: boolean;
+      localError?: string;
     }>(),
     writeStarted: type<{ generation: number }>(),
     localStored: type<{ generation: number; revision: number }>(),
