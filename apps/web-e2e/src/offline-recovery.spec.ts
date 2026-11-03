@@ -1,4 +1,4 @@
-import { test, createCase, authenticate } from './fixtures';
+import { test, createCase, authenticate, chooseReplacement } from './fixtures';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 
 test.describe.configure({ mode: 'default' });
@@ -79,6 +79,183 @@ test('retains two committed case queues in real IndexedDB, survives interruption
   } finally {
     await context.close();
   }
+});
+
+for (const priorEdits of [1, 3]) {
+  test(`sends the first post-import edit after ${priorEdits} acknowledged revisions`, async ({
+    page,
+  }) => {
+    const path = await createCase(page, 'Import revision collision');
+    for (let index = 0; index < priorEdits; index++) {
+      await edit(page, `Before import ${index}`);
+      await expect
+        .poll(
+          async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name,
+        )
+        .toBe(`Before import ${index}`);
+      await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    }
+    const file = await exported(page);
+    await chooseReplacement(page, {
+      ...file,
+      animal: { ...file.animal, name: 'Imported replacement' },
+    });
+    const dialog = page.getByRole('dialog', { name: 'Zastąpienie sprawy' });
+    await dialog.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    expect((await (await page.request.get('/api' + path)).json()).document.animal?.name).toBe(
+      'Imported replacement',
+    );
+    await edit(page, 'First edit after import');
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    await expect
+      .poll(
+        async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name,
+      )
+      .toBe('First edit after import');
+    await page.reload();
+    expect((await exported(page)).animal.name).toBe('First edit after import');
+  });
+
+  test(`sends an edit after a failed cache refresh over ${priorEdits} acknowledged revisions`, async ({
+    page,
+  }) => {
+    const path = await createCase(page, 'Reload revision collision');
+    for (let index = 0; index < priorEdits; index++) {
+      await edit(page, `Acknowledged edit ${index}`);
+      await expect
+        .poll(
+          async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name,
+        )
+        .toBe(`Acknowledged edit ${index}`);
+      await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    }
+    await page.getByRole('link', { name: 'Moje sprawy', exact: true }).click();
+    await page.evaluate(() => {
+      const put = IDBObjectStore.prototype.put;
+      Object.assign(globalThis, {
+        restoreCollisionStorage: () => {
+          IDBObjectStore.prototype.put = put;
+        },
+      });
+      IDBObjectStore.prototype.put = function (value, key) {
+        if (this.name === 'copies')
+          throw new DOMException('Cache refresh failed', 'QuotaExceededError');
+        return put.call(this, value, key);
+      };
+    });
+    await page.locator(`a[href="${path}"]`).click();
+    await expect(page.getByLabel('Stan zapisu')).toContainText('Nie zapisano na urządzeniu');
+    await page.evaluate(() => Reflect.get(globalThis, 'restoreCollisionStorage')());
+    await edit(page, 'First edit after failed cache refresh');
+    await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+    await expect
+      .poll(
+        async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name,
+      )
+      .toBe('First edit after failed cache refresh');
+    await page.reload();
+    expect((await exported(page)).animal.name).toBe('First edit after failed cache refresh');
+  });
+}
+
+test('retains an older record without acknowledgement proof as pending through reopen and retry', async ({
+  page,
+}) => {
+  const path = await createCase(page, 'Legacy acknowledgement collision');
+  await edit(page, 'Actually acknowledged');
+  await expect
+    .poll(async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name)
+    .toBe('Actually acknowledged');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  // Reproduce an older record with equal counters and an unsent checkpoint.
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const opening = indexedDB.open('pawtrace.owned-cases', 1);
+      opening.onsuccess = () => resolve(opening.result);
+      opening.onerror = () => reject(opening.error);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction('copies', 'readwrite');
+        const store = transaction.objectStore('copies');
+        const reading = store.getAll();
+        reading.onsuccess = () => {
+          for (const copy of reading.result) {
+            delete copy.acknowledged;
+            copy.document.animal.name = 'Unsent legacy checkpoint';
+            store.put(copy);
+          }
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+  await page.route('**/api' + path, (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 503, json: { error: 'unavailable' } })
+      : route.fallback(),
+  );
+  await page.reload();
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Serwer nie potwierdził');
+  expect((await exported(page)).animal.name).toBe('Unsent legacy checkpoint');
+  expect((await (await page.request.get('/api' + path)).json()).document.animal?.name).toBe(
+    'Actually acknowledged',
+  );
+  await page.unroute('**/api' + path);
+  await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  expect((await (await page.request.get('/api' + path)).json()).document.animal?.name).toBe(
+    'Unsent legacy checkpoint',
+  );
+});
+
+test('reconciles a lost replacement acknowledgement without replacing later committed edits', async ({
+  page,
+}) => {
+  const path = await createCase(page, 'Lost replacement acknowledgement');
+  await edit(page, 'Before uncertain replacement');
+  await expect
+    .poll(async () => (await (await page.request.get('/api' + path)).json()).document.animal?.name)
+    .toBe('Before uncertain replacement');
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  const file = await exported(page);
+  let first = true;
+  await page.route('**/api' + path, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    if (first) {
+      first = false;
+      await route.fetch();
+      return route.abort();
+    }
+    return route.fulfill({ status: 503, json: { error: 'unavailable' } });
+  });
+  await chooseReplacement(page, {
+    ...file,
+    animal: { ...file.animal, name: 'Uncertain candidate' },
+  });
+  const dialog = page.getByRole('dialog', { name: 'Zastąpienie sprawy' });
+  await dialog.getByRole('button', { name: 'Zastąp sprawę', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Poprzednia sprawa');
+  expect((await (await page.request.get('/api' + path)).json()).document.animal?.name).toBe(
+    'Uncertain candidate',
+  );
+  await dialog.getByRole('button', { name: 'Anuluj', exact: true }).click();
+  await edit(page, 'Latest after cancelled uncertain replacement');
+  await expect(page.getByLabel('Stan zapisu')).toContainText('Serwer nie potwierdził');
+  expect((await exported(page)).animal.name).toBe('Latest after cancelled uncertain replacement');
+  await page.unroute('**/api' + path);
+  await page.getByRole('button', { name: 'Ponów zapis', exact: true }).click();
+  await expect(page.getByLabel('Stan zapisu')).toHaveText('Zapisano na serwerze');
+  expect((await (await page.request.get('/api' + path)).json()).document.animal?.name).toBe(
+    'Latest after cancelled uncertain replacement',
+  );
+  await page.reload();
+  expect((await exported(page)).animal.name).toBe('Latest after cancelled uncertain replacement');
 });
 
 test('background retry cannot overwrite a newer acknowledged edit in another case', async ({

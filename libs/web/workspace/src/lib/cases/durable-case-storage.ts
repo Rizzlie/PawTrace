@@ -172,18 +172,18 @@ export class DurableCaseStorage extends CaseStorage {
           key: crypto.randomUUID(),
         };
       }
-      if (request.revision !== undefined && request.revision < copy.savedRevision)
-        throw new LocalOnly();
-      // A foreground writer may have queued this revision behind its background save.
-      // Reuse that acknowledgement, then let the writer capture the newer pending edit.
-      // Replacement candidates reuse a revision, so equal-revision documents must match.
+      // A queued foreground request can reuse only the exact snapshot confirmed by
+      // the background request, never the current checkpoint or a recycled counter.
       if (
         !copy.attempt &&
-        request.revision === copy.savedRevision &&
-        ((request.revision < copy.revision && request.version < copy.version) ||
-          JSON.stringify(request.document) === JSON.stringify(copy.document))
+        !request.replacement &&
+        copy.acknowledged &&
+        copy.acknowledged.version === copy.version &&
+        request.revision === copy.acknowledged.revision &&
+        request.version < copy.acknowledged.version &&
+        JSON.stringify(request.document) === JSON.stringify(copy.acknowledged.document)
       )
-        return { version: copy.version };
+        return { version: copy.acknowledged.version };
       let version = request.version;
       const send = async (attempt: LocalAttempt) => {
         this.check(scope);
@@ -220,11 +220,16 @@ export class DurableCaseStorage extends CaseStorage {
           await this.locally(scope, (copies) => copies.pause(scope, caseId));
           throw new VersionConflict(current?.version ?? 0);
         }
-        if (JSON.stringify(attempt.document) === JSON.stringify(request.document))
+        if (
+          (!request.replacement || request.key === attempt.key) &&
+          attempt.revision === request.revision &&
+          JSON.stringify(attempt.document) === JSON.stringify(request.document)
+        )
           return { version };
       }
       const attempt: LocalAttempt = {
         document: request.document,
+        replacement: request.replacement,
         version,
         key: request.key,
         revision: request.revision ?? copy.revision,
@@ -242,7 +247,7 @@ export class DurableCaseStorage extends CaseStorage {
         c.branch === scope.branch &&
         c.caseId !== except &&
         !c.paused &&
-        c.revision !== c.savedRevision,
+        (c.revision !== c.savedRevision || !!c.attempt),
     );
     for (const copy of rows) {
       this.check(scope);

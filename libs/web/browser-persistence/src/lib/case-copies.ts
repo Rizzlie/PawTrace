@@ -12,12 +12,15 @@ export const CASE_IDENTITY = new InjectionToken<{
 }>('CASE_IDENTITY');
 
 export interface LocalAttempt {
+  replacement?: boolean;
   document: CaseDocument;
   version: number;
   key: string;
   revision: number;
 }
 export interface CaseCopy {
+  /** Exact server-confirmed snapshot; absent on older, unproven records. */
+  acknowledged?: { document: CaseDocument; revision: number; version: number };
   caseId: string;
   branch: string;
   document: CaseDocument;

@@ -4,6 +4,8 @@ export class CopyFenced extends Error {}
 export class CleanupPending extends Error {}
 
 export interface CopyRecord extends CaseCopy {
+  checkpointId?: string;
+  attemptCheckpoint?: string;
   id: string;
   owner: string;
 }
@@ -15,7 +17,7 @@ export const snapshot = ({
   document,
   version,
   revision,
-  savedRevision,
+  acknowledged,
   attempt,
   paused,
 }: CaseCopy): CaseCopy => ({
@@ -24,7 +26,14 @@ export const snapshot = ({
   document,
   version,
   revision,
-  savedRevision,
+  acknowledged,
+  // Counters from old records (or a different snapshot) are not proof of acknowledgement.
+  savedRevision:
+    acknowledged?.version === version &&
+    acknowledged.revision === revision &&
+    JSON.stringify(acknowledged.document) === JSON.stringify(document)
+      ? revision
+      : -1,
   attempt,
   paused,
 });

@@ -1,12 +1,9 @@
-import type { CaseDocument } from '@pawtrace/case-domain';
+import type { SaveRequest } from './cases/case-storage';
 
 /** A captured save: local bookkeeping plus the server request it becomes. */
-export interface SnapshotJob {
-  document: CaseDocument;
+export interface SnapshotJob extends SaveRequest {
   revision: number;
   generation: number;
-  version: number;
-  key: string;
 }
 export interface SnapshotAcknowledgement {
   version: number;

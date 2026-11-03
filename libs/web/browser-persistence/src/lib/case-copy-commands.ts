@@ -27,7 +27,11 @@ export class CaseCopyCommands {
         if (!lease) return;
         await this.run(scope, (rows, store) => {
           const old = rows.find((row) => row.caseId === copy.caseId && row.branch === copy.branch);
-          if (old && old.revision === copy.revision) {
+          if (
+            old &&
+            old.revision === copy.revision &&
+            JSON.stringify(old.document) === JSON.stringify(copy.document)
+          ) {
             store.delete(old.id);
             store.put({ ...old, id: copyId(scope, copy.caseId), branch: scope.branch });
           }
@@ -47,6 +51,8 @@ export class CaseCopyCommands {
         version,
         revision: 0,
         savedRevision: 0,
+        acknowledged: { document, revision: 0, version },
+        checkpointId: crypto.randomUUID(),
         attempt: null,
         paused: false,
       } satisfies CopyRecord);
@@ -70,11 +76,10 @@ export class CaseCopyCommands {
         document,
         revision,
         version: Math.max(old?.version ?? 0, version),
-        // A successful import starts a fresh store generation/revision sequence.
-        savedRevision:
-          old && revision < old.revision && old.revision === old.savedRevision
-            ? 0
-            : (old?.savedRevision ?? 0),
+        savedRevision: -1,
+        acknowledged: old?.acknowledged,
+        checkpointId: crypto.randomUUID(),
+        attemptCheckpoint: old?.attemptCheckpoint,
         attempt: old?.attempt ?? null,
         paused: old?.paused ?? false,
       } satisfies CopyRecord);
@@ -90,7 +95,7 @@ export class CaseCopyCommands {
         (row) =>
           row.caseId === caseId &&
           row.id !== own.id &&
-          (row.revision !== row.savedRevision || row.attempt || row.paused) &&
+          (row.revision !== snapshot(row).savedRevision || row.attempt || row.paused) &&
           JSON.stringify(row.document) !== JSON.stringify(own.document),
       );
       if (divergent || own.paused) {
@@ -106,7 +111,7 @@ export class CaseCopyCommands {
     return this.run(scope, (rows, store) => {
       const own = rows.find((row) => row.id === copyId(scope, caseId));
       if (!own) throw new CopyFenced();
-      store.put({ ...own, attempt });
+      store.put({ ...own, attempt, attemptCheckpoint: own.checkpointId });
     });
   }
 
@@ -123,8 +128,17 @@ export class CaseCopyCommands {
         ...current,
         version,
         savedRevision: attempt.revision,
+        acknowledged: { document: attempt.document, revision: attempt.revision, version },
         attempt: null,
-        document: current.revision === attempt.revision ? attempt.document : current.document,
+        // Only replacement changes the checkpointed document. A later checkpoint wins,
+        // even when its revision counter happens to equal the captured counter.
+        document:
+          attempt.replacement &&
+          current.attempt?.key === attempt.key &&
+          current.attemptCheckpoint &&
+          current.attemptCheckpoint === current.checkpointId
+            ? attempt.document
+            : current.document,
       };
       store.put(next);
       return snapshot(next);

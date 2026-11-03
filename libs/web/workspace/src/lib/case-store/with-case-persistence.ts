@@ -364,7 +364,10 @@ export function withCasePersistence() {
                       version,
                     });
                   }
-                  attempt = capture(candidate, store.persistence().serverVersion ?? 0);
+                  attempt = {
+                    ...capture(candidate, store.persistence().serverVersion ?? 0),
+                    replacement: true,
+                  };
                   return write(attempt);
                 }),
               ).pipe(

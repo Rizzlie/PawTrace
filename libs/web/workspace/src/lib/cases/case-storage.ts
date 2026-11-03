@@ -13,6 +13,7 @@ export interface StoredCase {
 }
 /** One save: the captured document, the version it is based on and its idempotency key. */
 export interface SaveRequest {
+  replacement?: boolean;
   document: CaseDocument;
   version: number;
   key: string;
